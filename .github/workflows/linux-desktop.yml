@@ -184,8 +184,9 @@ jobs:
           test "$(dpkg-deb -f "$deb" Architecture)" = amd64
           dpkg-deb -f "$deb" Depends | grep -q 'gir1.2-webkit2-4.1'
           dpkg-deb -f "$deb" Depends | grep -q 'python3-gi'
-          dpkg-deb --contents "$deb" | grep -q '/usr/bin/musabai'
-          dpkg-deb --contents "$deb" | grep -q '/usr/share/applications/musabai.desktop'
+          dpkg-deb --contents "$deb" > "$RUNNER_TEMP/musabai-deb-contents.txt"
+          grep -q '/usr/bin/musabai' "$RUNNER_TEMP/musabai-deb-contents.txt"
+          grep -q '/usr/share/applications/musabai.desktop' "$RUNNER_TEMP/musabai-deb-contents.txt"
 
       - name: Install and launch the Debian package under Xvfb
         run: |
