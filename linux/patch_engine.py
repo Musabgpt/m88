@@ -42,10 +42,42 @@ def patch_app(source: str) -> str:
     return source
 
 
+SETTINGS_MODEL_BEFORE = '    "model": "auto",              # a model id, or "auto": the best local model that fits this computer\'s RAM'
+SETTINGS_MODEL_AFTER = '    "model": "kilo-auto/free",     # MusabAI default: keyless Kilo free gateway, like Android'
+SETTINGS_MODELS_BEFORE = '    "models": {},                 # models the user added: id -> spec (see models.py)'
+SETTINGS_MODELS_AFTER = '''    "models": {
+        "kilo-auto/free": {
+            "id": "kilo-auto/free",
+            "name": "Kilo Auto Free",
+            "provider": "openai",
+            "base_url": "https://api.kilo.ai/api/gateway",
+            "model": "kilo-auto/free",
+            "api_key": "",
+            "free": True,
+            "capabilities": ["text", "tools", "streaming"],
+        },
+    },'''
+
+
+def patch_settings(source: str) -> str:
+    """Make a fresh Linux install start with the same keyless free model as Android."""
+    if SETTINGS_MODEL_AFTER not in source:
+        if source.count(SETTINGS_MODEL_BEFORE) != 1:
+            raise ValueError("expected upstream default model setting anchor")
+        source = source.replace(SETTINGS_MODEL_BEFORE, SETTINGS_MODEL_AFTER, 1)
+    if '"kilo-auto/free"' not in source:
+        if source.count(SETTINGS_MODELS_BEFORE) != 1:
+            raise ValueError("expected upstream models setting anchor")
+        source = source.replace(SETTINGS_MODELS_BEFORE, SETTINGS_MODELS_AFTER, 1)
+    return source
+
+
 def patch_engine(engine: Path) -> None:
     package = engine / "newal_code"
     app = package / "app.py"
+    settings = package / "settings.py"
     app.write_text(patch_app(app.read_text(encoding="utf-8")), encoding="utf-8")
+    settings.write_text(patch_settings(settings.read_text(encoding="utf-8")), encoding="utf-8")
 
 
 if __name__ == "__main__":
