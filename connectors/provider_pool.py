@@ -538,10 +538,13 @@ def candidates(current, required_capabilities=None, include_cooling=False):
     extras = free_provider_adapters.extra_free_specs()
     gateways = [x for x in extras if x.get("provider") == "freellmapi"]
     last_resort = [x for x in extras if x.get("provider") == "aihorde"]
-    # Discover Kilo's verified zero-price models for every desktop starting model.
-    # Otherwise a local/default model prevents the keyless Kilo fallback from ever being considered.
+    # Discover Kilo's verified zero-price models only when the active model uses
+    # the Kilo gateway. This keeps provider discovery deterministic for other
+    # providers while allowing the keyless Kilo default to use model failover.
     kilo = _kilo_models() if (
-        include_cooling or HEALTH.available({'id':'gateway:' + KILO_BASE})) else []
+        _base(current_spec) == KILO_BASE
+        and (include_cooling or HEALTH.available({'id':'gateway:' + KILO_BASE}))
+    ) else []
     values = gateways + list(FREE_POOL) + kilo + [
         x for x in configured if isinstance(x, dict) and _explicitly_free(x)
     ] + last_resort
