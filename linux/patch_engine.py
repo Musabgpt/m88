@@ -59,6 +59,20 @@ SETTINGS_MODELS_AFTER = '''    "models": {
     },'''
 
 
+TERMUX_MODEL_BEFORE = 'if not cfg.get("model") or cfg.get("model") == "auto":'
+TERMUX_MODEL_AFTER = 'if not cfg.get("model") or cfg.get("model") in ("auto", "kilo-auto/free")'
+
+
+def patch_termux(source: str) -> str:
+    """Keep the linked Android-phone model as Termux's model after changing Linux defaults."""
+    if TERMUX_MODEL_AFTER not in source:
+        if source.count(TERMUX_MODEL_BEFORE) != 1:
+            raise ValueError("expected upstream Termux model selection anchor")
+        source = source.replace(TERMUX_MODEL_BEFORE, TERMUX_MODEL_AFTER, 1)
+    return source
+
+
+
 def patch_settings(source: str) -> str:
     """Make a fresh Linux install start with the same keyless free model as Android."""
     if SETTINGS_MODEL_AFTER not in source:
@@ -76,8 +90,10 @@ def patch_engine(engine: Path) -> None:
     package = engine / "newal_code"
     app = package / "app.py"
     settings = package / "settings.py"
+    termux = package / "termux.py"
     app.write_text(patch_app(app.read_text(encoding="utf-8")), encoding="utf-8")
     settings.write_text(patch_settings(settings.read_text(encoding="utf-8")), encoding="utf-8")
+    termux.write_text(patch_termux(termux.read_text(encoding="utf-8")), encoding="utf-8")
 
 
 if __name__ == "__main__":
