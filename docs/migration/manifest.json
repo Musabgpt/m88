@@ -58,16 +58,17 @@
   ],
   "added_files": [
     ".github/workflows/linux-desktop.yml",
+    "docs/migration/M88-original-README.md",
+    "docs/migration/NewAl-Cloud-original-README.md",
+    "docs/migration/manifest.json",
     "linux/COMPATIBILITY.md",
     "linux/build_packages.py",
     "linux/patch_engine.py",
     "linux/requirements.txt",
     "linux/smoke-window.sh",
+    "linux/test-requirements.txt",
     "linux/test_build_packages.py",
-    "linux/test_patch_engine.py",
-    "docs/migration/M88-original-README.md",
-    "docs/migration/NewAl-Cloud-original-README.md",
-    "docs/migration/manifest.json"
+    "linux/test_patch_engine.py"
   ],
   "files": [
     {
@@ -75,7 +76,9 @@
       "destination_path": ".github/workflows/android.yml",
       "mode": "100644",
       "git_blob": "938b8f0b5c05a4c2ef61e963452ee6549658dc68",
-      "bytes": 18748
+      "bytes": 18748,
+      "destination_git_blob": "540409c9e543578b4f60507bf5920208d1704efe",
+      "destination_bytes": 19133
     },
     {
       "source_path": ".gitignore",
@@ -1797,5 +1800,13 @@
       "asset": "runtime-x86_64",
       "sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46"
     }
-  }
+  },
+  "migration_adjustments": [
+    {
+      "path": ".github/workflows/android.yml",
+      "source_blob": "938b8f0b5c05a4c2ef61e963452ee6549658dc68",
+      "destination_blob": "540409c9e543578b4f60507bf5920208d1704efe",
+      "reason": "Runs the desktop regression suite from an empty temporary Git repository. Its secret-publishing guard otherwise scans the migration commit's test-only placeholder tokens as outgoing changes; the application and guard behavior are unchanged."
+    }
+  ]
 }
