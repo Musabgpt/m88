@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Apply the MusabAI Linux brand and fail-closed native-window requirement to upstream."""
+"""Apply the MusabAI Linux window brand and fail-closed native-window requirement to upstream."""
 
 from pathlib import Path
 import sys
 
 
-NAME_BEFORE = 'NAME = "NewAl Code"'
-NAME_AFTER = 'NAME = "MusabAI"'
+WINDOW_TITLE_BEFORE = "webview.create_window(NAME,"
+WINDOW_TITLE_AFTER = 'webview.create_window("MusabAI",'
 APP_FALLBACK = (
     '            except Exception as e:  # noqa: BLE001 - no WebView: the browser does it\n'
     '                print("pywebview unavailable:", e)\n'
@@ -26,15 +26,11 @@ APP_START_ICON = (
 )
 
 
-def patch_name(source: str) -> str:
-    if NAME_AFTER in source:
-        return source
-    if source.count(NAME_BEFORE) != 1:
-        raise ValueError("expected upstream application-name anchor")
-    return source.replace(NAME_BEFORE, NAME_AFTER, 1)
-
-
 def patch_app(source: str) -> str:
+    if WINDOW_TITLE_AFTER not in source:
+        if source.count(WINDOW_TITLE_BEFORE) != 1:
+            raise ValueError("expected upstream window title anchor")
+        source = source.replace(WINDOW_TITLE_BEFORE, WINDOW_TITLE_AFTER, 1)
     if 'MUSABAI_REQUIRE_NATIVE_GUI' not in source:
         if source.count(APP_FALLBACK) != 1:
             raise ValueError("expected upstream fallback anchor")
@@ -48,9 +44,7 @@ def patch_app(source: str) -> str:
 
 def patch_engine(engine: Path) -> None:
     package = engine / "newal_code"
-    init = package / "__init__.py"
     app = package / "app.py"
-    init.write_text(patch_name(init.read_text(encoding="utf-8")), encoding="utf-8")
     app.write_text(patch_app(app.read_text(encoding="utf-8")), encoding="utf-8")
 
 

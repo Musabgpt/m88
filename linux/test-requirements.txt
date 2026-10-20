@@ -1,0 +1,2 @@
+# Used only by the regression runner for projects with pytest-style tests.
+pytest==9.1.1
