@@ -20,12 +20,11 @@ class DesktopBrandPatchTest(unittest.TestCase):
 
 
     def test_linux_defaults_to_keyless_kilo_free_model(self):
-        source = (
-            'DEFAULTS = {\\n'
-            '    "model": "auto",              # a model id, or "auto": the best local model that fits this computer\\'s RAM\\n'
-            '    "models": {},                 # models the user added: id -> spec (see models.py)\\n'
-            '}\\n'
-        )
+        source = '''DEFAULTS = {
+    "model": "auto",              # a model id, or "auto": the best local model that fits this computer's RAM
+    "models": {},                 # models the user added: id -> spec (see models.py)
+}
+'''
         result = patch_settings(source)
         self.assertIn('"model": "kilo-auto/free"', result)
         self.assertIn('"id": "kilo-auto/free"', result)
@@ -46,10 +45,11 @@ class DesktopBrandPatchTest(unittest.TestCase):
             init.write_text('__version__ = "0.1.0"\nNAME = "NewAl Code"\n', encoding="utf-8")
             settings = package / "settings.py"
             settings.write_text(
-                'DEFAULTS = {\\n'
-                '    "model": "auto",              # a model id, or "auto": the best local model that fits this computer\\'s RAM\\n'
-                '    "models": {},                 # models the user added: id -> spec (see models.py)\\n'
-                '}\\n',
+                '''DEFAULTS = {
+    "model": "auto",              # a model id, or "auto": the best local model that fits this computer's RAM
+    "models": {},                 # models the user added: id -> spec (see models.py)
+}
+''',
                 encoding="utf-8",
             )
             app = package / "app.py"
