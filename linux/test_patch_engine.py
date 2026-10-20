@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from patch_engine import patch_app, patch_engine
+from patch_engine import patch_app, patch_engine, patch_settings
 
 
 class DesktopBrandPatchTest(unittest.TestCase):
@@ -18,6 +18,21 @@ class DesktopBrandPatchTest(unittest.TestCase):
         self.assertIn("Native GTK/WebKit window unavailable", result)
         self.assertIn("icon=os.path.join", result)
 
+
+    def test_linux_defaults_to_keyless_kilo_free_model(self):
+        source = (
+            'DEFAULTS = {\\n'
+            '    "model": "auto",              # a model id, or "auto": the best local model that fits this computer\\'s RAM\\n'
+            '    "models": {},                 # models the user added: id -> spec (see models.py)\\n'
+            '}\\n'
+        )
+        result = patch_settings(source)
+        self.assertIn('"model": "kilo-auto/free"', result)
+        self.assertIn('"id": "kilo-auto/free"', result)
+        self.assertIn('"base_url": "https://api.kilo.ai/api/gateway"', result)
+        self.assertIn('"api_key": ""', result)
+        self.assertIn('"free": True', result)
+
     def test_patch_refuses_unrecognized_upstream_source(self):
         with self.assertRaisesRegex(ValueError, "expected upstream window title anchor"):
             patch_app("except Exception:\n    pass\n")
@@ -29,6 +44,14 @@ class DesktopBrandPatchTest(unittest.TestCase):
             package.mkdir()
             init = package / "__init__.py"
             init.write_text('__version__ = "0.1.0"\nNAME = "NewAl Code"\n', encoding="utf-8")
+            settings = package / "settings.py"
+            settings.write_text(
+                'DEFAULTS = {\\n'
+                '    "model": "auto",              # a model id, or "auto": the best local model that fits this computer\\'s RAM\\n'
+                '    "models": {},                 # models the user added: id -> spec (see models.py)\\n'
+                '}\\n',
+                encoding="utf-8",
+            )
             app = package / "app.py"
             app.write_text(
                 'webview.create_window(NAME, url, width=1360)\n'
@@ -44,6 +67,9 @@ class DesktopBrandPatchTest(unittest.TestCase):
             patched_app = app.read_text(encoding="utf-8")
             self.assertIn('webview.create_window("MusabAI", url,', patched_app)
             self.assertIn("webview.start(", patched_app)
+            patched_settings = settings.read_text(encoding="utf-8")
+            self.assertIn('"model": "kilo-auto/free"', patched_settings)
+            self.assertIn('"id": "kilo-auto/free"', patched_settings)
 
 
 if __name__ == "__main__":
