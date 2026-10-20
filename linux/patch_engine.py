@@ -65,7 +65,7 @@ def patch_settings(source: str) -> str:
         if source.count(SETTINGS_MODEL_BEFORE) != 1:
             raise ValueError("expected upstream default model setting anchor")
         source = source.replace(SETTINGS_MODEL_BEFORE, SETTINGS_MODEL_AFTER, 1)
-    if '"kilo-auto/free"' not in source:
+    if '        "kilo-auto/free": {' not in source:
         if source.count(SETTINGS_MODELS_BEFORE) != 1:
             raise ValueError("expected upstream models setting anchor")
         source = source.replace(SETTINGS_MODELS_BEFORE, SETTINGS_MODELS_AFTER, 1)
