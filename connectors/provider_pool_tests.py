@@ -93,6 +93,13 @@ class ProviderPoolTests(unittest.TestCase):
 
     def setUp(self):
         provider_pool.reset_health()
+        # Keep unit tests offline and deterministic. Individual catalogue tests
+        # override this fixture with explicit, controlled model data.
+        self._kilo_catalog_patch = patch.object(
+            provider_pool, "_fetch_kilo_catalog", return_value={"data": []}
+        )
+        self._kilo_catalog_patch.start()
+        self.addCleanup(self._kilo_catalog_patch.stop)
 
     def test_kilo_can_use_another_verified_free_model_on_same_gateway(self):
         base = 'https://api.kilo.ai/api/gateway'
