@@ -538,7 +538,9 @@ def candidates(current, required_capabilities=None, include_cooling=False):
     extras = free_provider_adapters.extra_free_specs()
     gateways = [x for x in extras if x.get("provider") == "freellmapi"]
     last_resort = [x for x in extras if x.get("provider") == "aihorde"]
-    kilo = _kilo_models() if _base(current_spec) == KILO_BASE and (
+    # Discover Kilo's verified zero-price models for every desktop starting model.
+    # Otherwise a local/default model prevents the keyless Kilo fallback from ever being considered.
+    kilo = _kilo_models() if (
         include_cooling or HEALTH.available({'id':'gateway:' + KILO_BASE})) else []
     values = gateways + list(FREE_POOL) + kilo + [
         x for x in configured if isinstance(x, dict) and _explicitly_free(x)
