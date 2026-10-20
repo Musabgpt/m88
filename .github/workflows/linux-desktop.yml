@@ -1,0 +1,209 @@
+name: MusabAI Linux desktop
+
+on:
+  push:
+    branches: [main, feat/newai-cloud-linux-desktop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: musabai-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-x86_64:
+    name: Ubuntu 24.04 x86_64 desktop and packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      NEWAL_CODE_HOME: ${{ runner.temp }}/musabai-newal-home
+      NEWAL_TEST_WATCHDOG: "180"
+      PYTHONWARNINGS: ignore
+      PROMPTFOO_DISABLE_TELEMETRY: "1"
+      PROMPTFOO_DISABLE_UPDATE: "1"
+      PROMPTFOO_DISABLE_REMOTE_GENERATION: "true"
+      PROMPTFOO_DISABLE_SHARING: "true"
+      PROMPTFOO_CONFIG_DIR: ${{ runner.temp }}/promptfoo
+      MUSAB_CONNECTOR_BROKER_URL: https://musabai-connector-server.netnyaho.chatgpt.site
+    steps:
+      - name: Checkout M88 migration branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install native Linux, AppImage, and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates curl desktop-file-utils dpkg-dev git libfuse2 \
+            libgomp1 libstdc++6 libwebkit2gtk-4.1-0 openbox python3-dev \
+            python3-gi python3-gi-cairo python3-pip python3-venv \
+            gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xdotool xvfb
+          mkdir -p "$NEWAL_CODE_HOME" "$RUNNER_TEMP/promptfoo"
+          mkdir -p "$RUNNER_TEMP/musabai-pip-cache"
+          python3 -c "import gi; gi.require_version('Gtk', '3.0'); gi.require_version('WebKit2', '4.1'); from gi.repository import Gtk, WebKit2; print('GTK', Gtk.MAJOR_VERSION, 'WebKitGTK', WebKit2.MAJOR_VERSION)"
+
+      - name: Set up Node.js 24 and cache connector packages
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.22.0"
+          cache: npm
+          cache-dependency-path: connectors/package-lock.json
+
+      - name: Install and test connector UI
+        run: |
+          npm ci --prefix connectors --ignore-scripts --no-audit --no-fund
+          npm test --prefix connectors
+
+      - name: Cache pinned Python packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/musabai-pip-cache
+          key: ${{ runner.os }}-musabai-python-${{ hashFiles('linux/requirements.txt') }}
+
+      - name: Install pinned Python test and desktop dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/musabai-build-venv"
+          "$RUNNER_TEMP/musabai-build-venv/bin/pip" --cache-dir "$RUNNER_TEMP/musabai-pip-cache" install --disable-pip-version-check --no-compile --target "$RUNNER_TEMP/musabai-vendor" -r linux/requirements.txt
+          "$RUNNER_TEMP/musabai-build-venv/bin/pip" --cache-dir "$RUNNER_TEMP/musabai-pip-cache" install --disable-pip-version-check --no-compile --target "$RUNNER_TEMP/newal-pdf" pypdf==5.9.0
+
+      - name: Checkout exact NewAl Code desktop engine
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Musabgpt/NewAl
+          ref: 0bf36a3b3a813dbac424ee0c4dc6341f9e3fe0d3
+          path: newal-source
+          fetch-depth: 1
+
+      - name: Test durable memory and real agent integration
+        env:
+          NEWAL_UPSTREAM: ${{ github.workspace }}/newal-source
+        run: python3 -m unittest discover -s desktop/autonomy -p 'test_*.py' -v
+
+      - name: Assemble the pinned native engine and apply MusabAI layers
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/musabai-stage"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          cp -a newal-source/desktop "$stage/desktop"
+          cp -a android-lite "$stage/android-lite"
+          cp -a desktop/autonomy "$stage/newal-autonomy"
+          cp -a connectors "$stage/connectors"
+          cp -a newal-source/docs "$stage/docs"
+          mkdir -p "$stage/desktop/autonomy"
+          cp "$stage/newal-autonomy/test_memory.py" "$stage/desktop/autonomy/test_memory.py"
+          cp "$stage/newal-autonomy/autonomy.py" "$stage/desktop/newal_code/autonomy.py"
+          python3 "$stage/newal-autonomy/apply_autonomy.py" "$stage/desktop/newal_code/agent.py"
+          python3 "$stage/connectors/apply.py" "$stage"
+          python3 linux/patch_engine.py "$stage/desktop/newal_code"
+          python3 -m compileall -q "$stage/desktop/newal_code" "$stage/newal-autonomy"
+          node --check "$stage/desktop/newal_code/ui/app.js"
+          node --check "$stage/desktop/newal_code/ui/connectors.js"
+          node --check "$stage/desktop/newal_code/ui/workspace.js"
+          node --check "$stage/desktop/newal_code/ui/mcp_ui.js"
+          node --check "$stage/desktop/newal_code/ui/cursor_ui.js"
+          test -f "$stage/desktop/newal_code/autonomy.py"
+          test -f "$stage/desktop/newal_code/managed_linux.py"
+          grep -q 'NEWAL_CLOUD_AUTONOMY_V1' "$stage/desktop/newal_code/agent.py"
+          grep -q 'MUSABAI_REQUIRE_NATIVE_GUI' "$stage/desktop/newal_code/app.py"
+
+      - name: Test Linux packaging contracts
+        run: python3 -m unittest discover -s linux -p 'test_*.py' -v
+
+      - name: Evaluate deterministic provider-routing contracts
+        env:
+          PYTHONPATH: ${{ runner.temp }}/musabai-stage/desktop
+        run: npx --yes promptfoo@0.124.0 eval -c connectors/promptfooconfig.yaml --no-cache
+
+      - name: Run connector and upstream desktop regression suites
+        env:
+          PYTHONPATH: ${{ runner.temp }}/musabai-stage/desktop:${{ runner.temp }}/newal-pdf
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s connectors -p test_connectors.py -v
+          python3 -m unittest discover -s connectors -p test_chat_shots.py -v
+          python3 -m unittest newal_code.document_tests newal_code.evolution_tests newal_code.addon_tests newal_code.memory_tests newal_code.autonomy_tests newal_code.prompt_tests newal_code.workbench_tests newal_code.mcp_config_tests newal_code.mcp_bundles_tests newal_code.mcp_registry_tests newal_code.browser_router_tests newal_code.search_router_tests newal_code.document_engine_tests newal_code.project_rag_tests newal_code.orchestrator_tests newal_code.execution_tests newal_code.runtime_manager_tests newal_code.termux_bridge_tests newal_code.git_workspace_tests newal_code.observability_tests newal_code.task_state_tests newal_code.task_supervisor_tests newal_code.provider_pool_tests newal_code.free_provider_adapters_tests newal_code.provider_keys_tests newal_code.automation_tests newal_code.auto_update_tests newal_code.managed_linux_tests newal_code.continuity_tests newal_code.tool_search_tests newal_code.tool_protocol_tests -v
+          python3 -m unittest discover -s "$RUNNER_TEMP/musabai-stage/desktop/tests" -p test_newal_code.py -v
+          python3 connectors/phase10_mcp_validation.py
+
+      - name: Download and verify pinned llama.cpp Linux x86_64 runtime
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/musabai-llama" "$RUNNER_TEMP/musabai-dist"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/llama-b11752-bin-ubuntu-x64.tar.gz" https://github.com/ggml-org/llama.cpp/releases/download/b11752/llama-b11752-bin-ubuntu-x64.tar.gz
+          echo 'fae47156b074fffad9287febe11af032042325fa5cf9895e40ce6be3f6bfd251  '"$RUNNER_TEMP/llama-b11752-bin-ubuntu-x64.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/llama-b11752-bin-ubuntu-x64.tar.gz" -C "$RUNNER_TEMP/musabai-llama"
+          llama_server="$(find "$RUNNER_TEMP/musabai-llama" -type f -name llama-server -print -quit)"
+          test -n "$llama_server"
+          llama_dir="$(dirname "$llama_server")"
+          ldd "$llama_server" | tee "$RUNNER_TEMP/llama-ldd.txt"
+          if grep -q 'not found' "$RUNNER_TEMP/llama-ldd.txt"; then exit 1; fi
+          python3 linux/build_packages.py \
+            --engine "$RUNNER_TEMP/musabai-stage/desktop" \
+            --vendor "$RUNNER_TEMP/musabai-vendor" \
+            --llama-bin "$llama_dir" \
+            --out "$RUNNER_TEMP/musabai-dist"
+
+      - name: Build AppImage with pinned appimagetool
+        run: |
+          set -euo pipefail
+          appimagetool="$RUNNER_TEMP/appimagetool-x86_64.AppImage"
+          appimage_runtime="$RUNNER_TEMP/runtime-x86_64"
+          curl -fsSL --retry 3 -o "$appimagetool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          echo '95cbe7cce9717fce90c484e34052ee7c7f1d7635b33c12525b4776826a7d29b6  '"$appimagetool" | sha256sum --check
+          curl -fsSL --retry 3 -o "$appimage_runtime" https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+          echo '617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46  '"$appimage_runtime" | sha256sum --check
+          chmod +x "$appimagetool"
+          APPIMAGE_EXTRACT_AND_RUN=1 APPIMAGETOOL_RUNTIME_FILE="$appimage_runtime" ARCH=x86_64 "$appimagetool" --no-appstream \
+            "$RUNNER_TEMP/musabai-dist/MusabAI.AppDir" \
+            "$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.AppImage"
+
+      - name: Validate packages and desktop metadata
+        run: |
+          set -euo pipefail
+          deb="$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.deb"
+          appimage="$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.AppImage"
+          test -s "$deb"
+          test -s "$appimage"
+          test -x "$appimage"
+          desktop-file-validate "$RUNNER_TEMP/musabai-dist/MusabAI.AppDir/usr/share/applications/musabai.desktop"
+          dpkg-deb --info "$deb"
+          test "$(dpkg-deb -f "$deb" Architecture)" = amd64
+          dpkg-deb -f "$deb" Depends | grep -q 'gir1.2-webkit2-4.1'
+          dpkg-deb -f "$deb" Depends | grep -q 'python3-gi'
+          dpkg-deb --contents "$deb" | grep -q '/usr/bin/musabai'
+          dpkg-deb --contents "$deb" | grep -q '/usr/share/applications/musabai.desktop'
+
+      - name: Install and launch the Debian package under Xvfb
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y "$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.deb"
+          linux/smoke-window.sh MusabAI /usr/bin/musabai
+
+      - name: Launch the AppImage under Xvfb
+        run: |
+          set -euo pipefail
+          APPIMAGE_EXTRACT_AND_RUN=1 linux/smoke-window.sh MusabAI \
+            "$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.AppImage"
+
+      - name: Generate checksums
+        run: |
+          cd "$RUNNER_TEMP/musabai-dist"
+          sha256sum MusabAI-0.1.0-linux-x86_64.deb MusabAI-0.1.0-linux-x86_64.AppImage > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload verified Linux packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: MusabAI-linux-x86_64-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/musabai-dist/MusabAI-0.1.0-linux-x86_64.deb
+            ${{ runner.temp }}/musabai-dist/MusabAI-0.1.0-linux-x86_64.AppImage
+            ${{ runner.temp }}/musabai-dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30

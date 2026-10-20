@@ -1,0 +1,16 @@
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+.DS_Store
+node_modules/
+__pycache__/
+
+# Never commit Android signing material.
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+signing.properties
