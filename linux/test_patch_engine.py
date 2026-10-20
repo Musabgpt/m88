@@ -60,7 +60,7 @@ class DesktopBrandPatchTest(unittest.TestCase):
             termux = package / "termux.py"
             termux.write_text(
                 'if not cfg.get("model") or cfg.get("model") == "auto":\\n'
-                '    values["model"] = "phone"\\n',
+                '    values["model"] = "phone"\n',
                 encoding="utf-8",
             )
             app = package / "app.py"
