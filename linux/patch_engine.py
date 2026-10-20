@@ -60,7 +60,7 @@ SETTINGS_MODELS_AFTER = '''    "models": {
 
 
 TERMUX_MODEL_BEFORE = 'if not cfg.get("model") or cfg.get("model") == "auto":'
-TERMUX_MODEL_AFTER = 'if not cfg.get("model") or cfg.get("model") in ("auto", "kilo-auto/free")'
+TERMUX_MODEL_AFTER = 'if not cfg.get("model") or cfg.get("model") in ("auto", "kilo-auto/free"):'
 
 
 def patch_termux(source: str) -> str:
