@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from patch_engine import patch_app, patch_engine, patch_settings
+from patch_engine import patch_app, patch_engine, patch_settings, patch_termux
 
 
 class DesktopBrandPatchTest(unittest.TestCase):
@@ -32,6 +32,11 @@ class DesktopBrandPatchTest(unittest.TestCase):
         self.assertIn('"api_key": ""', result)
         self.assertIn('"free": True', result)
 
+    def test_termux_switches_to_phone_model_after_linux_default_changes(self):
+        source = 'if not cfg.get("model") or cfg.get("model") == "auto":\n    values["model"] = "phone"\n'
+        result = patch_termux(source)
+        self.assertIn('in ("auto", "kilo-auto/free")', result)
+
     def test_patch_refuses_unrecognized_upstream_source(self):
         with self.assertRaisesRegex(ValueError, "expected upstream window title anchor"):
             patch_app("except Exception:\n    pass\n")
@@ -52,6 +57,12 @@ class DesktopBrandPatchTest(unittest.TestCase):
 ''',
                 encoding="utf-8",
             )
+            termux = package / "termux.py"
+            termux.write_text(
+                'if not cfg.get("model") or cfg.get("model") == "auto":\\n'
+                '    values["model"] = "phone"\\n',
+                encoding="utf-8",
+            )
             app = package / "app.py"
             app.write_text(
                 'webview.create_window(NAME, url, width=1360)\n'
@@ -70,6 +81,7 @@ class DesktopBrandPatchTest(unittest.TestCase):
             patched_settings = settings.read_text(encoding="utf-8")
             self.assertIn('"model": "kilo-auto/free"', patched_settings)
             self.assertIn('"id": "kilo-auto/free"', patched_settings)
+            self.assertIn('in ("auto", "kilo-auto/free")', termux.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
