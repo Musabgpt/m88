@@ -20,14 +20,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      NEWAL_CODE_HOME: ${{ runner.temp }}/musabai-newal-home
+      NEWAL_CODE_HOME: /tmp/musabai-${{ github.run_id }}-newal-home
       NEWAL_TEST_WATCHDOG: "180"
       PYTHONWARNINGS: ignore
       PROMPTFOO_DISABLE_TELEMETRY: "1"
       PROMPTFOO_DISABLE_UPDATE: "1"
       PROMPTFOO_DISABLE_REMOTE_GENERATION: "true"
       PROMPTFOO_DISABLE_SHARING: "true"
-      PROMPTFOO_CONFIG_DIR: ${{ runner.temp }}/promptfoo
+      PROMPTFOO_CONFIG_DIR: /tmp/musabai-${{ github.run_id }}-promptfoo
       MUSAB_CONNECTOR_BROKER_URL: https://musabai-connector-server.netnyaho.chatgpt.site
     steps:
       - name: Checkout M88 migration branch
@@ -43,7 +43,7 @@ jobs:
             libgomp1 libstdc++6 libwebkit2gtk-4.1-0 openbox python3-dev \
             python3-gi python3-gi-cairo python3-pip python3-venv \
             gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xdotool xvfb
-          mkdir -p "$NEWAL_CODE_HOME" "$RUNNER_TEMP/promptfoo"
+          mkdir -p "$NEWAL_CODE_HOME" "$PROMPTFOO_CONFIG_DIR"
           mkdir -p "$RUNNER_TEMP/musabai-pip-cache"
           python3 -c "import gi; gi.require_version('Gtk', '3.0'); gi.require_version('WebKit2', '4.1'); from gi.repository import Gtk, WebKit2; print('GTK', Gtk.MAJOR_VERSION, 'WebKitGTK', WebKit2.MAJOR_VERSION)"
 
