@@ -9,6 +9,7 @@ const AR: Record<string, string> = {
   'MusabAI wants to delete a file': 'يريد MusabAI حذف ملف',
   'MusabAI wants to use the laptop': 'يريد MusabAI استخدام اللابتوب',
   'MusabAI wants to use an MCP tool': 'يريد MusabAI استخدام أداة MCP',
+  'MusabAI wants to use the browser': 'يريد MusabAI استخدام المتصفح',
   'Open a folder first.': 'افتح مجلدًا أولًا.',
   'Describe the change (Ctrl+K)': 'صف التعديل المطلوب (Ctrl+K)',
   'Describe the command to run': 'صف الأمر الذي تريد تشغيله',

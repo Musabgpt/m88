@@ -3,6 +3,7 @@ import { constants as fsConstants } from 'node:fs';
 import { access, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
+import { BrowserSession } from './browser';
 import { isInside, isProbablyBinary, matchesGlob, newId, relPath } from './util';
 
 export type ApprovalRequest =
@@ -10,6 +11,7 @@ export type ApprovalRequest =
   | { kind: 'write_outside'; path: string }
   | { kind: 'delete'; path: string }
   | { kind: 'laptop'; action: string; detail: string }
+  | { kind: 'browser'; action: string; detail: string }
   | { kind: 'mcp'; server: string; tool: string; args: string };
 
 export type ApprovalResult = 'allow' | 'deny' | 'always';
@@ -94,6 +96,8 @@ export interface AgentHost {
   approve(request: ApprovalRequest): Promise<ApprovalResult>;
   codebaseSearch?(query: string, limit: number): Promise<SearchHit[]>;
   openInEditor?(abs: string, line?: number): Promise<void>;
+  /** The shared browser the agent drives (one per host); absent on hosts that don't support it. */
+  browser?(): BrowserSession;
 }
 
 const DEFAULT_IGNORES = new Set([
@@ -168,6 +172,8 @@ export interface NodeHostOptions {
   rgPath?: string;
   shell?: string;
   env?: Record<string, string>;
+  /** Show the agent's browser window instead of running it headless. */
+  browserHeaded?: boolean;
 }
 
 /** Plain Node implementation: the terminal agent uses it directly and the editor extends it. */
@@ -176,6 +182,7 @@ export class NodeHost implements AgentHost {
   private rg: string | null | undefined;
   private fileCache: { at: number; files: string[] } | undefined;
   private readonly running = new Map<string, Running>();
+  private browserSession?: BrowserSession;
   private readonly options: NodeHostOptions;
 
   constructor(options: NodeHostOptions) {
@@ -485,8 +492,15 @@ export class NodeHost implements AgentHost {
     return true;
   }
 
+  browser(): BrowserSession {
+    this.browserSession ??= new BrowserSession({ which, headless: !this.options.browserHeaded, noSandbox: process.getuid?.() === 0 });
+    return this.browserSession;
+  }
+
   disposeProcesses(): void {
     for (const id of this.running.keys()) void this.killProcess(id);
+    void this.browserSession?.close();
+    this.browserSession = undefined;
   }
 
   async diagnostics(paths: string[]): Promise<Diagnostic[]> {

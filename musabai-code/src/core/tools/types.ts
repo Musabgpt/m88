@@ -99,7 +99,7 @@ export interface Tool {
   parameters: JsonSchema;
   /** Allowed in read-only modes (Ask, Plan). */
   readOnly: boolean;
-  category: 'files' | 'search' | 'edit' | 'terminal' | 'web' | 'git' | 'github' | 'laptop' | 'mcp' | 'meta';
+  category: 'files' | 'search' | 'edit' | 'terminal' | 'web' | 'git' | 'github' | 'laptop' | 'browser' | 'mcp' | 'meta';
   title(args: Record<string, unknown>): string;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }

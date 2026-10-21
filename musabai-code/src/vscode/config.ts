@@ -59,5 +59,6 @@ export function language(): 'ar' | 'en' {
 export function disabledTools(): string[] {
   const list = [...get<string[]>('agent.disabledTools', [])];
   if (!get('laptop.enabled', true)) list.push('#laptop');
+  if (!get('browser.enabled', true)) list.push('#browser');
   return list;
 }

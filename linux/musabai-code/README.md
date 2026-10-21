@@ -39,6 +39,7 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
   أو شغّل نماذج محلية على اللابتوب عبر Ollama أو LM Studio أو llama.cpp (خاصة وتعمل بلا إنترنت).
 - انقل إعداداتك وإضافاتك من VS Code أو Cursor: Ctrl+Shift+P ← **MusabAI: Import Settings and Extensions**.
 - الإضافات تأتي من Open VSX، وهو نفس متجر Cursor.
+- **متصفح للوكيل:** الوكيل يقدر يفتح تطبيق الويب اللي بيعمله (حتى `http://localhost`)، يقرأه، ياخد صورة للصفحة، يضغط ويكتب — ليتأكد إنه شغّال. كل إجراء يغيّر الصفحة بيسأل أول. يحتاج متصفح Chromium مثبّت (سكربت التثبيت بيجيبه).
 - **أداة REA للهندسة العكسية:** من **إعدادات MusabAI** ← **MCP servers** اضغط **Add** بجانب REA لتحليل الملفات التنفيذية
   والتطبيقات وسلوكها. سكربت التثبيت يجهّز Node.js اللازم لها. استعملها بسؤال الوكيل (مثلًا: «حلّل الملف `app`»)، على برامجك
   أو ما عندك إذن بفحصه.
@@ -128,6 +129,7 @@ artifact: `code --install-extension musabai-code-0.1.0.vsix`.
   Zhipu, Mistral and Codestral. Or run local models with Ollama, LM Studio or llama.cpp: private, and offline.
 - Bring your VS Code or Cursor setup: Ctrl+Shift+P → **MusabAI: Import Settings and Extensions**.
 - Extensions come from Open VSX, the same marketplace Cursor uses.
+- **Browser for the agent:** it can open the web app you build (incl. `http://localhost`), read it, screenshot it, click and type — to verify it works. Each action that changes a page asks first. Needs a Chromium browser (the installer adds one).
 - **REA reverse-engineering tool:** in **MusabAI Settings → MCP servers**, click **Add** next to REA to analyze binaries,
   apps and their runtime behavior. The installer sets up the Node.js it needs. Use it by asking the agent (e.g. "analyze
   the binary `app`"), on software you own or are authorized to test.

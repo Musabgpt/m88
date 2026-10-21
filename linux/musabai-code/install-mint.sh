@@ -54,6 +54,8 @@ say "Installing build tools and the tools MusabAI uses (git, ripgrep, xdotool, x
 $SUDO apt-get update -qq
 $SUDO apt-get install -y --no-install-recommends ca-certificates curl git python3 librsvg2-bin dpkg-dev \
 	ripgrep xdotool xclip wmctrl libnotify-bin
+# A browser for the agent to test web pages (best effort: native on Linux Mint; skip quietly if the name differs).
+$SUDO apt-get install -y chromium 2>/dev/null || $SUDO apt-get install -y chromium-browser 2>/dev/null || say "No chromium package found — install a Chromium-family browser to use the agent's browser."
 
 node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
 # The editor build needs Node >= 18; the REA MCP tool (npx rea-agents) needs Node >= 22, so install a current Node

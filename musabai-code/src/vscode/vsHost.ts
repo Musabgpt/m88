@@ -41,12 +41,13 @@ export interface VsHostOptions {
   terminal: AgentTerminal;
   approve: (request: ApprovalRequest) => Promise<ApprovalResult>;
   index?: () => CodebaseIndex | undefined;
+  browserHeaded?: boolean;
 }
 
 /** The agent's view of the editor: open buffers, workspace edits, the agent terminal and language-server diagnostics. */
 export class VsCodeHost extends NodeHost {
   constructor(private readonly vsOptions: VsHostOptions) {
-    super({ root: vsOptions.root, rgPath: vsOptions.rgPath, approve: vsOptions.approve });
+    super({ root: vsOptions.root, rgPath: vsOptions.rgPath, approve: vsOptions.approve, browserHeaded: vsOptions.browserHeaded });
   }
 
   override async readText(abs: string): Promise<string | undefined> {

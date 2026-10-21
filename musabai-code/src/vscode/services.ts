@@ -85,7 +85,7 @@ export class Services implements vscode.Disposable {
       return;
     }
     const root = this.root;
-    this.host = new VsCodeHost({ root, rgPath: this.rgPath, terminal: this.terminal, approve: (r) => this.approvalHandler(r), index: () => this.index });
+    this.host = new VsCodeHost({ root, rgPath: this.rgPath, terminal: this.terminal, approve: (r) => this.approvalHandler(r), index: () => this.index, browserHeaded: get('browser.headed', false) });
     this.changes = new ChangeTracker(this.host);
     // Pending agent changes survive a window reload: their baselines are kept per workspace.
     this.changes.restore(this.context.workspaceState.get<Record<string, string | null>>(PENDING_KEY));

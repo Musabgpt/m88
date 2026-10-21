@@ -91,7 +91,7 @@ export interface ModelOption {
 
 export interface ApprovalView {
   id: string;
-  kind: 'command' | 'write_outside' | 'delete' | 'laptop' | 'mcp';
+  kind: 'command' | 'write_outside' | 'delete' | 'laptop' | 'browser' | 'mcp';
   title: string;
   detail: string;
   reason?: string;

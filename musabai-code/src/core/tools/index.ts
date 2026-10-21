@@ -1,6 +1,7 @@
 import type { ToolSpec } from '../types';
 import { deleteFile, editFile, multiEdit, writeFileTool } from './edit';
 import { codebaseSearch, fileSearch, grepSearch, listDir, readFile } from './files';
+import { browserTool } from './browser';
 import { fetchRules, gitTool, githubTool, laptopTool, readLints, todoWrite, webFetchTool, webSearchTool } from './misc';
 import { runTerminalCmd, terminalOutput } from './terminal';
 import { type McpToolRef, type ModeDefinition, type Tool, ToolError } from './types';
@@ -25,10 +26,11 @@ export const BUILTIN_TOOLS: Tool[] = [
   gitTool,
   githubTool,
   laptopTool,
+  browserTool,
 ];
 
 export const AGENT_INSTRUCTIONS =
-  'You are in Agent mode: you can read and change files, run terminal commands, and use git, GitHub, MCP tools and the laptop. ' +
+  'You are in Agent mode: you can read and change files, run terminal commands, drive a browser to test web pages, and use git, GitHub, MCP tools and the laptop. ' +
   'Keep working until the request is completely done and verified, then end your turn with a short summary of what changed. ' +
   'Stop early only for a decision that only the user can make.';
 
@@ -125,7 +127,7 @@ export function toolsForMode(mode: ModeDefinition, mcp: McpToolRef[] = [], disab
       if (tool) picked.set(tool.name, tool);
     }
   }
-  return [...picked.values()].filter((t) => !off.has(t.name) && !(t.category === 'laptop' && off.has('#laptop')));
+  return [...picked.values()].filter((t) => !off.has(t.name) && !(t.category === 'laptop' && off.has('#laptop')) && !(t.category === 'browser' && off.has('#browser')));
 }
 
 export function toolSpecs(tools: Tool[]): ToolSpec[] {

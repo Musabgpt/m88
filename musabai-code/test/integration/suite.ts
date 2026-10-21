@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import * as vscode from 'vscode';
+import { findBrowser } from '../../src/core/browser';
 import { api, runAll, type Test } from './harness';
 
 const tests: Test[] = [];
@@ -103,6 +105,38 @@ test('a background agent works on its own git worktree', async () => {
   assert.equal(await readFile(hello, 'utf8'), before, 'the workspace is untouched');
   await musabai.background.discard(agent.id, false);
   await assert.rejects(stat(agent.worktree));
+});
+
+test('the agent browser opens a page, reads it, clicks and screenshots (when a browser is installed)', async () => {
+  const musabai = await api();
+  const which = async (c: string) => {
+    try {
+      const { execFileSync } = await import('node:child_process');
+      return execFileSync('which', [c], { encoding: 'utf8' }).trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  if (!(await findBrowser({ which }))) {
+    console.log('    (no Chromium-family browser installed; skipping the browser test)');
+    return;
+  }
+  const page = '<!doctype html><title>Agent Browser Test</title><body><h1 id="h">start</h1><button onclick="document.getElementById(\'h\').textContent=\'clicked\'">Run it</button></body>';
+  const server = createServer((_q, r) => (r.writeHead(200, { 'content-type': 'text/html' }), r.end(page)));
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/`;
+  try {
+    const browser = musabai.services.host!.browser!();
+    const opened = await browser.open(url);
+    assert.equal(opened.title, 'Agent Browser Test');
+    assert.ok(opened.text.includes('start'));
+    assert.equal(await browser.click('Run it'), true);
+    assert.ok((await browser.state()).text.includes('clicked'), 'clicking changed the page');
+    assert.match(await browser.screenshot(), /^data:image\/png;base64,/);
+    await browser.close();
+  } finally {
+    server.close();
+  }
 });
 
 test('Settings, the model picker and the welcome tour open', async () => {

@@ -57,6 +57,9 @@ MusabAI Settings; they are kept in the system keyring.
   failing GitHub Actions.
 - **Background agents**: they work on their own git worktree while you keep coding; then review, apply or open a pull
   request.
+- **Browser**: the agent drives a real browser to test a web app it builds — open a page (incl. `http://localhost`),
+  read it, screenshot it (vision models see it), click and type. Each action that changes a page asks first; needs a
+  Chromium-family browser installed.
 - **Laptop**: open apps and pages, notifications, volume, media, clipboard, screenshots, windows, typing and keys.
   Actions that change something ask first.
 - **Import**: settings, keybindings, snippets and extensions from VS Code, VSCodium or Cursor.

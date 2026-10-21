@@ -82,7 +82,7 @@ DEB_DEPENDS = (
     "libxcomposite1 (>= 1:0.4.4-1), libxdamage1 (>= 1:1.1), libxext6, libxfixes3, libxkbcommon0 (>= 0.5.0), libxkbfile1 (>= 1:1.1.0), "
     "libxrandr2, xdg-utils (>= 1.0.2)"
 )
-DEB_RECOMMENDS = "git, ripgrep, python3, libnotify-bin, xclip, xdotool, wmctrl, libvulkan1"
+DEB_RECOMMENDS = "git, ripgrep, python3, libnotify-bin, xclip, xdotool, wmctrl, libvulkan1, chromium | chromium-browser | google-chrome-stable"
 DEB_SUGGESTS = "gh"
 
 EDITOR_LAUNCHER = f"""#!/usr/bin/env sh

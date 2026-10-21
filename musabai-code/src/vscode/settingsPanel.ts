@@ -14,7 +14,7 @@ import type { Services } from './services';
 const SETTABLE = new Set([
   'model', 'tab.model', 'inlineEdit.model', 'agent.runMode', 'agent.allowList', 'agent.denyList', 'agent.maxSteps', 'agent.autoContinue', 'agent.maxContinues', 'agent.revealTerminal',
   'laptop.enabled', 'tab.enabled', 'tab.debounceMs', 'tab.chatFallback', 'rules.user', 'index.enabled', 'mcp.disabledServers', 'language',
-  'models.discoverKilo', 'models.discoverLocal', 'checkForUpdates',
+  'models.discoverKilo', 'models.discoverLocal', 'checkForUpdates', 'browser.enabled', 'browser.headed',
 ]);
 
 /** One-click MCP servers offered in settings. Added to the global mcp.json; they start the same way a hand-written one does. */
@@ -93,7 +93,7 @@ export class SettingsPanel implements vscode.Disposable {
       models: await this.chat.modelOptions(),
       health: this.services.pool.health.snapshot(),
       keys,
-      agent: { runMode: p.mode, allowList: p.allow, denyList: p.deny, maxSteps: get('agent.maxSteps', 60), autoContinue: get('agent.autoContinue', true), laptop: get('laptop.enabled', true), revealTerminal: get('agent.revealTerminal', true) },
+      agent: { runMode: p.mode, allowList: p.allow, denyList: p.deny, maxSteps: get('agent.maxSteps', 60), autoContinue: get('agent.autoContinue', true), laptop: get('laptop.enabled', true), browser: get('browser.enabled', true), revealTerminal: get('agent.revealTerminal', true) },
       tab: { enabled: get('tab.enabled', true), debounceMs: get('tab.debounceMs', 0), chatFallback: get('tab.chatFallback', true), fim: (await this.services.pool.fimCandidates()).map((f) => f.spec.name) },
       rules: { user: get<string[]>('rules.user', []), project: rules.filter((r) => r.source !== 'user').map((r) => ({ name: r.name, path: r.path, kind: r.kind, description: r.description })) },
       mcp: this.services.mcp?.status() ?? [],

@@ -370,6 +370,8 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         return { id, kind: 'delete', title: 'Delete this file?', detail: request.path, canAlways: false };
       case 'laptop':
         return { id, kind: 'laptop', title: `Laptop: ${request.action.replace(/_/g, ' ')}`, detail: request.detail, canAlways: Boolean(key) };
+      case 'browser':
+        return { id, kind: 'browser', title: `Browser: ${request.action}`, detail: request.detail, canAlways: Boolean(key) };
       case 'mcp':
         return { id, kind: 'mcp', title: `MCP ${request.server}: ${request.tool}`, detail: request.args, canAlways: Boolean(key) };
     }
@@ -391,7 +393,8 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
           request.kind === 'command' ? t('MusabAI wants to run a command') :
           request.kind === 'write_outside' ? t('MusabAI wants to change a file outside the project') :
           request.kind === 'delete' ? t('MusabAI wants to delete a file') :
-          request.kind === 'laptop' ? t('MusabAI wants to use the laptop') : t('MusabAI wants to use an MCP tool');
+          request.kind === 'laptop' ? t('MusabAI wants to use the laptop') :
+          request.kind === 'browser' ? t('MusabAI wants to use the browser') : t('MusabAI wants to use an MCP tool');
         const buttons = [t('Allow'), t('Deny'), ...(approval.canAlways ? [t('Always allow')] : [])];
         void vscode.window.showWarningMessage(`${title}: ${approval.detail.slice(0, 200)}`, ...buttons).then((choice) => {
           if (!choice) return;

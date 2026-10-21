@@ -248,7 +248,8 @@ class Session {
       request.kind === 'command' ? `Run ${bold(request.command)}${request.reason ? dim(` — ${request.reason}`) : ''}` :
       request.kind === 'write_outside' ? `Change ${bold(request.path)} (outside the project)` :
       request.kind === 'delete' ? `Delete ${bold(request.path)}` :
-      request.kind === 'laptop' ? `Laptop ${bold(request.action)} ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
+      request.kind === 'laptop' ? `Laptop ${bold(request.action)} ${request.detail}` :
+      request.kind === 'browser' ? `Browser ${bold(request.action)} ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
     if (!this.atLineStart) this.out('\n');
     const answer = (await this.ask(`${yellow('?')} ${what}  ${dim('[y]es / [n]o / [a]lways')} `)).toLowerCase();
     return answer.startsWith('a') ? 'always' : answer.startsWith('y') || answer === '' ? 'allow' : 'deny';
