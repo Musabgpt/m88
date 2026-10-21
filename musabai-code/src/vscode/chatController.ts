@@ -44,6 +44,8 @@ interface LiveChat {
 }
 
 const ALWAYS_KEY = 'musabai.alwaysAllowed';
+// When a turn runs out of its step budget, the agent is told to carry on instead of stopping for the user to click.
+const CONTINUE_PROMPT = 'Continue working toward the goal. Keep going until the task is fully done and verified; do not stop to ask whether to continue.';
 
 function view(chat: StoredChat): ChatView {
   return { id: chat.id, title: chat.title, messages: chat.messages };
@@ -449,28 +451,35 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
     const user: UiMessage = { id: newId('m'), role: 'user', turnId, text, mentions: chips, images, mode: mode.id, createdAt: Date.now() };
     this.apply(live, { type: 'user', message: user });
     if (live.stored.title === 'New chat') live.stored.title = text.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Image';
-    const assistant: UiMessage = { id: newId('m'), role: 'assistant', turnId, parts: [], status: 'streaming', mode: mode.id, createdAt: Date.now() };
-    this.apply(live, { type: 'assistant', message: assistant });
-    live.assistantId = assistant.id;
     const controller = new AbortController();
     live.controller = controller;
     await this.store.setActive(live.stored.id);
     this.postChats();
+    // Carry the task across the per-turn step budget instead of stopping to ask the user to type "continue".
+    const maxContinues = get('agent.autoContinue', true) ? Math.max(0, get('agent.maxContinues', 40)) : 0;
     try {
       if (this.services.mcp) await Promise.race([this.services.mcp.startAll(), new Promise((r) => setTimeout(r, 8000))]);
       const resolved = await resolveMentions(await this.prepareMentions(chips), { host: this.services.host ?? new NodeHost({ root: os.homedir() }), index: this.services.index }, text);
       const active = this.editorState(this.services.root ?? os.homedir()).activeFile;
-      await live.session.run({
-        turnId,
-        text,
-        mode,
-        modelId,
-        images: [...images, ...resolved.images],
-        context: resolved.context,
-        referencedFiles: [...resolved.files, ...(active ? [active] : [])],
-        mentionedRules: resolved.rules,
-        signal: controller.signal,
-      });
+      for (let attempt = 0; ; attempt++) {
+        const assistant: UiMessage = { id: newId('m'), role: 'assistant', turnId, parts: [], status: 'streaming', mode: mode.id, createdAt: Date.now() };
+        this.apply(live, { type: 'assistant', message: assistant });
+        live.assistantId = assistant.id;
+        const result = await live.session.run({
+          turnId,
+          text: attempt === 0 ? text : CONTINUE_PROMPT,
+          mode,
+          modelId,
+          images: attempt === 0 ? [...images, ...resolved.images] : [],
+          context: attempt === 0 ? resolved.context : undefined,
+          referencedFiles: attempt === 0 ? [...resolved.files, ...(active ? [active] : [])] : [],
+          mentionedRules: attempt === 0 ? resolved.rules : [],
+          signal: controller.signal,
+        });
+        if (result.reason !== 'max_steps' || attempt >= maxContinues || controller.signal.aborted) break;
+        // It only hit this step's budget, not a dead end: mark the step done (not "stopped at the limit") and keep going.
+        this.apply(live, { type: 'agent', messageId: assistant.id, event: { type: 'done', reason: 'completed' } });
+      }
     } catch (error) {
       this.onAgentEvent(live.stored.id, { type: 'done', reason: 'error', error: (error as Error).message });
     } finally {

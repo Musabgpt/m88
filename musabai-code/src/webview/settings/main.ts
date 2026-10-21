@@ -14,7 +14,7 @@ interface SettingsState {
   models: ModelOption[];
   health: Record<string, { state: string; coolingDown: boolean; lastError: string }>;
   keys: { id: string; name: string; envs: string[]; url: string; set: boolean }[];
-  agent: { runMode: string; allowList: string[]; denyList: string[]; maxSteps: number; laptop: boolean; revealTerminal: boolean };
+  agent: { runMode: string; allowList: string[]; denyList: string[]; maxSteps: number; autoContinue: boolean; laptop: boolean; revealTerminal: boolean };
   tab: { enabled: boolean; debounceMs: number; chatFallback: boolean; fim: string[] };
   rules: { user: string[]; project: { name: string; path: string; kind: string; description: string }[] };
   mcp: { name: string; type: string; source: string; state: string; error: string; tools: string[] }[];
@@ -164,6 +164,7 @@ function render(): void {
         n.addEventListener('change', () => set('agent.maxSteps', Number(n.value)));
         return n;
       })()),
+      toggle('Keep working toward the goal without stopping to ask me to continue', s.agent.autoContinue, 'agent.autoContinue', 'When a request runs out of steps, MusabAI carries on by itself (up to a safety cap) instead of waiting.'),
       toggle('Show the MusabAI Agent terminal while commands run', s.agent.revealTerminal, 'agent.revealTerminal'),
       toggle('Let the agent use the laptop (apps, browser, notifications, clipboard, screenshots, keyboard/mouse)', s.agent.laptop, 'laptop.enabled', 'Each action that changes something asks first.'),
     ),

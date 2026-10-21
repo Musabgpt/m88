@@ -83,7 +83,7 @@ export class SettingsPanel implements vscode.Disposable {
       models: await this.chat.modelOptions(),
       health: this.services.pool.health.snapshot(),
       keys,
-      agent: { runMode: p.mode, allowList: p.allow, denyList: p.deny, maxSteps: get('agent.maxSteps', 60), laptop: get('laptop.enabled', true), revealTerminal: get('agent.revealTerminal', true) },
+      agent: { runMode: p.mode, allowList: p.allow, denyList: p.deny, maxSteps: get('agent.maxSteps', 60), autoContinue: get('agent.autoContinue', true), laptop: get('laptop.enabled', true), revealTerminal: get('agent.revealTerminal', true) },
       tab: { enabled: get('tab.enabled', true), debounceMs: get('tab.debounceMs', 0), chatFallback: get('tab.chatFallback', true), fim: (await this.services.pool.fimCandidates()).map((f) => f.spec.name) },
       rules: { user: get<string[]>('rules.user', []), project: rules.filter((r) => r.source !== 'user').map((r) => ({ name: r.name, path: r.path, kind: r.kind, description: r.description })) },
       mcp: this.services.mcp?.status() ?? [],
@@ -150,10 +150,19 @@ export class SettingsPanel implements vscode.Disposable {
         await this.services.mcp?.restart(m.name);
         await this.push();
         break;
-      case 'mcpStart':
+      case 'mcpStart': {
+        await this.services.mcp?.reload();
+        const servers = this.services.mcp?.status() ?? [];
+        if (!servers.length) {
+          void vscode.window.showInformationMessage('MusabAI: no MCP servers are configured yet. Add one in mcp.json (Edit global or project mcp.json), then start them.');
+          break;
+        }
         await this.services.mcp?.startAll();
         await this.push();
+        const ready = (this.services.mcp?.status() ?? []).filter((s) => s.state === 'ready');
+        void vscode.window.showInformationMessage(`MusabAI: ${ready.length} of ${servers.length} MCP server${servers.length === 1 ? '' : 's'} running.`);
         break;
+      }
       case 'mcpToggle': {
         const disabled = new Set(get<string[]>('mcp.disabledServers', []));
         if (m.enabled) disabled.delete(m.name);

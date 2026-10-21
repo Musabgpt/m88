@@ -624,6 +624,20 @@
           "minimum": 5,
           "maximum": 300
         },
+        "musabai.agent.autoContinue": {
+          "type": "boolean",
+          "scope": "application",
+          "default": true,
+          "markdownDescription": "Keep working toward the goal when a request runs out of steps, instead of stopping to ask you to continue."
+        },
+        "musabai.agent.maxContinues": {
+          "type": "number",
+          "scope": "application",
+          "default": 40,
+          "markdownDescription": "How many times a request may continue on its own before it stops (a safety cap on very long runs).",
+          "minimum": 0,
+          "maximum": 1000
+        },
         "musabai.agent.disabledTools": {
           "type": "array",
           "default": [],

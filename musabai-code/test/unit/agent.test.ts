@@ -20,7 +20,7 @@ after(async () => {
   await Promise.all(cleanups.map((c) => c()));
 });
 
-async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][] } = {}) {
+async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][]; maxSteps?: number } = {}) {
   const server = await mockServer({ 'POST /chat/completions': script.map((events) => (_req, res) => sse(res, events)) });
   servers.push(server);
   let backup: MockServer | undefined;
@@ -62,6 +62,7 @@ async function setup(script: unknown[][], options: { policy?: CommandPolicy; bac
     rules: rulesProvider(dir, () => []),
     changes,
     checkpoints,
+    maxSteps: options.maxSteps,
   };
   return { server, backup, dir, host, events, approvals, changes, checkpoints, pool, session: new AgentSession(deps) };
 }
@@ -137,6 +138,19 @@ describe('agent loop', () => {
     const toolResult = t.session.history.find((m) => m.role === 'tool');
     assert.match(String(toolResult?.content), /Missing required arguments: old_string, new_string/);
     assert.ok(t.events.some((e) => e.type === 'status' && /invalid tool calls/.test(e.message)));
+  });
+
+  it('reports max_steps when the step budget runs out, and a continued run finishes the task', async () => {
+    const keepGoing = toolCallChunks([{ id: 'c', name: 'list_dir', args: {} }]);
+    // 3 steps of tool calls exhaust the budget; a later call returns the final answer.
+    const t = await setup([keepGoing, keepGoing, keepGoing, textChunks('All done.')], { maxSteps: 3, policy: { mode: 'auto', allow: [], deny: [] } });
+    const first = await t.session.run({ turnId: 'm1', text: 'do a long task', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(first.reason, 'max_steps');
+    assert.equal(t.server.requests.length, 3);
+    // The host continues the same turn instead of asking the user to type "continue".
+    const second = await t.session.run({ turnId: 'm1', text: 'Continue working toward the goal.', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(second.reason, 'completed');
+    assert.equal(second.text, 'All done.');
   });
 
   it('stops a running command when the user cancels', async () => {
