@@ -5,7 +5,9 @@
 #   ./linux/musabai-code/install-mint.sh --user      build and install for this user only (no sudo for the editor)
 #   ./linux/musabai-code/install-mint.sh --deb FILE  install a ready .deb (for example from the GitHub Actions artifact)
 #
-# Without a checkout it clones https://github.com/Musabgpt/m88 (branch $MUSABAI_BRANCH, default main).
+# Without a checkout it clones https://github.com/Musabgpt/m88 (branch $MUSABAI_BRANCH, default main), so one command
+# installs everything:
+#   curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
 set -euo pipefail
 
 VSCODIUM_VERSION="1.140.06880"
@@ -60,7 +62,10 @@ if ! command -v npm >/dev/null 2>&1 || [ "$(node_major)" -lt 18 ]; then
 fi
 [ "$(node_major)" -ge 18 ] || die "Node.js 18 or newer is needed to build (found $(node -v 2>/dev/null || echo none))."
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd || true)"
+# Piped into bash (curl … | bash) there is no script file, so the source is cloned below.
+SELF="${BASH_SOURCE[0]:-}"
+ROOT=""
+[ -n "$SELF" ] && ROOT="$(cd "$(dirname "$SELF")/../.." 2>/dev/null && pwd || true)"
 if [ ! -f "$ROOT/musabai-code/package.json" ]; then
 	ROOT="$CACHE/src"
 	say "Getting the MusabAI source into $ROOT"

@@ -11,10 +11,10 @@ models and providers and no account needed:
 - the terminal, Git and GitHub: pull requests, Bugbot and background agents;
 - control of the laptop.
 
-On Linux Mint 22 or Ubuntu 24.04, run:
+On Linux Mint 22 or Ubuntu 24.04, one command installs or updates it:
 
 ```sh
-./linux/musabai-code/install-mint.sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
 ```
 
 More is in [linux/musabai-code/README.md](linux/musabai-code/README.md), in Arabic and English: the guide, the Cursor

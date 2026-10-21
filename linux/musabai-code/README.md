@@ -7,21 +7,20 @@
 
 ## التثبيت على Linux Mint 22 (أو Ubuntu 24.04) — x86_64
 
-**الطريقة الأسهل (أمر واحد يبني كل شيء ويثبّته):**
+**الطريقة الأسهل: أمر واحد يبني كل شيء ويثبّته، وهو نفسه للتحديث:**
 
 ```sh
-git clone https://github.com/Musabgpt/m88 && cd m88
-./linux/musabai-code/install-mint.sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
 ```
 
-يثبّت السكربت الأدوات اللازمة (git وripgrep وxdotool وxclip وNode.js للبناء فقط)، ويبني الإضافة،
-ويحمّل VSCodium المثبّت إصداره ويتحقق من بصمته SHA-256، ثم يجمّع MusabAI Code ويثبّت حزمة `.deb`.
-إعادة تشغيله بعد `git pull` تحدّث المحرر.
+يثبّت السكربت الأدوات اللازمة (git وripgrep وxdotool وxclip وNode.js للبناء فقط)، ويجلب آخر نسخة من المشروع،
+ويبني الإضافة، ويحمّل VSCodium المثبّت إصداره ويتحقق من بصمته SHA-256، ثم يجمّع MusabAI Code ويثبّت حزمة `.deb`.
+شغّله مرة ثانية متى أردت التحديث. ومن نسخة المشروع على جهازك: `./linux/musabai-code/install-mint.sh`.
 
 **من ملفات GitHub Actions الجاهزة:** نزّل `MusabAI-Code-linux-x64-…` من تبويب Actions (سير العمل **MusabAI Code**) ثم:
 
 ```sh
-sudo apt install ./musabai-code_*_amd64.deb
+sudo apt install --reinstall ./musabai-code_*_amd64.deb
 ```
 
 **بدون sudo (لمستخدمك فقط):** فكّ `MusabAI-Code-…-linux-x64.tar.gz` ثم شغّل `./install-user.sh` من داخل المجلد
@@ -97,19 +96,18 @@ same layout, workflow and shortcuts, but runs on **free models and free provider
 
 ## Install on Linux Mint 22 / Ubuntu 24.04 (x86_64)
 
-One command builds everything and installs it:
+One command builds everything and installs it. Run the same command again to update:
 
 ```sh
-git clone https://github.com/Musabgpt/m88 && cd m88
-./linux/musabai-code/install-mint.sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
 ```
 
-The script installs the tools it needs (git, ripgrep, xdotool, xclip, and Node.js for the build only) and builds the
-extension. It then downloads the pinned VSCodium release, verifies its SHA-256, assembles MusabAI Code and installs
-the `.deb`. Run it again after `git pull` to update.
+The script installs the tools it needs (git, ripgrep, xdotool, xclip, and Node.js for the build only), fetches the
+latest source and builds the extension. It then downloads the pinned VSCodium release, verifies its SHA-256,
+assembles MusabAI Code and installs the `.deb`. From a checkout, run `./linux/musabai-code/install-mint.sh`.
 
 - **Ready-made packages:** download `MusabAI-Code-linux-x64-…` from the **MusabAI Code** GitHub Actions workflow, then
-  run `sudo apt install ./musabai-code_*_amd64.deb`.
+  run `sudo apt install --reinstall ./musabai-code_*_amd64.deb`.
 - **No sudo (this user only):** unpack `MusabAI-Code-…-linux-x64.tar.gz` and run `./install-user.sh` in it, or run
   `./linux/musabai-code/install-mint.sh --user`.
 
