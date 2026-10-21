@@ -56,11 +56,21 @@ $SUDO apt-get install -y --no-install-recommends ca-certificates curl git python
 	ripgrep xdotool xclip wmctrl libnotify-bin
 
 node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
-if ! command -v npm >/dev/null 2>&1 || [ "$(node_major)" -lt 18 ]; then
-	say "Installing Node.js and npm (needed only to build)"
-	$SUDO apt-get install -y nodejs npm
+# The editor build needs Node >= 18; the REA MCP tool (npx rea-agents) needs Node >= 22, so install a current Node
+# from NodeSource when the system one is older or missing.
+if ! command -v npm >/dev/null 2>&1 || [ "$(node_major)" -lt 22 ]; then
+	say "Installing Node.js 24 (the editor needs Node to build; the REA tool needs Node 22+)"
+	setup="$(mktemp)"
+	if curl -fsSL https://deb.nodesource.com/setup_24.x -o "$setup" 2>/dev/null; then
+		if [ -n "$SUDO" ]; then $SUDO -E bash "$setup" >/dev/null 2>&1 || true; else bash "$setup" >/dev/null 2>&1 || true; fi
+		$SUDO apt-get install -y nodejs || true
+	fi
+	rm -f "$setup"
+	# NodeSource unavailable: the distro Node still builds the editor (REA then needs Node 22+ added separately).
+	[ "$(node_major)" -ge 18 ] || $SUDO apt-get install -y nodejs npm
 fi
 [ "$(node_major)" -ge 18 ] || die "Node.js 18 or newer is needed to build (found $(node -v 2>/dev/null || echo none))."
+[ "$(node_major)" -ge 22 ] || say "Node.js is $(node -v): the editor works, but the REA tool needs Node 22+ to run."
 
 # Piped into bash (curl … | bash) there is no script file, so the source is cloned below.
 SELF="${BASH_SOURCE[0]:-}"
