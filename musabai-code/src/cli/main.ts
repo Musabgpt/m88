@@ -194,7 +194,8 @@ class Session {
       root: options.cwd,
       trustProjectServer: async (config) => {
         if (options.print) return options.yes;
-        return (await this.ask(`${yellow('?')} Start the project's MCP server "${config.name}" (${config.command} ${(config.args ?? []).join(' ')})? [y/N] `)).toLowerCase().startsWith('y');
+        const detail = config.url ?? `${config.command} ${(config.args ?? []).join(' ')}`;
+        return (await this.ask(`${yellow('?')} Start the project's MCP server "${config.name}" (${detail})? [y/N] `)).toLowerCase().startsWith('y');
       },
     });
     const policy = (): CommandPolicy => ({ mode: this.runMode, allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'], deny: config.denyList ?? [] });

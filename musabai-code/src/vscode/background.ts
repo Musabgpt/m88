@@ -12,7 +12,7 @@ import { pullRequestText } from '../core/oneshot';
 import { evaluateCommand } from '../core/policy';
 import { newId, slug } from '../core/util';
 import { environmentProvider, rulesProvider } from '../core/workspace';
-import { chatModel, disabledTools, get, modes, policy } from './config';
+import { chatModel, configuredPolicy, disabledTools, get, modes } from './config';
 import { t } from './l10n';
 import type { Services } from './services';
 
@@ -118,6 +118,13 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
   async create(promptArg?: string): Promise<void> {
     const root = this.services.root;
     if (!root) return void vscode.window.showWarningMessage(t('Open a folder first.'));
+    // A worktree isolates files, not the machine: background agents run commands without asking, so only in trusted folders.
+    if (!vscode.workspace.isTrusted) {
+      const manage = 'Manage Workspace Trust';
+      const choice = await vscode.window.showWarningMessage('MusabAI: background agents run commands on their own, so they need a trusted folder.', manage);
+      if (choice === manage) void vscode.commands.executeCommand('workbench.trust.manage');
+      return;
+    }
     const info = await gitInfo(root);
     if (!info.isRepo || !info.head) return void vscode.window.showWarningMessage('MusabAI: background agents need a git repository with at least one commit.');
     const prompt = promptArg?.trim() || (await vscode.window.showInputBox({ title: 'MusabAI — new background agent', prompt: 'What should it do? It works on its own copy (a git worktree) while you keep coding.' }));
@@ -143,7 +150,7 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
     const out = this.log(agent);
     out.appendLine(`Task: ${agent.prompt}\nWorktree: ${agent.worktree} (branch ${agent.branch})\n`);
     const host = new NodeHost({ root: agent.worktree, rgPath: undefined });
-    const base = policy();
+    const base = configuredPolicy();
     const session = new AgentSession({
       pool: this.services.pool,
       host,

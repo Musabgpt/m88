@@ -7,7 +7,7 @@ import { PROVIDER_KEYS } from '../core/providers/catalog';
 import { loadRules, RULE_TEMPLATE } from '../core/rules';
 import { slug } from '../core/util';
 import type { ChatController } from './chatController';
-import { get, language, policy, set } from './config';
+import { configuredPolicy, get, language, set } from './config';
 import { t } from './l10n';
 import type { Services } from './services';
 
@@ -72,7 +72,7 @@ export class SettingsPanel implements vscode.Disposable {
     const root = this.services.root;
     const rules = root ? await loadRules(root) : [];
     const keys = await Promise.all(PROVIDER_KEYS.map(async (k) => ({ ...k, set: (await this.services.hasKey(k.id)) || k.envs.some((e) => Boolean(process.env[e])) })));
-    const p = policy();
+    const p = configuredPolicy();
     return {
       version: String(this.context.extension.packageJSON.version ?? ''),
       language: language(),

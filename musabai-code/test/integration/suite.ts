@@ -39,6 +39,12 @@ test('activates with Cursor-style commands, keybindings, chat view and theme', a
   await vscode.commands.executeCommand('musabai.chat.open');
 });
 
+test("a repository's .vscode/settings.json cannot change the run mode or the model servers", async () => {
+  const config = vscode.workspace.getConfiguration('musabai');
+  assert.equal(config.get('agent.runMode'), 'auto', 'the user setting wins');
+  assert.equal(config.get('local.ollamaUrl'), '');
+});
+
 test('lists the free models: keyless Kilo default, keyed free tiers and the custom endpoint', async () => {
   const models = await (await api()).services.pool.listModels();
   const ids = models.map((m) => m.id);

@@ -24,13 +24,20 @@ export function chatModel(): string {
   return get('model', 'kilo-auto/free');
 }
 
-export function policy(): CommandPolicy {
+/** The command policy as the user configured it. */
+export function configuredPolicy(): CommandPolicy {
   const mode = get<RunMode>('agent.runMode', 'allowlist');
   return {
     mode: ['ask', 'allowlist', 'auto'].includes(mode) ? mode : 'allowlist',
     allow: get<string[]>('agent.allowList', []),
     deny: get<string[]>('agent.denyList', []),
   };
+}
+
+/** The policy the agent runs with: in Restricted Mode (an untrusted folder) every command waits for the user. */
+export function policy(): CommandPolicy {
+  const configured = configuredPolicy();
+  return vscode.workspace.isTrusted ? configured : { ...configured, mode: 'ask' };
 }
 
 export function modes(): ModeDefinition[] {

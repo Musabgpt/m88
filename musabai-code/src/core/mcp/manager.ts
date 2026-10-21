@@ -87,7 +87,10 @@ export interface McpStatus {
 export interface McpManagerOptions {
   root: string;
   disabled?: () => string[];
-  /** Project servers run commands from the repository: they start only after the user trusts them. */
+  /**
+   * Project servers come from the repository: a command to run, or a URL that receives the configured headers
+   * (which may interpolate the user's environment). Either kind starts only after the user trusts it.
+   */
   trustProjectServer?: (config: McpServerConfig) => Promise<boolean>;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
@@ -126,7 +129,7 @@ export class McpManager implements McpLike {
     await Promise.all(
       [...this.clients.values()].map(async (client) => {
         if (!this.enabled(client) || client.state === 'ready' || client.state === 'starting') return;
-        if (client.config.source === 'project' && client.config.type === 'stdio' && this.options.trustProjectServer) {
+        if (client.config.source === 'project' && this.options.trustProjectServer) {
           const ok = await this.options.trustProjectServer(client.config);
           if (!ok) {
             this.untrusted.add(client.config.name);

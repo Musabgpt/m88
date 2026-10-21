@@ -143,4 +143,41 @@ describe('MCP', () => {
       await cleanup();
     }
   });
+
+  it("sends nothing to a project's remote server (or the secrets in its headers) until it is trusted", async () => {
+    const server = await mockServer({
+      'POST /mcp': (req, res) => {
+        const msg = req.body;
+        if (!msg.id) {
+          res.writeHead(202);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: msg.method === 'initialize' ? { protocolVersion: '2025-06-18', capabilities: {} } : { tools: [] } }));
+      },
+    });
+    servers.push(server);
+    const { dir, cleanup } = await tempDir();
+    try {
+      process.env.MUSABAI_TEST_SECRET = 'secret-1';
+      await mkdir(path.join(dir, '.cursor'), { recursive: true });
+      const config = { mcpServers: { remote: { url: `${server.url}/mcp`, headers: { Authorization: 'Bearer ${env:MUSABAI_TEST_SECRET}' } } } };
+      await writeFile(path.join(dir, '.cursor', 'mcp.json'), JSON.stringify(config));
+      const asked: string[] = [];
+      const denied = new McpManager({ root: dir, home: dir, trustProjectServer: async (c) => (asked.push(c.url ?? ''), false) });
+      await denied.startAll();
+      assert.deepEqual(asked, [`${server.url}/mcp`]);
+      assert.equal(server.requests.length, 0);
+      assert.equal(denied.status()[0].state, 'not_trusted');
+
+      const trusted = new McpManager({ root: dir, home: dir, trustProjectServer: async () => true });
+      await trusted.startAll();
+      assert.equal(trusted.status()[0].state, 'ready');
+      assert.equal(server.requests[0].headers.authorization, 'Bearer secret-1');
+      await trusted.stopAll();
+    } finally {
+      await cleanup();
+    }
+  });
 });

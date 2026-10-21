@@ -38,7 +38,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "In Restricted Mode MusabAI asks before every command and does not start project MCP servers."
+      "description": "In Restricted Mode MusabAI asks before every command, does not start the project's MCP servers and does not run background agents."
     },
     "virtualWorkspaces": false
   },
@@ -571,6 +571,7 @@
         },
         "musabai.agent.runMode": {
           "type": "string",
+          "scope": "application",
           "default": "allowlist",
           "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask.",
           "enum": [
@@ -586,6 +587,7 @@
         },
         "musabai.agent.allowList": {
           "type": "array",
+          "scope": "application",
           "default": [
             "npm test",
             "npm run test",
@@ -608,6 +610,7 @@
         },
         "musabai.agent.denyList": {
           "type": "array",
+          "scope": "application",
           "default": [],
           "markdownDescription": "Command prefixes that always ask, in every mode.",
           "items": {
@@ -636,11 +639,13 @@
         },
         "musabai.laptop.enabled": {
           "type": "boolean",
+          "scope": "application",
           "default": true,
           "markdownDescription": "Let the agent use the laptop: apps, browser pages, notifications, clipboard, screenshots, windows, keyboard and mouse. Actions that change something ask first."
         },
         "musabai.rules.user": {
           "type": "array",
+          "scope": "application",
           "default": [],
           "markdownDescription": "Your rules for the AI in every project (like Cursor's *Rules for AI*).",
           "items": {
@@ -657,6 +662,7 @@
         },
         "musabai.models.custom": {
           "type": "array",
+          "scope": "application",
           "default": [],
           "markdownDescription": "Extra OpenAI-compatible endpoints: `{ \"id\", \"name\", \"baseUrl\", \"model\", \"apiKeyEnv\", \"free\": true, \"capabilities\": [\"text\",\"tools\",\"streaming\"] }`. Only endpoints marked `free` are used for automatic failover.",
           "items": {
@@ -675,16 +681,19 @@
         },
         "musabai.local.ollamaUrl": {
           "type": "string",
+          "scope": "application",
           "default": "",
           "markdownDescription": "Ollama URL (default `http://127.0.0.1:11434`)."
         },
         "musabai.local.lmstudioUrl": {
           "type": "string",
+          "scope": "application",
           "default": "",
           "markdownDescription": "LM Studio URL (default `http://127.0.0.1:1234/v1`)."
         },
         "musabai.local.llamacppUrl": {
           "type": "string",
+          "scope": "application",
           "default": "",
           "markdownDescription": "llama.cpp server URL (default `http://127.0.0.1:8080`)."
         },

@@ -58,6 +58,7 @@ export class Services implements vscode.Disposable {
         }
         if (e.affectsConfiguration('musabai.mcp')) void this.mcp?.startAll();
       }),
+      vscode.workspace.onDidGrantWorkspaceTrust(() => void this.mcp?.startAll()),
       context.secrets.onDidChange((e) => {
         if (e.key.startsWith(SECRET_PREFIX)) this.onDidChangeModelsEmitter.fire();
       }),
@@ -139,11 +140,19 @@ export class Services implements vscode.Disposable {
   }
 
   private async trustServer(config: McpServerConfig): Promise<boolean> {
-    const fingerprint = createHash('sha256').update(JSON.stringify([config.name, config.command, config.args, config.env])).digest('hex').slice(0, 16);
+    // Restricted Mode: the project's servers wait until the folder is trusted (onDidGrantWorkspaceTrust starts them).
+    if (!vscode.workspace.isTrusted) {
+      this.log.info(`Restricted Mode: the project MCP server "${config.name}" was not started`);
+      return false;
+    }
+    const fingerprint = createHash('sha256')
+      .update(JSON.stringify([config.name, config.command, config.args, config.env, config.url, config.headers]))
+      .digest('hex')
+      .slice(0, 16);
     const key = `musabai.mcpTrust.${fingerprint}`;
     const known = this.context.workspaceState.get<boolean>(key);
     if (known !== undefined) return known;
-    const detail = `${config.command} ${(config.args ?? []).join(' ')}`.slice(0, 300);
+    const detail = (config.url ?? `${config.command} ${(config.args ?? []).join(' ')}`).slice(0, 300);
     const answer = await vscode.window.showWarningMessage(
       `This project's ${path.basename(path.dirname(config.configFile))}/mcp.json wants to start the MCP server "${config.name}": ${detail}`,
       t('Trust and start'),
