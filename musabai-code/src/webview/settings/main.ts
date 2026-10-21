@@ -24,6 +24,11 @@ interface SettingsState {
   hasWorkspace: boolean;
 }
 
+// One-click MCP servers (the host holds the actual command; this is only how they read in settings).
+const SUGGESTED_MCP: { id: string; title: string; hint: string }[] = [
+  { id: 'rea', title: 'REA — Reverse Engineer Anything', hint: 'Analyze binaries, apps and runtime behavior from the agent. Open-source MCP server; needs Node.js.' },
+];
+
 const SECTIONS: [string, string, string][] = [
   ['models', 'Models', 'sparkle'],
   ['keys', 'Free API keys', 'key'],
@@ -216,6 +221,12 @@ function render(): void {
             ),
           )
         : h('p', { class: 'muted' }, 'No MCP servers configured.'),
+      ...SUGGESTED_MCP.filter((sug) => !s.mcp.some((m) => m.name === sug.id)).map((sug) =>
+        h('div', { class: 'field suggested' },
+          h('div', null, h('strong', null, sug.title), h('div', { class: 'hint' }, sug.hint)),
+          h('button', { class: 'secondary', onclick: () => post({ type: 'mcpAddSuggested', id: sug.id }) }, 'Add'),
+        ),
+      ),
       h(
         'div',
         { class: 'row wrap' },

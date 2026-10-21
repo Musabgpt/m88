@@ -50,7 +50,9 @@ MusabAI Settings; they are kept in the system keyring.
   images and past chats.
 - **Rules**: `.cursor/rules/*.mdc`, `.cursorrules`, `AGENTS.md` and your own user rules.
 - **MCP**: servers from `~/.cursor/mcp.json`, `~/.config/musabai/mcp.json` and the project's `.cursor`, `.musabai` or
-  `.vscode` `mcp.json`, over stdio, Streamable HTTP or SSE.
+  `.vscode` `mcp.json`, over stdio, Streamable HTTP or SSE. MusabAI Settings → MCP servers also offers a one-click
+  **REA** ([Reverse Engineer Anything](https://github.com/morluto/rea)) for analyzing binaries and runtime behavior of
+  software you own or are authorized to test; it runs with `npx`, so Node.js must be installed.
 - **Git and GitHub**: commit messages, pull requests with written descriptions, Bugbot reviews, fixing issues and
   failing GitHub Actions.
 - **Background agents**: they work on their own git worktree while you keep coding; then review, apply or open a pull

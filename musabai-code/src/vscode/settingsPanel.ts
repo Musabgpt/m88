@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
@@ -12,10 +12,20 @@ import { t } from './l10n';
 import type { Services } from './services';
 
 const SETTABLE = new Set([
-  'model', 'tab.model', 'inlineEdit.model', 'agent.runMode', 'agent.allowList', 'agent.denyList', 'agent.maxSteps', 'agent.revealTerminal',
+  'model', 'tab.model', 'inlineEdit.model', 'agent.runMode', 'agent.allowList', 'agent.denyList', 'agent.maxSteps', 'agent.autoContinue', 'agent.maxContinues', 'agent.revealTerminal',
   'laptop.enabled', 'tab.enabled', 'tab.debounceMs', 'tab.chatFallback', 'rules.user', 'index.enabled', 'mcp.disabledServers', 'language',
   'models.discoverKilo', 'models.discoverLocal',
 ]);
+
+/** One-click MCP servers offered in settings. Added to the global mcp.json; they start the same way a hand-written one does. */
+const SUGGESTED_MCP: Record<string, { name: string; config: { command: string; args: string[] }; note?: string }> = {
+  rea: {
+    name: 'rea',
+    // REA — "Reverse Engineer Anything": an open-source MCP server (npm rea-agents) for analyzing binaries, apps and runtime behavior.
+    config: { command: 'npx', args: ['-y', 'rea-agents@latest', 'mcp'] },
+    note: 'It runs with npx, so Node.js must be installed. The first run downloads it.',
+  },
+};
 
 const COMMANDS = new Set(['musabai.github.signIn', 'musabai.import', 'musabai.rules.new', 'musabai.index.rebuild', 'workbench.action.openSettings', 'musabai.walkthrough']);
 
@@ -150,6 +160,36 @@ export class SettingsPanel implements vscode.Disposable {
         await this.services.mcp?.restart(m.name);
         await this.push();
         break;
+      case 'mcpAddSuggested': {
+        const suggestion = SUGGESTED_MCP[String(m.id)];
+        if (!suggestion) break;
+        const file = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'musabai', 'mcp.json');
+        await mkdir(path.dirname(file), { recursive: true });
+        let data: { mcpServers?: Record<string, unknown> } = {};
+        const existing = await readFile(file, 'utf8').catch(() => undefined);
+        if (existing?.trim()) {
+          try {
+            data = JSON.parse(existing.replace(/^\s*\/\/.*$/gm, ''));
+          } catch {
+            // Don't clobber a file we can't parse: let the user add it by hand.
+            await vscode.window.showTextDocument(vscode.Uri.file(file));
+            void vscode.window.showWarningMessage(`MusabAI: couldn't edit ${path.basename(file)} automatically. Add "${suggestion.name}" to mcpServers yourself.`);
+            break;
+          }
+        }
+        data.mcpServers ??= {};
+        if (data.mcpServers[suggestion.name]) {
+          void vscode.window.showInformationMessage(`MusabAI: "${suggestion.name}" is already in your mcp.json.`);
+          break;
+        }
+        data.mcpServers[suggestion.name] = suggestion.config;
+        await writeFile(file, `${JSON.stringify(data, null, 2)}\n`);
+        await this.services.mcp?.reload();
+        await this.services.mcp?.startAll();
+        await this.push();
+        void vscode.window.showInformationMessage(`MusabAI: added the "${suggestion.name}" MCP server.${suggestion.note ? ` ${suggestion.note}` : ''}`);
+        break;
+      }
       case 'mcpStart': {
         await this.services.mcp?.reload();
         const servers = this.services.mcp?.status() ?? [];

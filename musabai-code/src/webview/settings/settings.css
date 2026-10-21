@@ -47,3 +47,6 @@ th, td { text-align: start; padding: 6px 8px; border-bottom: 1px solid var(--vsc
 th { font-weight: 600; color: var(--vscode-descriptionForeground); }
 .key-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25)); }
 .key-name { min-width: 200px; }
+.suggested { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25)); border-radius: 6px; }
+.suggested > div { min-width: 0; }
+.suggested > button { flex: none; }
