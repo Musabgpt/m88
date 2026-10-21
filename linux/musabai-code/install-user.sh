@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Installs MusabAI Code for the current user only (no sudo): ~/.local/share/musabai-code,
-# the commands musabai-code and musabai in ~/.local/bin, and a menu entry.
+# the commands musabai-code and musabai-agent in ~/.local/bin, and a menu entry.
 # Run it from the unpacked MusabAI-Code-linux-x64 folder:  ./install-user.sh   (./install-user.sh --uninstall to remove)
 set -eu
 
@@ -12,7 +12,7 @@ APPS="$DATA/applications"
 ICONS="$DATA/icons/hicolor"
 
 if [ "${1:-}" = "--uninstall" ]; then
-	rm -rf "$DEST" "$BIN/musabai-code" "$BIN/musabai" "$APPS/musabai-code.desktop" "$APPS/musabai-code-url-handler.desktop" \
+	rm -rf "$DEST" "$BIN/musabai-code" "$BIN/musabai-agent" "$APPS/musabai-code.desktop" "$APPS/musabai-code-url-handler.desktop" \
 		"$ICONS/512x512/apps/musabai-code.png" "$ICONS/scalable/apps/musabai-code.svg"
 	command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q "$APPS" || true
 	echo "MusabAI Code was removed. Your settings stay in ~/.config/MusabAI Code and ~/.musabai-code."
@@ -34,7 +34,7 @@ mv "$DEST.new" "$DEST"
 
 mkdir -p "$BIN" "$APPS" "$ICONS/512x512/apps" "$ICONS/scalable/apps"
 ln -sf "$DEST/bin/musabai-code" "$BIN/musabai-code"
-ln -sf "$DEST/bin/musabai" "$BIN/musabai"
+ln -sf "$DEST/bin/musabai-agent" "$BIN/musabai-agent"
 cp "$DEST/musabai-code.png" "$ICONS/512x512/apps/musabai-code.png"
 cp "$DEST/musabai-code.svg" "$ICONS/scalable/apps/musabai-code.svg"
 
@@ -72,7 +72,7 @@ command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q
 command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t "$ICONS" 2>/dev/null || true
 
 echo "Done. Open \"MusabAI Code\" from the menu, or run: musabai-code ."
-echo "The terminal agent: musabai"
+echo "The terminal agent: musabai-agent"
 case ":$PATH:" in
 	*":$BIN:"*) ;;
 	*) echo "Add ~/.local/bin to your PATH (log out and in again on Linux Mint) to use the commands." ;;

@@ -43,7 +43,7 @@ SUDO="sudo"
 if [ -n "$DEB" ]; then
 	[ -f "$DEB" ] || die "no such file: $DEB"
 	say "Installing $DEB"
-	$SUDO apt-get install -y "$(readlink -f "$DEB")"
+	$SUDO apt-get install -y --reinstall --allow-downgrades "$(readlink -f "$DEB")"
 	say "Done. Open \"MusabAI Code\" from the menu or run: musabai-code ."
 	exit 0
 fi
@@ -96,14 +96,15 @@ if [ "$MODE" = "user" ]; then
 	rm -rf "$UNPACK"
 else
 	say "Installing the package (sudo)"
-	$SUDO apt-get install -y "$OUT"/musabai-code_*_amd64.deb
+	# --reinstall: a rebuild of the same version (after git pull) still replaces the installed editor.
+	$SUDO apt-get install -y --reinstall --allow-downgrades "$OUT"/musabai-code_*_amd64.deb
 fi
 
 cat <<'EOF'
 
   MusabAI Code is installed.
     • Open "MusabAI Code" from the menu, or run:  musabai-code ~/your-project
-    • Terminal agent:                             musabai
+    • Terminal agent:                             musabai-agent
     • Free models work without any account. Optional: add free keys (Groq, Gemini, OpenRouter…)
       in MusabAI Settings (Ctrl+Shift+J), or run local models with Ollama: https://ollama.com
     • Bring your VS Code / Cursor setup: Ctrl+Shift+P → "MusabAI: Import Settings and Extensions"

@@ -48,20 +48,20 @@ interface Options {
   flags: Record<string, string | boolean>;
 }
 
-const HELP = `${bold('musabai')} — MusabAI terminal agent: a free, Cursor-style coding agent for your terminal.
+const HELP = `${bold('musabai-agent')} — the MusabAI terminal agent: a free, Cursor-style coding agent for your terminal.
 
 ${bold('Usage')}
-  musabai                       start an interactive session in this folder
-  musabai "fix the failing test" start with a first request
-  musabai -p "explain src/app.ts" [--mode ask] [--output-format text|json|stream-json]
-  musabai review [--base main] [--pr 12 --post]   Bugbot review of your changes or a pull request
-  musabai commit [-y] [-a]      write a commit message (and commit with -y; -a stages everything)
-  musabai pr [--base main] [--draft]   push the branch and open a pull request with a written description
-  musabai models                list the free models and their status
-  musabai keys [list | set <provider> [key] | rm <provider>]
-  musabai mcp                   list MCP servers and their tools
-  musabai search "query"        search the codebase index
-  musabai laptop <action> [target] [--text ...]   control this laptop (system_info, open, notify, screenshot…)
+  musabai-agent                       start an interactive session in this folder
+  musabai-agent "fix the failing test" start with a first request
+  musabai-agent -p "explain src/app.ts" [--mode ask] [--output-format text|json|stream-json]
+  musabai-agent review [--base main] [--pr 12 --post]   Bugbot review of your changes or a pull request
+  musabai-agent commit [-y] [-a]      write a commit message (and commit with -y; -a stages everything)
+  musabai-agent pr [--base main] [--draft]   push the branch and open a pull request with a written description
+  musabai-agent models                list the free models and their status
+  musabai-agent keys [list | set <provider> [key] | rm <provider>]
+  musabai-agent mcp                   list MCP servers and their tools
+  musabai-agent search "query"        search the codebase index
+  musabai-agent laptop <action> [target] [--text ...]   control this laptop (system_info, open, notify, screenshot…)
 
 ${bold('Options')}
   -p, --print            run once without interaction and print the answer
@@ -74,7 +74,7 @@ ${bold('Options')}
       --thinking         show the model's reasoning
   -v, --version, -h, --help
 
-Settings: ~/.config/musabai/config.json ({"model", "customModels", "runMode", "allowList", "rules"}); keys: musabai keys.
+Settings: ~/.config/musabai/config.json ({"model", "customModels", "runMode", "allowList", "rules"}); keys: musabai-agent keys.
 In a session: type a request; @path adds a file or folder, @git your uncommitted diff, @https://… a page.
 Commands: /mode /model /models /new /undo /diff /accept /reject /review /commit /rules /mcp /image <file> /help /exit`;
 
@@ -497,7 +497,7 @@ async function printModels(pool: ProviderPool): Promise<void> {
       group = g;
       process.stdout.write(`\n${bold(group)}\n`);
     }
-    process.stdout.write(`  ${m.ready ? green('●') : dim('○')} ${m.id.padEnd(38)} ${dim(m.ready ? m.note ?? '' : `needs a key: musabai keys set ${m.secretId}`)}\n`);
+    process.stdout.write(`  ${m.ready ? green('●') : dim('○')} ${m.id.padEnd(38)} ${dim(m.ready ? m.note ?? '' : `needs a key: musabai-agent keys set ${m.secretId}`)}\n`);
   }
 }
 
@@ -606,7 +606,7 @@ async function keys(o: Options): Promise<number> {
     process.stdout.write(`removed the ${known.name} key\n`);
     return 0;
   }
-  throw new Error('usage: musabai keys [list | set <provider> [key] | rm <provider>]');
+  throw new Error('usage: musabai-agent keys [list | set <provider> [key] | rm <provider>]');
 }
 
 async function main(): Promise<number> {
@@ -614,7 +614,7 @@ async function main(): Promise<number> {
   const o = parse(process.argv.slice(2));
   if (!process.env.MUSABAI_MODEL && config.model && !process.argv.slice(2).some((a) => a === '-m' || a === '--model')) o.model = config.model;
   if (o.command === 'help') return void process.stdout.write(`${HELP}\n`), 0;
-  if (o.command === 'version') return void process.stdout.write(`musabai ${VERSION}\n`), 0;
+  if (o.command === 'version') return void process.stdout.write(`musabai-agent ${VERSION}\n`), 0;
   const pool = makePool(adHocModel(o));
   switch (o.command) {
     case 'models':
@@ -661,7 +661,7 @@ async function main(): Promise<number> {
       });
       if (piped.trim()) prompt = prompt ? `${prompt}\n\n<stdin>\n${piped}\n</stdin>` : piped;
     }
-    if (!prompt.trim()) throw new Error('nothing to do: musabai -p "your request"');
+    if (!prompt.trim()) throw new Error('nothing to do: musabai-agent -p "your request"');
     const result = await session.run(prompt);
     const changed = (await session.changes.summary()).map((c) => relPath(o.cwd, c.path));
     if (o.format === 'json') process.stdout.write(`${JSON.stringify({ result: result.text, status: result.reason, error: result.error, model: result.modelId, files_changed: changed })}\n`);
@@ -670,7 +670,7 @@ async function main(): Promise<number> {
     session.host.disposeProcesses();
     return result.reason === 'error' ? 1 : 0;
   }
-  if (!process.stdin.isTTY) throw new Error('not a terminal: use musabai -p "request" for scripts');
+  if (!process.stdin.isTTY) throw new Error('not a terminal: use musabai-agent -p "request" for scripts');
   await session.interactive(o.prompt);
   return 0;
 }

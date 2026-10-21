@@ -65,6 +65,7 @@ def fake_extension(root: Path) -> Path:
     (ext / "package.json").write_text(json.dumps(manifest))
     (ext / "dist" / "extension.js").write_text("exports.activate=()=>{}")
     (ext / "dist" / "extension.js.map").write_text("{}")
+    (ext / "dist" / "musabai-code.vsix").write_bytes(b"PK")
     (ext / "dist" / "cli.js").write_text("#!/usr/bin/env node\n")
     (ext / "dist" / "webview" / "chat.js").write_text("")
     (ext / "media" / "icon.svg").write_text(SVG)
@@ -124,11 +125,11 @@ class BuildEditorTest(unittest.TestCase):
         self.assertTrue((self.app / "musabai-code").exists())
         self.assertFalse((self.app / "codium").exists())
         self.assertFalse((self.app / "bin" / "codium").exists())
-        for name in ("musabai-code", "musabai"):
+        for name in ("musabai-code", "musabai-agent"):
             launcher = self.app / "bin" / name
             self.assertTrue(launcher.stat().st_mode & 0o111, name)
             subprocess.run(["sh", "-n", str(launcher)], check=True)
-        self.assertIn("extensions/musabai-code/dist/cli.js", (self.app / "bin" / "musabai").read_text())
+        self.assertIn("extensions/musabai-code/dist/cli.js", (self.app / "bin" / "musabai-agent").read_text())
         self.assertIn("apparmor_restrict_unprivileged_userns", (self.app / "bin" / "musabai-code").read_text())
 
     def test_builds_in_the_extension_and_the_cursor_style_defaults(self):
@@ -138,6 +139,7 @@ class BuildEditorTest(unittest.TestCase):
             self.assertNotIn(key, manifest)
         self.assertTrue((builtin / "musabai-code" / "dist" / "extension.js").exists())
         self.assertFalse((builtin / "musabai-code" / "dist" / "extension.js.map").exists())
+        self.assertFalse((builtin / "musabai-code" / "dist" / "musabai-code.vsix").exists())
         defaults = json.loads((builtin / "musabai-defaults" / "package.json").read_text())["contributes"]["configurationDefaults"]
         self.assertEqual(defaults["workbench.colorTheme"], "MusabAI Dark")
         self.assertTrue(defaults["chat.disableAIFeatures"])
@@ -161,7 +163,8 @@ class BuildEditorTest(unittest.TestCase):
         contents = subprocess.run(["dpkg-deb", "-c", str(self.deb)], check=True, capture_output=True, text=True).stdout
         self.assertRegex(contents, r"rwsr-xr-x root/root .* \./usr/share/musabai-code/chrome-sandbox")
         self.assertRegex(contents, r"\./usr/bin/musabai-code -> /usr/share/musabai-code/bin/musabai-code")
-        self.assertRegex(contents, r"\./usr/bin/musabai -> /usr/share/musabai-code/bin/musabai")
+        self.assertRegex(contents, r"\./usr/bin/musabai-agent -> /usr/share/musabai-code/bin/musabai-agent")
+        self.assertNotIn("./usr/bin/musabai ", contents, "/usr/bin/musabai belongs to the MusabAI desktop app")
         for path in ("usr/share/applications/musabai-code.desktop", "usr/share/applications/musabai-code-url-handler.desktop",
                      "usr/share/icons/hicolor/512x512/apps/musabai-code.png", "usr/share/icons/hicolor/scalable/apps/musabai-code.svg",
                      "usr/share/musabai-code/resources/apparmor/musabai-code"):

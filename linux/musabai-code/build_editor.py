@@ -26,6 +26,8 @@ from pathlib import Path
 
 APP_ID = "musabai-code"
 APP_NAME = "MusabAI Code"
+# The terminal agent, like Cursor's cursor-agent (/usr/bin/musabai already starts the MusabAI desktop app).
+AGENT_COMMAND = "musabai-agent"
 INSTALL_DIR = f"/usr/share/{APP_ID}"
 HOMEPAGE = "https://github.com/Musabgpt/m88"
 MAINTAINER = "Musabgpt <mgpt6zu@gmail.com>"
@@ -127,7 +129,7 @@ exit $?
 """
 
 AGENT_LAUNCHER = f"""#!/usr/bin/env sh
-# musabai: the MusabAI terminal agent, run by the editor's bundled runtime (no Node.js install needed).
+# musabai-agent: the MusabAI terminal agent, run by the editor's bundled runtime (no Node.js install needed).
 APP_PATH="$(dirname "$(readlink -f "$0")")/.."
 ELECTRON_RUN_AS_NODE=1 exec "$APP_PATH/{APP_ID}" "$APP_PATH/resources/app/extensions/{APP_ID}/dist/cli.js" "$@"
 """
@@ -277,7 +279,7 @@ def rebrand(app: Path, icon_png: Path) -> list[str]:
         if target.exists():
             target.unlink()
     write_exec(app / "bin" / APP_ID, EDITOR_LAUNCHER)
-    write_exec(app / "bin" / "musabai", AGENT_LAUNCHER)
+    write_exec(app / "bin" / AGENT_COMMAND, AGENT_LAUNCHER)
     linux_icon = resources / "resources" / "linux" / "code.png"
     shutil.copyfile(icon_png, linux_icon)
     return patched
@@ -320,7 +322,7 @@ def inject_extensions(app: Path, extension: Path) -> None:
     for key in ("scripts", "devDependencies", "dependencies", "private"):
         manifest.pop(key, None)
     (target / "package.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
-    shutil.copytree(extension / "dist", target / "dist", ignore=shutil.ignore_patterns("*.map"))
+    shutil.copytree(extension / "dist", target / "dist", ignore=shutil.ignore_patterns("*.map", "*.vsix"))
     for folder in ("media", "themes"):
         shutil.copytree(extension / folder, target / folder)
     for name in ("README.md", "CHANGELOG.md"):
@@ -393,7 +395,7 @@ def build_deb(app: Path, out: Path, version: str, icon_svg: Path, sized: dict[in
     bin_dir = root / "usr" / "bin"
     bin_dir.mkdir(parents=True)
     os.symlink(f"{INSTALL_DIR}/bin/{APP_ID}", bin_dir / APP_ID)
-    os.symlink(f"{INSTALL_DIR}/bin/musabai", bin_dir / "musabai")
+    os.symlink(f"{INSTALL_DIR}/bin/{AGENT_COMMAND}", bin_dir / AGENT_COMMAND)
     apps = root / "usr" / "share" / "applications"
     apps.mkdir(parents=True)
     (apps / f"{APP_ID}.desktop").write_text(desktop_entry(f"{INSTALL_DIR}/{APP_ID}", APP_ID))
@@ -433,7 +435,7 @@ def build_deb(app: Path, out: Path, version: str, icon_svg: Path, sized: dict[in
         " autocomplete, terminal, Git and GitHub tools (pull requests, Bugbot reviews,\n"
         " background agents), MCP and project rules - all with free models (no account\n"
         " needed) or local models. Extensions install from Open VSX. Includes the\n"
-        " musabai terminal agent.\n"
+        f" {AGENT_COMMAND} terminal agent.\n"
     )
     (debian / "postinst").write_text(f"""#!/bin/sh
 set -e

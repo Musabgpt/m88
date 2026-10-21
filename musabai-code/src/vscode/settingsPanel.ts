@@ -117,7 +117,7 @@ export class SettingsPanel implements vscode.Disposable {
         if (!info) break;
         const value = await vscode.window.showInputBox({ title: `${info.name} API key`, prompt: `Free key from ${info.url}. Stored in your system keyring; the terminal agent can use it too.`, password: true, ignoreFocusOut: true });
         if (value === undefined) break;
-        const both = await vscode.window.showQuickPick(['Editor and terminal agent (musabai)', 'Editor only'], { title: 'Where should this key work?' });
+        const both = await vscode.window.showQuickPick(['Editor and terminal agent (musabai-agent)', 'Editor only'], { title: 'Where should this key work?' });
         await this.services.setKey(info.id, value, both !== 'Editor only');
         void vscode.window.showInformationMessage(value ? t('Key saved.') : t('Key removed.'));
         break;

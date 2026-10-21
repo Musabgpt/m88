@@ -82,7 +82,7 @@ export function systemPrompt(ctx: PromptContext): string {
   if (ctx.editor?.activeFile) env.push(`Active file: ${ctx.editor.activeFile}${ctx.editor.cursorLine ? ` (cursor at line ${ctx.editor.cursorLine})` : ''}`);
   if (ctx.editor?.selection) env.push(`Selected: ${ctx.editor.selection.file} lines ${ctx.editor.selection.startLine}-${ctx.editor.selection.endLine}`);
   if (ctx.editor?.openFiles?.length) env.push(`Open tabs: ${ctx.editor.openFiles.slice(0, 15).join(', ')}`);
-  env.push(`Running in: ${ctx.surface === 'editor' ? 'the MusabAI Code editor' : ctx.surface === 'terminal' ? 'the musabai terminal agent' : 'a background agent on a separate git worktree (work autonomously; do not wait for the user)'}`);
+  env.push(`Running in: ${ctx.surface === 'editor' ? 'the MusabAI Code editor' : ctx.surface === 'terminal' ? 'the musabai-agent terminal agent' : 'a background agent on a separate git worktree (work autonomously; do not wait for the user)'}`);
 
   const parts = [
     CORE,
