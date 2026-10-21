@@ -3,3 +3,4 @@ dist/
 dist-test/
 .vscode-test/
 *.vsix
+dist-integration/

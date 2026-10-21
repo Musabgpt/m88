@@ -74,7 +74,7 @@ export const runTerminalCmd: Tool = {
     return {
       ok: result.exitCode === 0,
       content: `$ ${command}\n${truncateMiddle(clean, MODEL_OUTPUT_CHARS) || '(no output)'}\n[${status}, ${seconds} s]`,
-      summary: `Ran ${command} (${result.timedOut ? 'timed out' : result.killed ? 'stopped' : `exit ${result.exitCode}`})`,
+      summary: result.timedOut ? `Ran ${command} (timed out)` : result.killed ? `Ran ${command} (stopped)` : `Ran ${command}`,
       detail: truncateMiddle(clean, UI_OUTPUT_CHARS),
       meta: { command, exitCode: result.exitCode, timedOut: result.timedOut, durationMs: result.durationMs },
     };

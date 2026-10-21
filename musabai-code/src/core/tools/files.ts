@@ -93,7 +93,7 @@ export const listDir: Tool = {
     };
     await walk(abs, 1, '');
     if (count >= 400) lines.push('… (listing truncated at 400 entries; list a subdirectory)');
-    return { ok: true, content: `${rel}/\n${lines.join('\n') || '(empty)'}`, summary: `Listed ${rel}`, meta: { path: abs } };
+    return { ok: true, content: `${rel}/\n${lines.join('\n') || '(empty)'}`, summary: rel === '.' ? 'Listed the project folder' : `Listed ${rel}/`, meta: { path: abs } };
   },
 };
 

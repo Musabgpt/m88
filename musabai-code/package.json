@@ -1,24 +1,874 @@
 {
   "name": "musabai-code",
   "displayName": "MusabAI Code",
-  "description": "Free Cursor-style AI for VS Code: Agent, Plan and Ask chat, Ctrl+K inline edits, Tab autocomplete, terminal and GitHub tools, using free and local models.",
+  "description": "Free Cursor-style AI for VS Code: Agent, Plan and Ask chat, Ctrl+K inline edits, Tab autocomplete, terminal, GitHub and laptop tools — using free and local models.",
   "version": "0.1.0",
   "publisher": "musabai",
+  "icon": "media/icon.png",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Musabgpt/m88"
+  },
   "engines": {
     "vscode": "^1.105.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages",
+    "Machine Learning",
+    "Themes"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "cursor",
+    "free",
+    "chat",
+    "copilot",
+    "autocomplete",
+    "mcp",
+    "arabic"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode MusabAI asks before every command and does not start project MCP servers."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "musabai",
+          "title": "MusabAI",
+          "icon": "media/musabai.svg"
+        }
+      ]
+    },
+    "views": {
+      "musabai": [
+        {
+          "type": "webview",
+          "id": "musabai.chat",
+          "name": "Chat",
+          "icon": "media/musabai.svg"
+        }
+      ],
+      "scm": [
+        {
+          "id": "musabai.backgroundAgents",
+          "name": "MusabAI Background Agents",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "musabai.backgroundAgents",
+        "contents": "Background agents work on their own copy of the project (a git worktree) while you keep coding, then you review, apply or open a pull request.\n[New background agent](command:musabai.background.new)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "musabai.chat.open",
+        "title": "Open Chat",
+        "category": "MusabAI",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "musabai.chat.new",
+        "title": "New Chat",
+        "category": "MusabAI",
+        "icon": "$(add)"
+      },
+      {
+        "command": "musabai.chat.newAgent",
+        "title": "New Agent Chat",
+        "category": "MusabAI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "musabai.chat.addSelection",
+        "title": "Add Selection to Chat",
+        "category": "MusabAI",
+        "icon": "$(add)"
+      },
+      {
+        "command": "musabai.chat.stop",
+        "title": "Stop the Agent",
+        "category": "MusabAI",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "musabai.explainSelection",
+        "title": "Explain This Code",
+        "category": "MusabAI",
+        "icon": "$(question)"
+      },
+      {
+        "command": "musabai.inlineEdit",
+        "title": "Edit with AI (Ctrl+K)",
+        "category": "MusabAI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "musabai.inlineEdit.accept",
+        "title": "Accept Inline Edit",
+        "category": "MusabAI",
+        "icon": "$(check)"
+      },
+      {
+        "command": "musabai.inlineEdit.reject",
+        "title": "Reject Inline Edit",
+        "category": "MusabAI",
+        "icon": "$(close)"
+      },
+      {
+        "command": "musabai.inlineEdit.acceptBlock",
+        "title": "Accept Change",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.inlineEdit.rejectBlock",
+        "title": "Reject Change",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.acceptActive",
+        "title": "Accept Changes in Editor",
+        "category": "MusabAI",
+        "icon": "$(check)"
+      },
+      {
+        "command": "musabai.rejectActive",
+        "title": "Reject Changes in Editor",
+        "category": "MusabAI",
+        "icon": "$(close)"
+      },
+      {
+        "command": "musabai.review.acceptFile",
+        "title": "Accept Agent Changes in File",
+        "category": "MusabAI",
+        "icon": "$(check)"
+      },
+      {
+        "command": "musabai.review.rejectFile",
+        "title": "Reject Agent Changes in File",
+        "category": "MusabAI",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "musabai.review.acceptHunk",
+        "title": "Accept Change",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.review.rejectHunk",
+        "title": "Reject Change",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.review.openDiff",
+        "title": "Show Agent Changes (Diff)",
+        "category": "MusabAI",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "musabai.review.all",
+        "title": "Review All Agent Changes",
+        "category": "MusabAI",
+        "icon": "$(diff-multiple)"
+      },
+      {
+        "command": "musabai.review.acceptAll",
+        "title": "Accept All Agent Changes",
+        "category": "MusabAI",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "musabai.review.rejectAll",
+        "title": "Reject All Agent Changes",
+        "category": "MusabAI",
+        "icon": "$(close-all)"
+      },
+      {
+        "command": "musabai.tab.toggle",
+        "title": "Toggle Tab Autocomplete",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.terminal.generateCommand",
+        "title": "Generate Terminal Command (Ctrl+K)",
+        "category": "MusabAI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "musabai.terminal.addToChat",
+        "title": "Add Terminal Output to Chat",
+        "category": "MusabAI",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "musabai.scm.generateCommitMessage",
+        "title": "Generate Commit Message",
+        "category": "MusabAI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "musabai.github.signIn",
+        "title": "Sign in to GitHub",
+        "category": "MusabAI",
+        "icon": "$(github)"
+      },
+      {
+        "command": "musabai.github.createPullRequest",
+        "title": "Create Pull Request with AI Description",
+        "category": "MusabAI",
+        "icon": "$(git-pull-request-create)"
+      },
+      {
+        "command": "musabai.github.review",
+        "title": "Bugbot: Review Changes for Bugs",
+        "category": "MusabAI",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "musabai.github.fixIssue",
+        "title": "Fix a GitHub Issue",
+        "category": "MusabAI",
+        "icon": "$(issues)"
+      },
+      {
+        "command": "musabai.github.fixCI",
+        "title": "Fix Failing GitHub Actions",
+        "category": "MusabAI",
+        "icon": "$(github-action)"
+      },
+      {
+        "command": "musabai.background.new",
+        "title": "New Background Agent",
+        "category": "MusabAI",
+        "icon": "$(add)"
+      },
+      {
+        "command": "musabai.background.stop",
+        "title": "Stop",
+        "category": "MusabAI",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "musabai.background.review",
+        "title": "Review Changes",
+        "category": "MusabAI",
+        "icon": "$(diff-multiple)"
+      },
+      {
+        "command": "musabai.background.apply",
+        "title": "Apply to Workspace",
+        "category": "MusabAI",
+        "icon": "$(check)"
+      },
+      {
+        "command": "musabai.background.createPr",
+        "title": "Create Pull Request",
+        "category": "MusabAI",
+        "icon": "$(git-pull-request-create)"
+      },
+      {
+        "command": "musabai.background.discard",
+        "title": "Discard",
+        "category": "MusabAI",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "musabai.background.openWorktree",
+        "title": "Open Worktree in New Window",
+        "category": "MusabAI",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "musabai.background.showLog",
+        "title": "Show Log",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.background.diffFile",
+        "title": "Show Diff",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.openSettings",
+        "title": "MusabAI Settings",
+        "category": "MusabAI",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "musabai.selectModel",
+        "title": "Select Model",
+        "category": "MusabAI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "musabai.rules.new",
+        "title": "New Project Rule",
+        "category": "MusabAI",
+        "icon": "$(law)"
+      },
+      {
+        "command": "musabai.index.rebuild",
+        "title": "Re-index Codebase",
+        "category": "MusabAI",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "musabai.import",
+        "title": "Import Settings and Extensions from VS Code / Cursor",
+        "category": "MusabAI",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "musabai.walkthrough",
+        "title": "Welcome Tour",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.fixDiagnostic",
+        "title": "Fix with MusabAI",
+        "category": "MusabAI"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "musabai.chat.open",
+        "key": "ctrl+l",
+        "mac": "cmd+l",
+        "when": "!terminalFocus"
+      },
+      {
+        "command": "musabai.chat.addSelection",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "musabai.chat.newAgent",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "!terminalFocus && !inlineChatVisible"
+      },
+      {
+        "command": "musabai.inlineEdit",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "when": "editorTextFocus && !editorReadonly && config.musabai.inlineEdit.ctrlK"
+      },
+      {
+        "command": "musabai.terminal.generateCommand",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "when": "terminalFocus && config.musabai.inlineEdit.ctrlK"
+      },
+      {
+        "command": "musabai.acceptActive",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && musabai.inlineDiffVisible"
+      },
+      {
+        "command": "musabai.rejectActive",
+        "key": "ctrl+backspace",
+        "mac": "cmd+backspace",
+        "when": "editorTextFocus && musabai.inlineDiffVisible"
+      },
+      {
+        "command": "musabai.openSettings",
+        "key": "ctrl+shift+j",
+        "mac": "cmd+shift+j"
+      },
+      {
+        "command": "musabai.chat.stop",
+        "key": "ctrl+shift+backspace",
+        "mac": "cmd+shift+backspace",
+        "when": "focusedView == musabai.chat"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "musabai.inlineEdit.acceptBlock",
+          "when": "false"
+        },
+        {
+          "command": "musabai.inlineEdit.rejectBlock",
+          "when": "false"
+        },
+        {
+          "command": "musabai.review.acceptHunk",
+          "when": "false"
+        },
+        {
+          "command": "musabai.review.rejectHunk",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.stop",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.review",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.apply",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.createPr",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.discard",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.openWorktree",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.showLog",
+          "when": "false"
+        },
+        {
+          "command": "musabai.background.diffFile",
+          "when": "false"
+        },
+        {
+          "command": "musabai.fixDiagnostic",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "musabai.review.acceptFile",
+          "when": "musabai.pendingChangesInEditor",
+          "group": "navigation@1"
+        },
+        {
+          "command": "musabai.review.rejectFile",
+          "when": "musabai.pendingChangesInEditor",
+          "group": "navigation@2"
+        },
+        {
+          "command": "musabai.review.openDiff",
+          "when": "musabai.pendingChangesInEditor",
+          "group": "navigation@3"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "musabai.chat.addSelection",
+          "when": "editorHasSelection",
+          "group": "0_musabai@1"
+        },
+        {
+          "command": "musabai.inlineEdit",
+          "when": "!editorReadonly",
+          "group": "0_musabai@2"
+        },
+        {
+          "command": "musabai.explainSelection",
+          "when": "editorHasSelection",
+          "group": "0_musabai@3"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "musabai.scm.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "navigation@-1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "musabai.background.new",
+          "when": "view == musabai.backgroundAgents",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "musabai.background.review",
+          "when": "view == musabai.backgroundAgents && viewItem =~ /^bg-(done|failed|stopped)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "musabai.background.apply",
+          "when": "view == musabai.backgroundAgents && viewItem =~ /^bg-(done|stopped)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "musabai.background.createPr",
+          "when": "view == musabai.backgroundAgents && viewItem == bg-done",
+          "group": "inline@3"
+        },
+        {
+          "command": "musabai.background.stop",
+          "when": "view == musabai.backgroundAgents && viewItem == bg-running",
+          "group": "inline@1"
+        },
+        {
+          "command": "musabai.background.openWorktree",
+          "when": "view == musabai.backgroundAgents && viewItem =~ /^bg-/",
+          "group": "1@1"
+        },
+        {
+          "command": "musabai.background.discard",
+          "when": "view == musabai.backgroundAgents && viewItem =~ /^bg-/",
+          "group": "1@2"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "musabai.terminal.addToChat",
+          "group": "0_musabai"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MusabAI",
+      "properties": {
+        "musabai.model": {
+          "type": "string",
+          "default": "kilo-auto/free",
+          "markdownDescription": "Chat and agent model. `kilo-auto/free` needs no key; `auto` picks the best free model available. All models are free; run **MusabAI: Select Model** to choose."
+        },
+        "musabai.mode": {
+          "type": "string",
+          "default": "agent",
+          "markdownDescription": "Chat mode: `agent`, `plan`, `ask`, `manual`, or a custom mode id."
+        },
+        "musabai.language": {
+          "type": "string",
+          "default": "auto",
+          "markdownDescription": "Language of the MusabAI interface.",
+          "enum": [
+            "auto",
+            "ar",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Same as the editor",
+            "العربية",
+            "English"
+          ]
+        },
+        "musabai.agent.runMode": {
+          "type": "string",
+          "default": "allowlist",
+          "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask.",
+          "enum": [
+            "ask",
+            "allowlist",
+            "auto"
+          ],
+          "enumDescriptions": [
+            "Ask every time",
+            "Run read-only and allow-listed commands, ask for the rest",
+            "Auto-run (YOLO) except risky commands"
+          ]
+        },
+        "musabai.agent.allowList": {
+          "type": "array",
+          "default": [
+            "npm test",
+            "npm run test",
+            "npm run lint",
+            "npm run build",
+            "pnpm test",
+            "yarn test",
+            "pytest",
+            "python3 -m pytest",
+            "cargo test",
+            "cargo build",
+            "go test",
+            "go build",
+            "make test"
+          ],
+          "markdownDescription": "Command prefixes the agent may run without asking (allowlist mode).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.agent.denyList": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Command prefixes that always ask, in every mode.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.agent.maxSteps": {
+          "type": "number",
+          "default": 60,
+          "markdownDescription": "Maximum tool steps per request.",
+          "minimum": 5,
+          "maximum": 300
+        },
+        "musabai.agent.disabledTools": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Tool names the agent must not use (e.g. `web_search`, `#laptop`).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.agent.revealTerminal": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the **MusabAI Agent** terminal while the agent runs commands."
+        },
+        "musabai.laptop.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Let the agent use the laptop: apps, browser pages, notifications, clipboard, screenshots, windows, keyboard and mouse. Actions that change something ask first."
+        },
+        "musabai.rules.user": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Your rules for the AI in every project (like Cursor's *Rules for AI*).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.customModes": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Custom chat modes: `{ \"name\": \"Docs\", \"tools\": [\"#readonly\", \"write_file\"], \"instructions\": \"...\" }`.",
+          "items": {
+            "type": "object"
+          }
+        },
+        "musabai.models.custom": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Extra OpenAI-compatible endpoints: `{ \"id\", \"name\", \"baseUrl\", \"model\", \"apiKeyEnv\", \"free\": true, \"capabilities\": [\"text\",\"tools\",\"streaming\"] }`. Only endpoints marked `free` are used for automatic failover.",
+          "items": {
+            "type": "object"
+          }
+        },
+        "musabai.models.discoverKilo": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Discover the free (zero-price, tool-capable) models of the Kilo gateway. No key needed."
+        },
+        "musabai.models.discoverLocal": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Detect local model servers: Ollama, LM Studio and llama.cpp."
+        },
+        "musabai.local.ollamaUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Ollama URL (default `http://127.0.0.1:11434`)."
+        },
+        "musabai.local.lmstudioUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "LM Studio URL (default `http://127.0.0.1:1234/v1`)."
+        },
+        "musabai.local.llamacppUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "llama.cpp server URL (default `http://127.0.0.1:8080`)."
+        },
+        "musabai.tab.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Tab autocomplete (ghost text)."
+        },
+        "musabai.tab.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Model for Tab when no fill-in-the-middle model (Codestral key, Ollama coder model, llama.cpp) is available. Empty: the chat model."
+        },
+        "musabai.tab.chatFallback": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Use the free chat model for Tab when no fill-in-the-middle model is available (slower)."
+        },
+        "musabai.tab.debounceMs": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Delay before requesting a completion, in milliseconds (0: automatic)."
+        },
+        "musabai.tab.disabledLanguages": {
+          "type": "array",
+          "default": [
+            "plaintext",
+            "markdown",
+            "scminput"
+          ],
+          "markdownDescription": "Languages without Tab autocomplete.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.inlineEdit.ctrlK": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Use **Ctrl+K** for inline edits in the editor and command generation in the terminal, like Cursor (VS Code chords that start with Ctrl+K are not available in the editor while this is on)."
+        },
+        "musabai.inlineEdit.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Model for inline edits (Ctrl+K). Empty: the chat model."
+        },
+        "musabai.index.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Keep a local search index of the project for `codebase_search` and @Codebase. Nothing is uploaded."
+        },
+        "musabai.index.maxFiles": {
+          "type": "number",
+          "default": 8000,
+          "markdownDescription": "Maximum number of files to index."
+        },
+        "musabai.mcp.disabledServers": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "MCP servers (by name) that should not start.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "musabai.showWelcome": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the welcome tour the first time."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "terminal.integrated.commandsToSkipShell": [
+        "musabai.terminal.generateCommand"
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "musabai.welcome",
+        "title": "Get started with MusabAI Code",
+        "description": "A free, Cursor-style AI editor for Linux: chat, agent, inline edits, Tab, terminal and GitHub.",
+        "steps": [
+          {
+            "id": "free",
+            "title": "Free AI, no account needed",
+            "description": "MusabAI starts with the keyless **Kilo** free model and moves to the next free provider automatically when one is busy. Add free keys (Groq, Gemini, OpenRouter, NVIDIA, Zhipu, Mistral) or a local Ollama model for more capacity.\n[Open the chat](command:musabai.chat.open)\n[Choose a model](command:musabai.selectModel)",
+            "media": {
+              "markdown": "media/walkthrough/free.md"
+            }
+          },
+          {
+            "id": "agent",
+            "title": "Chat and Agent — Ctrl+L / Ctrl+I",
+            "description": "Ask questions (Ask), plan (Plan) or let the agent build: it reads your code, edits files, runs commands and checks its work. Type **@** to add files, folders, git diffs, docs or the terminal; **/** for commands.\n[New agent chat](command:musabai.chat.newAgent)",
+            "media": {
+              "markdown": "media/walkthrough/agent.md"
+            }
+          },
+          {
+            "id": "review",
+            "title": "Review every change",
+            "description": "Agent edits are applied and highlighted: accept or reject each change with the buttons in the editor or the chat, open the diff, or restore a checkpoint to undo a whole request.\n[Review agent changes](command:musabai.review.all)",
+            "media": {
+              "markdown": "media/walkthrough/review.md"
+            }
+          },
+          {
+            "id": "inline",
+            "title": "Edit in place — Ctrl+K",
+            "description": "Select code and press **Ctrl+K**: describe the change, then accept (**Ctrl+Enter**) or reject (**Ctrl+Backspace**) the red/green diff. With nothing selected it writes new code at the cursor.\n[Try inline edit](command:musabai.inlineEdit)",
+            "media": {
+              "markdown": "media/walkthrough/inline.md"
+            }
+          },
+          {
+            "id": "tab",
+            "title": "Tab autocomplete",
+            "description": "Ghost-text completions as you type; **Tab** accepts. For the fastest Tab add a free Codestral key or pull a small coder model with Ollama.\n[Toggle Tab](command:musabai.tab.toggle)",
+            "media": {
+              "markdown": "media/walkthrough/tab.md"
+            }
+          },
+          {
+            "id": "terminal",
+            "title": "Terminal",
+            "description": "Press **Ctrl+K** in a terminal to turn a description into a command. Commands the agent runs appear in the **MusabAI Agent** terminal and follow your approval settings.\n[Generate a command](command:musabai.terminal.generateCommand)",
+            "media": {
+              "markdown": "media/walkthrough/terminal.md"
+            }
+          },
+          {
+            "id": "github",
+            "title": "GitHub",
+            "description": "Sign in for AI pull requests, **Bugbot** reviews, fixing issues and failing Actions. Background agents work on their own git worktree and can open a pull request.\n[Sign in to GitHub](command:musabai.github.signIn)\n[Bugbot review](command:musabai.github.review)",
+            "media": {
+              "markdown": "media/walkthrough/github.md"
+            }
+          },
+          {
+            "id": "import",
+            "title": "Bring your setup",
+            "description": "Import settings, keybindings, snippets and extensions from VS Code, VSCodium or Cursor (extensions come from Open VSX).\n[Import now](command:musabai.import)",
+            "media": {
+              "markdown": "media/walkthrough/import.md"
+            }
+          },
+          {
+            "id": "rules",
+            "title": "Rules and MCP",
+            "description": "Project rules in `.cursor/rules/*.mdc`, `.cursorrules` and `AGENTS.md` work as in Cursor, and so does `mcp.json`.\n[New rule](command:musabai.rules.new)\n[Settings](command:musabai.openSettings)",
+            "media": {
+              "markdown": "media/walkthrough/rules.md"
+            }
+          },
+          {
+            "id": "laptop",
+            "title": "Use the laptop",
+            "description": "Ask the agent to open apps or pages, show notifications, use the clipboard, take screenshots or press keys on your Linux laptop. Anything that changes something asks first.\n[Settings](command:musabai.openSettings)",
+            "media": {
+              "markdown": "media/walkthrough/laptop.md"
+            }
+          }
+        ]
+      }
+    ],
+    "themes": [
+      {
+        "label": "MusabAI Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/musabai-dark-color-theme.json"
+      }
+    ]
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/webview/tsconfig.json --noEmit",
     "test": "node scripts/build.mjs --tests && node --enable-source-maps --test --test-concurrency=4 dist-test/*.test.js",
-    "test:integration": "node scripts/build.mjs && node test/integration/run.mjs",
+    "test:integration": "node scripts/build.mjs --integration && node test/integration/run.mjs",
     "package": "node scripts/build.mjs --production && vsce package --no-dependencies --skip-license --allow-missing-repository -o dist/musabai-code.vsix"
   },
   "devDependencies": {
     "@types/node": "22.19.1",
     "@types/vscode": "1.105.0",
+    "@vscode/codicons": "0.0.46-24",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",

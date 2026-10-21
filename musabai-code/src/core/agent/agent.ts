@@ -101,6 +101,16 @@ export class AgentSession {
     this.allowed.add(key);
   }
 
+  snapshot(): { history: ChatMessage[]; todos: TodoItem[]; turnStarts: { turnId: string; index: number }[] } {
+    return { history: this.history, todos: this.todos, turnStarts: [...this.turnStarts] };
+  }
+
+  restoreSnapshot(data: { history?: ChatMessage[]; todos?: TodoItem[]; turnStarts?: { turnId: string; index: number }[] } | undefined): void {
+    this.history = data?.history ?? [];
+    this.todos = data?.todos ?? [];
+    this.turnStarts.splice(0, this.turnStarts.length, ...(data?.turnStarts ?? []));
+  }
+
   /** Drops this turn and everything after it from the conversation (checkpoint restore). */
   truncateFrom(turnId: string): boolean {
     const at = this.turnStarts.findIndex((t) => t.turnId === turnId);

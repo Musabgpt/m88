@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { mkdir, readdir, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,6 +8,7 @@ const args = new Set(process.argv.slice(2));
 const production = args.has('--production');
 const watch = args.has('--watch');
 const tests = args.has('--tests');
+const integration = args.has('--integration');
 
 const common = {
   absWorkingDir: root,
@@ -38,6 +39,7 @@ if (tests) {
   builds.push({ ...node, entryPoints: entries, outdir: 'dist-test', sourcemap: 'inline' });
 } else {
   await rm(path.join(root, 'dist'), { recursive: true, force: true });
+  if (integration) builds.push({ ...node, entryPoints: ['test/integration/suite.ts'], outfile: 'dist-integration/suite.js', external: ['vscode'], sourcemap: 'inline' });
 }
 
 if (watch) {
@@ -48,4 +50,11 @@ if (watch) {
   console.log('watching for changes...');
 } else {
   await Promise.all(builds.map((options) => esbuild.build(options)));
+}
+
+if (!tests) {
+  const codicons = path.join(root, 'node_modules', '@vscode', 'codicons', 'dist');
+  await mkdir(path.join(root, 'dist', 'webview'), { recursive: true });
+  for (const name of ['codicon.css', 'codicon.ttf']) await copyFile(path.join(codicons, name), path.join(root, 'dist', 'webview', name));
+  await chmod(path.join(root, 'dist', 'cli.js'), 0o755).catch(() => undefined);
 }
