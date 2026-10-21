@@ -31,3 +31,27 @@ sudo apt install python3 python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webki
 ```
 
 The AppImage supports `APPIMAGE_EXTRACT_AND_RUN=1` for systems where FUSE mounting is unavailable. No package runs as root. The application binds its local UI server only to `127.0.0.1`.
+
+## MusabAI Code
+
+MusabAI Code is the Cursor-style editor described in [musabai-code/README.md](musabai-code/README.md). It is an
+Electron app (VSCodium 1.140) for the same x86_64 Ubuntu 24.04 / Linux Mint 22 target, and does not need Python,
+WebKitGTK or the NewAl engine.
+
+Its agent brings the desktop counterpart of the phone-control row above, **laptop control**:
+- opening apps and URLs, and notifications;
+- volume (`pactl`) and media (`playerctl`);
+- the clipboard (`xclip` or `xsel`);
+- screenshots (`gnome-screenshot` on Linux Mint, or scrot, maim, ImageMagick, spectacle, xfce4-screenshooter or grim);
+- window listing and focus (`wmctrl` or `xdotool`);
+- typing, keys and clicks (`xdotool`);
+- locking the screen (`cinnamon-screensaver-command`, `loginctl` or `xdg-screensaver`), and system information.
+
+Every action that changes something asks first. A Wayland session loses window, typing and click control; the other
+actions keep working.
+
+The `.deb` installs to `/usr/share/musabai-code` with the commands `musabai-code` and `musabai-agent`. It has a
+set-uid `chrome-sandbox` and an AppArmor profile, because Ubuntu 24.04 and Linux Mint 22 restrict unprivileged user
+namespaces. The no-sudo tarball install falls back to `--no-sandbox` only on such systems. It installs alongside the
+MusabAI desktop app: `/usr/bin/musabai` stays the desktop app.
+

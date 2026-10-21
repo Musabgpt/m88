@@ -2,6 +2,28 @@
 
 M88 now carries the complete tracked NewAl-Cloud project and a Linux desktop build path. The migration keeps the Android app and connector stack, while the Linux edition runs the existing NewAl Code agent in a native GTK/WebKit desktop window.
 
+## MusabAI Code — Cursor-style editor
+
+**MusabAI Code** is a VS Code–based editor (VSCodium inside) with MusabAI built in. It works like Cursor, with free
+models and providers and no account needed:
+- chat and agent (Ctrl+L / Ctrl+I), Ctrl+K inline edits and Tab autocomplete;
+- review and checkpoints, rules and MCP;
+- the terminal, Git and GitHub: pull requests, Bugbot and background agents;
+- control of the laptop.
+
+On Linux Mint 22 or Ubuntu 24.04, run:
+
+```sh
+./linux/musabai-code/install-mint.sh
+```
+
+More is in [linux/musabai-code/README.md](linux/musabai-code/README.md), in Arabic and English: the guide, the Cursor
+parity table and the other ways to install.
+
+The extension and the `musabai-agent` terminal agent live in [musabai-code/](musabai-code/README.md). The
+**MusabAI Code** workflow tests them inside VSCodium, then builds the `.deb`, the portable tarball and the `.vsix` for
+VS Code.
+
 ## Linux desktop
 
 The native desktop app uses pywebview with GTK 3 and WebKitGTK 4.1. It provides the existing coding-agent UI, native folder selection, provider configuration, local project operations, Git tools, MCP integrations, durable memory, and local GGUF inference through a pinned llama.cpp runtime. The Linux launcher refuses to silently fall back to a browser when the native webview cannot start.
@@ -30,6 +52,12 @@ The Android implementation, Kotlin/Java sources, Termux bridge, phone-control se
 ## Development and checks
 
 The Linux workflow checks out the NewAl desktop engine at commit 0bf36a3b3a813dbac424ee0c4dc6341f9e3fe0d3, applies the repository's autonomy and connector layers, runs the connector and desktop regression suites, builds both Linux packages, installs the .deb, then smoke-tests both native windows under Xvfb. Package dependencies and supported targets are documented in [linux/COMPATIBILITY.md](linux/COMPATIBILITY.md).
+
+For MusabAI Code (the editor extension and terminal agent):
+
+```sh
+cd musabai-code && npm ci && npm run typecheck && npm test
+```
 
 For JavaScript connector tests:
 

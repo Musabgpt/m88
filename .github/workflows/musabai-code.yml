@@ -1,0 +1,144 @@
+name: MusabAI Code
+
+on:
+  push:
+    branches: [main, claude/blissful-pascal-0ax5ca]
+    paths:
+      - musabai-code/**
+      - linux/musabai-code/**
+      - .github/workflows/musabai-code.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - musabai-code/**
+      - linux/musabai-code/**
+      - .github/workflows/musabai-code.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: musabai-code-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VSCODIUM_VERSION: "1.140.06880"
+  VSCODIUM_SHA256: 61223b74f9e40834117311ec4177cb386d09b84c1aae4f9e674c96580569cef3
+
+jobs:
+  editor:
+    name: Extension, terminal agent and Linux packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install test and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            desktop-file-utils dpkg-dev librsvg2-bin openbox ripgrep xdotool xvfb \
+            libasound2t64 libgbm1 libgtk-3-0t64 libnss3 libsecret-1-0 libxkbfile1
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.22.0"
+          cache: npm
+          cache-dependency-path: musabai-code/package-lock.json
+
+      - name: Type-check and unit-test the extension and the terminal agent
+        working-directory: musabai-code
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+
+      - name: Cache the pinned VSCodium release
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/vscodium-cache
+          key: vscodium-linux-x64-${{ env.VSCODIUM_VERSION }}
+
+      - name: Download and verify VSCodium
+        run: |
+          set -euo pipefail
+          tarball="$RUNNER_TEMP/vscodium-cache/VSCodium-linux-x64-$VSCODIUM_VERSION.tar.gz"
+          mkdir -p "$RUNNER_TEMP/vscodium-cache" "$RUNNER_TEMP/vscodium"
+          if [ ! -f "$tarball" ]; then
+            curl -fsSL --retry 3 -o "$tarball" \
+              "https://github.com/VSCodium/vscodium/releases/download/$VSCODIUM_VERSION/VSCodium-linux-x64-$VSCODIUM_VERSION.tar.gz"
+          fi
+          echo "$VSCODIUM_SHA256  $tarball" | sha256sum --check
+          tar -xzf "$tarball" -C "$RUNNER_TEMP/vscodium"
+          echo "VSCODIUM_TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Integration tests inside VSCodium (agent, Ctrl+K, Tab, Git, background agents)
+        working-directory: musabai-code
+        env:
+          MUSABAI_VSCODE_BIN: ${{ runner.temp }}/vscodium/codium
+        run: xvfb-run -a --server-args="-screen 0 1440x1000x24" npm run test:integration
+
+      - name: Test the MusabAI Code build script
+        run: python3 -m unittest discover -s linux/musabai-code -p 'test_*.py' -v
+
+      - name: Build MusabAI Code (.deb, portable tarball and the extension for VS Code)
+        run: |
+          set -euo pipefail
+          (cd musabai-code && npm run package)
+          python3 linux/musabai-code/build_editor.py --vscodium "$VSCODIUM_TARBALL" --sha256 "$VSCODIUM_SHA256" \
+            --extension musabai-code --out "$RUNNER_TEMP/musabai-code-dist"
+          version="$(node -p "require('./musabai-code/package.json').version")"
+          cp musabai-code/dist/musabai-code.vsix "$RUNNER_TEMP/musabai-code-dist/musabai-code-$version.vsix"
+          cd "$RUNNER_TEMP/musabai-code-dist"
+          sha256sum ./*.deb ./*.tar.gz ./*.vsix | tee SHA256SUMS
+
+      - name: Install the .deb and check its commands, menu entries and integrity checksums
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y "$RUNNER_TEMP"/musabai-code-dist/musabai-code_*_amd64.deb
+          musabai-code --version
+          musabai-agent --version
+          musabai-agent models
+          test ! -e /usr/bin/musabai
+          desktop-file-validate /usr/share/applications/musabai-code.desktop /usr/share/applications/musabai-code-url-handler.desktop
+          python3 - <<'EOF'
+          import base64, hashlib, json, pathlib
+          app = pathlib.Path("/usr/share/musabai-code/resources/app")
+          product = json.loads((app / "product.json").read_text())
+          assert (product["nameShort"], product["applicationName"]) == ("MusabAI Code", "musabai-code"), product["nameShort"]
+          bad = [rel for rel, want in product["checksums"].items()
+                 if base64.b64encode(hashlib.sha256((app / "out" / rel).read_bytes()).digest()).decode().rstrip("=") != want]
+          assert not bad, f"integrity checksums do not match: {bad}"
+          print(f"MusabAI Code product.json; all {len(product['checksums'])} integrity checksums match")
+          EOF
+
+      - name: Open the installed editor on a virtual display
+        run: linux/musabai-code/smoke-editor.sh /usr/share/musabai-code/musabai-code
+
+      - name: Install the portable tarball for one user (no sudo) and remove it again
+        run: |
+          set -euo pipefail
+          export HOME="$RUNNER_TEMP/portable-home"
+          mkdir -p "$HOME" "$RUNNER_TEMP/portable"
+          tar -xzf "$RUNNER_TEMP"/musabai-code-dist/MusabAI-Code-*-linux-x64.tar.gz -C "$RUNNER_TEMP/portable"
+          "$RUNNER_TEMP/portable/MusabAI-Code-linux-x64/install-user.sh"
+          "$HOME/.local/bin/musabai-agent" --version
+          desktop-file-validate "$HOME/.local/share/applications/musabai-code.desktop"
+          "$RUNNER_TEMP/portable/MusabAI-Code-linux-x64/install-user.sh" --uninstall
+          test ! -e "$HOME/.local/bin/musabai-agent"
+          test ! -e "$HOME/.local/share/musabai-code"
+
+      - name: Upload MusabAI Code packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: MusabAI-Code-linux-x64-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/musabai-code-dist/*.deb
+            ${{ runner.temp }}/musabai-code-dist/*.tar.gz
+            ${{ runner.temp }}/musabai-code-dist/*.vsix
+            ${{ runner.temp }}/musabai-code-dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
