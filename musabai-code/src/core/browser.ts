@@ -72,6 +72,7 @@ export class BrowserSession {
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-gpu',
+      '--disable-dev-shm-usage',
       '--disable-background-networking',
       ...(noSandbox ? ['--no-sandbox'] : []),
       'about:blank',
@@ -79,7 +80,7 @@ export class BrowserSession {
     const proc = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     this.proc = proc;
     return new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('the browser did not expose a DevTools endpoint in time')), 20000);
+      const timer = setTimeout(() => reject(new Error('the browser did not expose a DevTools endpoint in time')), 30000);
       let buffer = '';
       proc.stderr?.on('data', (chunk) => {
         buffer += chunk;
