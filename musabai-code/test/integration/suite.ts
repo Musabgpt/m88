@@ -98,7 +98,8 @@ test('a background agent works on its own git worktree', async () => {
   const musabai = await api();
   const before = await readFile(hello, 'utf8');
   await vscode.commands.executeCommand('musabai.background.new', 'make hello.py greet the world');
-  const agent = await waitFor('the background agent', () => musabai.background.list().find((a) => a.status !== 'running'), 60_000);
+  // Wait until it is both finished and its changed-file list is filled in (status flips a tick before files are set).
+  const agent = await waitFor('the background agent', () => musabai.background.list().find((a) => a.status !== 'running' && a.files !== undefined), 60_000);
   assert.equal(agent.status, 'done', agent.error);
   assert.deepEqual(agent.files, ['hello.py']);
   assert.equal(await readFile(path.join(agent.worktree, 'hello.py'), 'utf8'), 'print("Hello, world! مرحبا بالعالم")\n');
