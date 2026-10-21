@@ -195,7 +195,9 @@ kbd { font-family: var(--mono); font-size: 0.8em; opacity: 0.75; margin-left: 6p
 .todo.cancelled span { text-decoration: line-through; opacity: 0.6; }
 
 .error { color: var(--vscode-errorForeground); background: var(--vscode-inputValidation-errorBackground, transparent); border: 1px solid var(--vscode-inputValidation-errorBorder, var(--del)); border-radius: 6px; padding: 6px 8px; margin: 6px 0; font-size: 0.93em; }
-.warn { color: var(--vscode-editorWarning-foreground); }
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; padding: 6px 8px; border-radius: 6px; font-size: 0.9em; background: var(--vscode-inputValidation-warningBackground, transparent); border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground)); }
+.notice-text { flex: 1 1 150px; min-width: 0; }
+.notice > button { flex: none; margin-inline-start: auto; }
 
 .typing { display: inline-flex; gap: 4px; padding: 8px 2px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: musabai-blink 1.2s infinite ease-in-out; }

@@ -80,6 +80,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('musabai')) void this.postState();
       }),
+      vscode.workspace.onDidGrantWorkspaceTrust(() => void this.postState()),
     );
   }
 
@@ -176,6 +177,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       language: language(),
       workspaceName: vscode.workspace.name ?? '',
       hasWorkspace: Boolean(this.services.root),
+      trusted: vscode.workspace.isTrusted,
       runMode: policy().mode,
       version: String(this.context.extension.packageJSON.version ?? ''),
       indexStatus: this.services.index ? `${this.services.index.status.files} files indexed` : undefined,
@@ -685,6 +687,12 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         break;
       case 'openSettings':
         await vscode.commands.executeCommand('musabai.openSettings', message.section);
+        break;
+      case 'manageTrust':
+        await vscode.commands.executeCommand('workbench.trust.manage');
+        break;
+      case 'openFolder':
+        await vscode.commands.executeCommand('workbench.action.files.openFolder');
         break;
       case 'pickImage': {
         const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Images: ['png', 'jpg', 'jpeg', 'gif', 'webp'] } });

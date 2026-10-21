@@ -2,18 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import type { MusabAIApi } from '../../src/vscode/extension';
+import { api, runAll, type Test } from './harness';
 
-const tests: [string, () => Promise<void>][] = [];
+const tests: Test[] = [];
 const test = (name: string, fn: () => Promise<void>) => tests.push([name, fn]);
 const ws = process.env.MUSABAI_TEST_WORKSPACE!;
 const hello = path.join(ws, 'hello.py');
-
-async function api(): Promise<MusabAIApi> {
-  const ext = vscode.extensions.getExtension('musabai.musabai-code');
-  assert.ok(ext, 'the MusabAI extension is installed');
-  return (await ext.activate()) as MusabAIApi;
-}
 
 async function waitFor<T>(what: string, fn: () => T | Promise<T>, timeout = 30_000): Promise<NonNullable<T>> {
   const until = Date.now() + timeout;
@@ -117,18 +111,6 @@ test('Settings, the model picker and the welcome tour open', async () => {
   await writeFile(hello, 'print("hi")\n');
 });
 
-export async function run(): Promise<void> {
-  const failures: string[] = [];
-  for (const [name, fn] of tests) {
-    const started = Date.now();
-    try {
-      await fn();
-      console.log(`  ✓ ${name} (${Date.now() - started} ms)`);
-    } catch (error) {
-      failures.push(name);
-      console.error(`  ✗ ${name}\n    ${(error as Error).stack ?? error}`);
-    }
-  }
-  console.log(`${tests.length - failures.length}/${tests.length} integration tests passed`);
-  if (failures.length) throw new Error(`${failures.length} failed: ${failures.join('; ')}`);
+export function run(): Promise<void> {
+  return runAll(tests);
 }

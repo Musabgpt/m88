@@ -70,6 +70,7 @@ const modelBtn = h('button', { class: 'pill model', title: 'Model (Ctrl+/)' });
 const imageBtn = h('button', { class: 'icon-btn', title: tr('Attach image') }, icon('file-media'));
 const sendBtn = h('button', { class: 'send', title: tr('Send') });
 const popup = h('div', { class: 'popup hidden', role: 'listbox' });
+const notice = h('div', { class: 'notice hidden' });
 const box = h(
   'div',
   { class: 'box' },
@@ -78,7 +79,7 @@ const box = h(
   imagesRow,
   h('div', { class: 'footer' }, modeBtn, modelBtn, h('span', { class: 'spacer' }), imageBtn, sendBtn),
 );
-const composer = h('div', { class: 'composer' }, changesBar, todoBar, popup, box);
+const composer = h('div', { class: 'composer' }, changesBar, todoBar, popup, notice, box);
 app.append(top, history, list, composer);
 
 const messageEls = new Map<string, HTMLElement>();
@@ -351,7 +352,6 @@ function renderEmpty(): HTMLElement {
     h('div', { class: 'logo' }, icon('sparkle')),
     h('h2', null, 'MusabAI'),
     h('p', { class: 'muted', dir: 'auto' }, tr('Free AI for your code: chat, agent, inline edits and Tab — no account needed.')),
-    S.view && !S.view.hasWorkspace ? h('p', { class: 'warn', dir: 'auto' }, tr('Open a folder to let the agent work on a project.')) : null,
     h(
       'div',
       { class: 'suggestions' },
@@ -450,10 +450,32 @@ function renderComposer(): void {
         : '',
     );
   }
+  renderNotice();
   const last = S.chat?.messages[S.chat.messages.length - 1];
   const todos = busy && last?.todos?.length ? last.todos : undefined;
   todoBar.classList.toggle('hidden', !todos);
   if (todos) todoBar.replaceChildren(renderTodos(todos, true));
+}
+
+/** Why the agent cannot work normally here (no folder, or Restricted Mode), with the one click that fixes it. */
+function renderNotice(): void {
+  const v = S.view;
+  const restricted = Boolean(v?.hasWorkspace && !v.trusted);
+  const noFolder = Boolean(v && !v.hasWorkspace);
+  notice.classList.toggle('hidden', !restricted && !noFolder);
+  if (restricted) {
+    notice.replaceChildren(
+      icon('shield'),
+      h('span', { class: 'notice-text', dir: 'auto' }, tr('Restricted Mode: this folder is not trusted, so the agent asks before every command.')),
+      h('button', { class: 'primary small', onclick: () => post({ type: 'manageTrust' }) }, tr('Trust this folder')),
+    );
+  } else if (noFolder) {
+    notice.replaceChildren(
+      icon('folder-opened'),
+      h('span', { class: 'notice-text', dir: 'auto' }, tr('Open a folder to let the agent work on a project.')),
+      h('button', { class: 'primary small', onclick: () => post({ type: 'openFolder' }) }, tr('Open Folder')),
+    );
+  }
 }
 
 function send(text = input.value): void {

@@ -78,6 +78,7 @@ sudo apt install ./musabai-code_*_amd64.deb
 
 - وضع تشغيل الأوامر: **اسأل دائمًا** أو **القائمة المسموحة** (الافتراضي) أو **تلقائي**. الأوامر الخطرة (sudo وrm -rf وforce-push و`curl | sh`…) تطلب الموافقة دائمًا.
 - في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
+  تُظهر المحادثة تنبيهًا مع زر **Trust this folder**؛ اضغطه ثم **Trust** إذا كان المشروع لك، فيعمل الوكيل عاديًا.
 - خوادم MCP التي يضعها المشروع لا تبدأ إلا بعد موافقتك.
 - إعدادات الأوامر والنماذج على مستوى المستخدم فقط، فلا يستطيع مشروع مُنزَّل تغييرها من `.vscode/settings.json`.
 
@@ -177,6 +178,9 @@ Every action that changes something asks first. Turn the feature off in MusabAI 
   - the agent asks before every command;
   - the project's MCP servers stay off;
   - background agents do not run.
+
+  The chat shows a notice with a **Trust this folder** button. For your own project, press it, then **Trust**, and the
+  agent works normally.
 - **Project MCP servers** start only after you trust them, both local commands and remote URLs.
 - **User-level settings:** the run mode, the allow and deny lists, the model servers and laptop control can only be set
   in user settings, so a cloned repository's `.vscode/settings.json` cannot change them.

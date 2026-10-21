@@ -39,7 +39,7 @@ if (tests) {
   builds.push({ ...node, entryPoints: entries, outdir: 'dist-test', sourcemap: 'inline' });
 } else {
   await rm(path.join(root, 'dist'), { recursive: true, force: true });
-  if (integration) builds.push({ ...node, entryPoints: ['test/integration/suite.ts'], outfile: 'dist-integration/suite.js', external: ['vscode'], sourcemap: 'inline' });
+  if (integration) builds.push({ ...node, entryPoints: ['test/integration/suite.ts', 'test/integration/restricted.ts'], outdir: 'dist-integration', external: ['vscode'], sourcemap: 'inline' });
 }
 
 if (watch) {

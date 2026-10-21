@@ -116,6 +116,8 @@ export interface ViewState {
   language: 'ar' | 'en';
   workspaceName: string;
   hasWorkspace: boolean;
+  /** False in Restricted Mode: every agent command then asks. */
+  trusted: boolean;
   runMode: 'ask' | 'allowlist' | 'auto';
   version: string;
   indexStatus?: string;
@@ -164,6 +166,8 @@ export type ViewMessage =
   | { type: 'runInTerminal'; command: string }
   | { type: 'build'; messageId: string }
   | { type: 'openSettings'; section?: string }
+  | { type: 'manageTrust' }
+  | { type: 'openFolder' }
   | { type: 'pickImage' }
   | { type: 'slash'; command: string; text?: string };
 

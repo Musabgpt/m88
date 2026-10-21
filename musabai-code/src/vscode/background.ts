@@ -121,8 +121,9 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
     // A worktree isolates files, not the machine: background agents run commands without asking, so only in trusted folders.
     if (!vscode.workspace.isTrusted) {
       const manage = 'Manage Workspace Trust';
-      const choice = await vscode.window.showWarningMessage('MusabAI: background agents run commands on their own, so they need a trusted folder.', manage);
-      if (choice === manage) void vscode.commands.executeCommand('workbench.trust.manage');
+      void vscode.window.showWarningMessage('MusabAI: background agents run commands on their own, so they need a trusted folder.', manage).then((choice) => {
+        if (choice === manage) void vscode.commands.executeCommand('workbench.trust.manage');
+      });
       return;
     }
     const info = await gitInfo(root);
