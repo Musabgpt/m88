@@ -169,6 +169,7 @@ class BuildEditorTest(unittest.TestCase):
                      "usr/share/icons/hicolor/512x512/apps/musabai-code.png", "usr/share/icons/hicolor/scalable/apps/musabai-code.svg",
                      "usr/share/musabai-code/resources/apparmor/musabai-code"):
             self.assertIn(f"./{path}", contents)
+        self.assertIn(b"data.tar.zst", self.deb.read_bytes(), "zstd keeps building the .deb fast on a laptop")
         scripts = subprocess.run(["dpkg-deb", "--ctrl-tarfile", str(self.deb)], check=True, capture_output=True).stdout
         names = tarfile.open(fileobj=__import__("io").BytesIO(scripts)).getnames()
         for script in ("./postinst", "./prerm", "./postrm"):
@@ -185,7 +186,21 @@ class BuildEditorTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+@unittest.skipUnless(shutil.which("rsvg-convert") and shutil.which("dpkg-deb"), "needs rsvg-convert and dpkg-deb")
+class SkipTarballTest(unittest.TestCase):
+    def test_builds_only_the_deb_for_install_mint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "out"
+            build_editor.main(["--vscodium", str(fake_vscodium(root)), "--extension", str(fake_extension(root)), "--out", str(out), "--skip-tarball"])
+            self.assertEqual([p.name for p in out.iterdir()], ["musabai-code_0.1.0+vscodium1.140.06880_amd64.deb"])
+
+
 class PatchTest(unittest.TestCase):
+    def test_refuses_to_skip_both_packages(self):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SystemExit):
+            build_editor.main(["--vscodium", tmp, "--extension", tmp, "--out", tmp, "--skip-deb", "--skip-tarball"])
+
     def test_patches_only_the_real_product_object(self):
         dev = 'Object.assign(Z,{version:"1.104.0-dev",nameShort:"Code - OSS Dev",applicationName:"code-oss",dataFolderName:".vscode-oss",urlProtocol:"code-oss"});'
         tricky = INLINED.replace('version:"1.140.06880"', 'version:"1.140.06880",note:"a } brace in a string"')

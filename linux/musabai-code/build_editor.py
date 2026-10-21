@@ -472,7 +472,9 @@ exit 0
     for script in ("postinst", "prerm", "postrm"):
         (debian / script).chmod(0o755)
     path = out / f"{APP_ID}_{version}_amd64.deb"
-    subprocess.run(["dpkg-deb", "--root-owner-group", "-Zxz", "--build", str(root), str(path)], check=True, stdout=subprocess.DEVNULL)
+    # zstd -9 is about 15 times faster than dpkg's default xz on a laptop (seconds instead of minutes) for a package
+    # about 20% larger; Ubuntu 21.10+, Linux Mint 21+ and Debian 12+ install it.
+    subprocess.run(["dpkg-deb", "--root-owner-group", "-Zzstd", "-z9", "--build", str(root), str(path)], check=True, stdout=subprocess.DEVNULL)
     return path
 
 
@@ -484,7 +486,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--version", help="package version (default: <extension version>+<VSCodium version>)")
     parser.add_argument("--skip-deb", action="store_true")
+    parser.add_argument("--skip-tarball", action="store_true", help="build only the .deb (install-mint.sh installs it right away)")
     args = parser.parse_args(argv)
+    if args.skip_deb and args.skip_tarball:
+        parser.error("--skip-deb and --skip-tarball leave nothing to build")
+    # Progress shows as it happens, also when the output goes to a pipe or a CI log.
+    sys.stdout.reconfigure(line_buffering=True)
 
     if args.vscodium.is_file():
         actual = sha256(args.vscodium)
@@ -507,9 +514,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Rebranded {len(patched)} bundles: {', '.join(patched)}")
     refreshed = refresh_checksums(app / "resources" / "app")
     print(f"Updated the integrity checksums of {', '.join(refreshed) or 'no files'}")
-    tarball = build_tarball(app, args.out, version.split("+")[0], icon_svg, sized[512])
-    print(f"Built {tarball} ({tarball.stat().st_size // (1024 * 1024)} MB)")
+    if not args.skip_tarball:
+        print("Packing the portable tarball (a few minutes on a slower laptop)...")
+        tarball = build_tarball(app, args.out, version.split("+")[0], icon_svg, sized[512])
+        print(f"Built {tarball} ({tarball.stat().st_size // (1024 * 1024)} MB)")
     if not args.skip_deb:
+        print("Building the .deb package...")
         deb = build_deb(app, args.out, version, icon_svg, sized, work)
         print(f"Built {deb} ({deb.stat().st_size // (1024 * 1024)} MB)")
     shutil.rmtree(work)

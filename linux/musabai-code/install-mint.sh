@@ -85,8 +85,8 @@ echo "${VSCODIUM_SHA256}  ${TARBALL}" | sha256sum --check --status || die "VSCod
 
 OUT="$CACHE/dist"
 rm -rf "$OUT"
-say "Assembling MusabAI Code"
-python3 "$ROOT/linux/musabai-code/build_editor.py" --vscodium "$TARBALL" --sha256 "$VSCODIUM_SHA256" --extension "$ROOT/musabai-code" --out "$OUT" $([ "$MODE" = user ] && echo --skip-deb)
+say "Assembling MusabAI Code (a few minutes on a slower laptop)"
+python3 "$ROOT/linux/musabai-code/build_editor.py" --vscodium "$TARBALL" --sha256 "$VSCODIUM_SHA256" --extension "$ROOT/musabai-code" --out "$OUT" $([ "$MODE" = user ] && echo --skip-deb || echo --skip-tarball)
 
 if [ "$MODE" = "user" ]; then
 	UNPACK="$CACHE/unpack"
