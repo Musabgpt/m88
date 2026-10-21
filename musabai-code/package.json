@@ -339,6 +339,11 @@
         "category": "MusabAI"
       },
       {
+        "command": "musabai.checkForUpdates",
+        "title": "Check for Updates",
+        "category": "MusabAI"
+      },
+      {
         "command": "musabai.fixDiagnostic",
         "title": "Fix with MusabAI",
         "category": "MusabAI"
@@ -775,6 +780,12 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the welcome tour the first time."
+        },
+        "musabai.checkForUpdates": {
+          "type": "boolean",
+          "scope": "application",
+          "default": true,
+          "markdownDescription": "Check GitHub once a day for a newer MusabAI Code release and tell you when one is out. It never downloads or installs anything by itself."
         }
       }
     },

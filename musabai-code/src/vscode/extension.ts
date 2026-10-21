@@ -13,6 +13,7 @@ import { generateCommitMessage } from './scm';
 import { Services } from './services';
 import { SettingsPanel, newRule } from './settingsPanel';
 import { TerminalAssist } from './terminalAssist';
+import { checkForUpdates } from './updateCheck';
 
 function selectionChip(editor: vscode.TextEditor | undefined): MentionChip | undefined {
   if (!editor) return undefined;
@@ -222,8 +223,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
     await set('model', pick.id);
   });
 
+  register('musabai.checkForUpdates', () => checkForUpdates(context, true));
+
   // Start MCP servers in the background so their tools are ready for the first request.
   setTimeout(() => void services.mcp?.startAll(), 4000);
+  // Tell the user (once a day, never silently installing) when a newer release is published.
+  setTimeout(() => void checkForUpdates(context, false), 10_000);
 
   if (!context.globalState.get('musabai.welcomed') && get('showWelcome', true)) {
     void context.globalState.update('musabai.welcomed', true);

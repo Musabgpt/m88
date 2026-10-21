@@ -14,7 +14,7 @@ import type { Services } from './services';
 const SETTABLE = new Set([
   'model', 'tab.model', 'inlineEdit.model', 'agent.runMode', 'agent.allowList', 'agent.denyList', 'agent.maxSteps', 'agent.autoContinue', 'agent.maxContinues', 'agent.revealTerminal',
   'laptop.enabled', 'tab.enabled', 'tab.debounceMs', 'tab.chatFallback', 'rules.user', 'index.enabled', 'mcp.disabledServers', 'language',
-  'models.discoverKilo', 'models.discoverLocal',
+  'models.discoverKilo', 'models.discoverLocal', 'checkForUpdates',
 ]);
 
 /** One-click MCP servers offered in settings. Added to the global mcp.json; they start the same way a hand-written one does. */
