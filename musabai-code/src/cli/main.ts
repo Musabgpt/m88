@@ -20,6 +20,7 @@ import { ProviderPool } from '../core/providers/pool';
 import { BUILTIN_MODES } from '../core/tools';
 import type { AgentEvent, ModeDefinition } from '../core/tools/types';
 import { newId, relPath } from '../core/util';
+import { readMemory } from '../core/memory';
 import { environmentProvider, rulesProvider } from '../core/workspace';
 
 const VERSION = '0.1.0';
@@ -205,7 +206,7 @@ class Session {
       emit: (e) => this.render(e),
       policy,
       approve: (r) => this.approve(r),
-      environment: environmentProvider(options.cwd, 'terminal'),
+      environment: environmentProvider(options.cwd, 'terminal', undefined, () => readMemory(options.cwd)),
       rules: rulesProvider(options.cwd, () => [...(config.rules ?? []), ...(process.env.MUSABAI_RULES ? [process.env.MUSABAI_RULES] : [])]),
       changes: this.changes,
       checkpoints: this.checkpoints,

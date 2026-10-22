@@ -12,6 +12,7 @@ import { allowPrefix } from '../core/policy';
 import { AUTO_MODEL_ID } from '../core/providers/catalog';
 import type { AgentEvent } from '../core/tools/types';
 import { newId } from '../core/util';
+import { readMemory } from '../core/memory';
 import { environmentProvider, rulesProvider } from '../core/workspace';
 import {
   type ApprovalView,
@@ -231,7 +232,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       emit: (event) => this.onAgentEvent(chatId, event),
       policy,
       approve: (request, key) => this.requestApproval(chatId, request, key),
-      environment: environmentProvider(root, 'editor', () => this.editorState(root)),
+      environment: environmentProvider(root, 'editor', () => this.editorState(root), () => readMemory(root)),
       rules: rulesProvider(root, () => get<string[]>('rules.user', [])),
       changes: services.changes,
       checkpoints,

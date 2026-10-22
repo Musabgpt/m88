@@ -2,6 +2,7 @@ import type { ToolSpec } from '../types';
 import { deleteFile, editFile, multiEdit, writeFileTool } from './edit';
 import { codebaseSearch, fileSearch, grepSearch, listDir, readFile } from './files';
 import { browserTool } from './browser';
+import { updateMemory } from './memory';
 import { fetchRules, gitTool, githubTool, laptopTool, readLints, todoWrite, webFetchTool, webSearchTool } from './misc';
 import { runTerminalCmd, terminalOutput } from './terminal';
 import { type McpToolRef, type ModeDefinition, type Tool, ToolError } from './types';
@@ -20,6 +21,7 @@ export const BUILTIN_TOOLS: Tool[] = [
   terminalOutput,
   readLints,
   todoWrite,
+  updateMemory,
   fetchRules,
   webSearchTool,
   webFetchTool,

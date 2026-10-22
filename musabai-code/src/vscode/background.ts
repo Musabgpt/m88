@@ -11,6 +11,7 @@ import { NodeHost } from '../core/host';
 import { pullRequestText } from '../core/oneshot';
 import { evaluateCommand } from '../core/policy';
 import { newId, slug } from '../core/util';
+import { readMemory } from '../core/memory';
 import { environmentProvider, rulesProvider } from '../core/workspace';
 import { chatModel, configuredPolicy, disabledTools, get, modes } from './config';
 import { t } from './l10n';
@@ -173,7 +174,7 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
         const choice = await vscode.window.showWarningMessage(`Background agent "${agent.title}" asks: ${request.kind} — ${detail.slice(0, 200)}`, t('Allow'), t('Deny'));
         return choice === t('Allow') ? 'allow' : 'deny';
       },
-      environment: environmentProvider(agent.worktree, 'background'),
+      environment: environmentProvider(agent.worktree, 'background', undefined, () => readMemory(agent.worktree)),
       rules: rulesProvider(agent.worktree, () => get<string[]>('rules.user', [])),
       github: async () => this.services.github(false),
       disabledTools: () => [...disabledTools(), '#laptop'],
