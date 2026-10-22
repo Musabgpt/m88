@@ -149,6 +149,7 @@ export type ViewMessage =
   | { type: 'selectChat'; id: string }
   | { type: 'deleteChat'; id: string }
   | { type: 'setMode'; mode: string }
+  | { type: 'setRunMode'; mode: 'ask' | 'allowlist' | 'auto' }
   | { type: 'setModel'; model: string }
   | { type: 'mentionQuery'; query: string }
   | { type: 'approval'; id: string; answer: 'allow' | 'deny' | 'always' }

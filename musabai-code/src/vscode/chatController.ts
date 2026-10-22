@@ -639,6 +639,16 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       case 'setMode':
         await set('mode', message.mode);
         break;
+      case 'setRunMode':
+        await set('agent.runMode', message.mode);
+        // In Restricted Mode every command asks, whatever the run mode. If the user picked a more
+        // autonomous mode, open the trust dialog so their choice takes effect (granting trust fires
+        // onDidGrantWorkspaceTrust, which refreshes the pill). Dangerous commands still always ask.
+        if (message.mode !== 'ask' && this.services.root && !vscode.workspace.isTrusted) {
+          await vscode.commands.executeCommand('workbench.trust.manage');
+        }
+        await this.postState();
+        break;
       case 'setModel':
         await set('model', message.model);
         break;

@@ -40,7 +40,7 @@ const S = {
   changesOpen: false,
   todosOpen: true,
   expanded: new Set<string>(),
-  popup: undefined as { kind: 'mention' | 'slash' | 'mode' | 'model'; items: PopupItem[]; index: number; start?: number } | undefined,
+  popup: undefined as { kind: 'mention' | 'slash' | 'mode' | 'run' | 'model'; items: PopupItem[]; index: number; start?: number } | undefined,
   mentionQuery: '',
 };
 
@@ -67,6 +67,12 @@ const imagesRow = h('div', { class: 'images' });
 const input = h('textarea', { class: 'input', rows: 1, dir: 'auto', spellcheck: 'false' }) as HTMLTextAreaElement;
 const modeBtn = h('button', { class: 'pill', title: 'Mode (Ctrl+.)' });
 const modelBtn = h('button', { class: 'pill model', title: 'Model (Ctrl+/)' });
+const runBtn = h('button', { class: 'pill run', title: 'When commands run (approvals)' });
+const RUN_MODES: { id: 'ask' | 'allowlist' | 'auto'; label: string; icon: string }[] = [
+  { id: 'ask', label: 'Ask each time', icon: 'question' },
+  { id: 'allowlist', label: 'Allow-list', icon: 'shield' },
+  { id: 'auto', label: 'Auto-run', icon: 'zap' },
+];
 const imageBtn = h('button', { class: 'icon-btn', title: tr('Attach image') }, icon('file-media'));
 const sendBtn = h('button', { class: 'send', title: tr('Send') });
 const popup = h('div', { class: 'popup hidden', role: 'listbox' });
@@ -77,7 +83,7 @@ const box = h(
   h('div', { class: 'chips-line' }, h('button', { class: 'add-context', title: tr('@ for context, / for commands'), onclick: () => openMentionPicker() }, icon('mention'), h('span', { class: 'add-context-label' }, tr('Add context'))), chipsRow),
   input,
   imagesRow,
-  h('div', { class: 'footer' }, modeBtn, modelBtn, h('span', { class: 'spacer' }), imageBtn, sendBtn),
+  h('div', { class: 'footer' }, modeBtn, runBtn, modelBtn, h('span', { class: 'spacer' }), imageBtn, sendBtn),
 );
 const composer = h('div', { class: 'composer' }, changesBar, todoBar, popup, notice, box);
 app.append(top, history, list, composer);
@@ -407,6 +413,9 @@ function renderComposer(): void {
   modeBtn.replaceChildren(mi && mi.length === 1 ? h('span', { class: 'glyph' }, mi) : icon(mi ?? 'sparkle'), ` ${tr(mode.label)}`, icon('chevron-down', 'small'));
   const model = currentModel();
   modelBtn.replaceChildren(h('span', { class: 'model-name' }, model ? tr(model.name) : S.view?.model ?? ''), icon('chevron-down', 'small'));
+  const run = RUN_MODES.find((r) => r.id === S.view?.runMode) ?? RUN_MODES[1];
+  runBtn.replaceChildren(icon(run.icon, 'small'), ` ${tr(run.label)}`, icon('chevron-down', 'small'));
+  runBtn.classList.toggle('auto', run.id === 'auto');
   sendBtn.replaceChildren(icon(busy ? 'debug-stop' : 'arrow-up'));
   sendBtn.title = busy ? tr('Stop') : tr('Send');
   sendBtn.classList.toggle('stop', busy);
@@ -629,6 +638,26 @@ function openModeMenu(): void {
   renderPopup();
 }
 
+function setRunMode(mode: 'ask' | 'allowlist' | 'auto'): void {
+  if (S.view) S.view.runMode = mode;
+  post({ type: 'setRunMode', mode });
+  renderComposer();
+}
+
+function openRunMenu(): void {
+  S.popup = {
+    kind: 'run',
+    index: Math.max(0, RUN_MODES.findIndex((r) => r.id === S.view?.runMode)),
+    items: RUN_MODES.map((r) => ({
+      label: `${r.id === S.view?.runMode ? '✓ ' : ''}${tr(r.label)}`,
+      detail: r.id === 'auto' ? tr('runs commands without asking (risky ones still ask)') : r.id === 'allowlist' ? tr('read-only and allow-listed run; the rest ask') : tr('asks before every command'),
+      icon: r.icon,
+      run: () => { setRunMode(r.id); closePopup(); input.focus(); },
+    })),
+  };
+  renderPopup();
+}
+
 function openModelMenu(): void {
   const models = S.view?.models ?? [];
   S.popup = {
@@ -741,12 +770,13 @@ box.addEventListener('drop', async (e) => {
   renderComposer();
 });
 modeBtn.addEventListener('click', () => (S.popup?.kind === 'mode' ? closePopup() : openModeMenu()));
+runBtn.addEventListener('click', () => (S.popup?.kind === 'run' ? closePopup() : openRunMenu()));
 modelBtn.addEventListener('click', () => (S.popup?.kind === 'model' ? closePopup() : openModelMenu()));
 imageBtn.addEventListener('click', () => post({ type: 'pickImage' }));
 sendBtn.addEventListener('click', () => send());
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
-  if (S.popup && !popup.contains(target) && target !== modeBtn && target !== modelBtn && !modeBtn.contains(target) && !modelBtn.contains(target)) closePopup();
+  if (S.popup && !popup.contains(target) && ![modeBtn, runBtn, modelBtn].some((b) => b === target || b.contains(target))) closePopup();
   const btn = target.closest<HTMLElement>('.cb-btn');
   if (btn) {
     const block = codeBlock(btn.dataset.block ?? '');
