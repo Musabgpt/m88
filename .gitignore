@@ -7,6 +7,9 @@ local.properties
 node_modules/
 __pycache__/
 
+# MusabAI Code editor build outputs (.deb, portable tarball, staging dir).
+/linux/musabai-code/out/
+
 # Never commit Android signing material.
 *.jks
 *.keystore
