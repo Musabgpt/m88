@@ -115,5 +115,6 @@ jobs:
           The \`.vsix\` installs MusabAI into an existing VS Code / VSCodium: \`code --install-extension musabai-code-*.vsix\`.
 
           Verify downloads against \`SHA256SUMS\`."
+          # --target: a release started by hand creates its tag on the commit that was built, not on the default branch.
           gh release create "$TAG" "$RUNNER_TEMP"/dist/*.deb "$RUNNER_TEMP"/dist/*.tar.gz "$RUNNER_TEMP"/dist/*.vsix "$RUNNER_TEMP"/dist/SHA256SUMS \
-            --repo "$GITHUB_REPOSITORY" --title "MusabAI Code $TAG" --notes "$notes"
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MusabAI Code $TAG" --notes "$notes"

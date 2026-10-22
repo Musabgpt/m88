@@ -69,9 +69,13 @@ if ! command -v npm >/dev/null 2>&1 || [ "$(node_major)" -lt 22 ]; then
 	fi
 	rm -f "$setup"
 	# NodeSource unavailable: the distro Node still builds the editor (REA then needs Node 22+ added separately).
-	[ "$(node_major)" -ge 18 ] || $SUDO apt-get install -y nodejs npm
+	# The distro packages Node and npm separately, so a Node that is already there may still lack npm.
+	if [ "$(node_major)" -lt 18 ] || ! command -v npm >/dev/null 2>&1; then
+		$SUDO apt-get install -y nodejs npm
+	fi
 fi
 [ "$(node_major)" -ge 18 ] || die "Node.js 18 or newer is needed to build (found $(node -v 2>/dev/null || echo none))."
+command -v npm >/dev/null 2>&1 || die "npm is needed to build (install it with: sudo apt install npm)."
 [ "$(node_major)" -ge 22 ] || say "Node.js is $(node -v): the editor works, but the REA tool needs Node 22+ to run."
 
 # Piped into bash (curl … | bash) there is no script file, so the source is cloned below.

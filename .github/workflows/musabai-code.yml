@@ -2,7 +2,7 @@ name: MusabAI Code
 
 on:
   push:
-    branches: [main, claude/blissful-pascal-0ax5ca]
+    branches: [main]
     paths:
       - musabai-code/**
       - linux/musabai-code/**
