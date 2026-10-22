@@ -1,0 +1,1812 @@
+{
+  "schema_version": 1,
+  "migration": {
+    "source_repository": "https://github.com/Musabgpt/NewAl-Cloud",
+    "source_branch": "main",
+    "source_commit": "4e8fd61a133502e7d339f9d9404585168451bd15",
+    "target_repository": "https://github.com/Musabgpt/M88",
+    "target_base_branch": "main",
+    "target_base_commit": "d0f166c1b917dcdbe53c1e711a2634b33fcb8c5e",
+    "migration_branch": "feat/newai-cloud-linux-desktop",
+    "source_tracked_blob_count": 243,
+    "source_tracked_bytes": 1826914,
+    "history_strategy": "This migration is a single commit on top of the existing M88 main commit. The source repository Git objects could not be reused by the target GitHub API, so source commit history is not imported; the source repository, exact source commit and original README are retained as attribution.",
+    "root_license": "No root LICENSE, LICENCE, COPYING, or NOTICE file exists in the source tree. No license was invented during migration; maintainers should establish the intended license before broad redistribution.",
+    "inventory_limits": "The GitHub commit tree exposes tracked files only. It cannot reveal untracked, ignored, or workstation-only files; the complete tracked tree at the source commit is listed below. No tracked generated build outputs or signing secrets were transferred.",
+    "source_workflow_latest_run": {
+      "id": 38941031819,
+      "status": "success",
+      "url": "https://github.com/Musabgpt/NewAl-Cloud/actions/runs/38941031819"
+    },
+    "desktop_engine": {
+      "repository": "https://github.com/Musabgpt/NewAl",
+      "commit": "0bf36a3b3a813dbac424ee0c4dc6341f9e3fe0d3"
+    },
+    "secret_scan": "A targeted scan found no private-key, GitHub, AWS, OpenAI, or Google credential patterns. Sensitive-looking matches were sample tokens in tests and an intentionally constructed fixture URL.",
+    "excluded_tracked_files": [],
+    "source_branch_review": [
+      {
+        "name": "main",
+        "head": "4e8fd61a133502e7d339f9d9404585168451bd15",
+        "default": true,
+        "selected": true,
+        "reason": "Default branch with the full 243-blob source tree."
+      },
+      {
+        "name": "clean-402",
+        "head": "aa501fcbc2bc361a242102bda7fc606a5d5c2d0a",
+        "default": false,
+        "selected": false,
+        "reason": "Ahead of main by 23 commits and removes older reports, build files, and utility scripts; it is a cleanup branch, not a more complete migration source."
+      },
+      {
+        "name": "feat/claude-harness-core",
+        "head": "57b644283c3ef5c7aaa5974c17f613430ed9bfb4",
+        "default": false,
+        "selected": false,
+        "reason": "Diverged by 14 ahead and 4 behind; the comparison shows a workflow-only tree difference, while main is the default branch and current source snapshot."
+      }
+    ]
+  },
+  "conflicts": [
+    {
+      "path": "README.md",
+      "target_blob": "2241000802112f1409325030f8b587152b14e459",
+      "source_blob": "c1334438add348b5ede6e60fdc9170bdad05cd35",
+      "resolution": "Replace the root README with a combined MusabAI/M88 overview. Preserve the target README verbatim at docs/migration/M88-original-README.md and the source README verbatim at docs/migration/NewAl-Cloud-original-README.md."
+    }
+  ],
+  "added_files": [
+    ".github/workflows/linux-desktop.yml",
+    "docs/migration/M88-original-README.md",
+    "docs/migration/NewAl-Cloud-original-README.md",
+    "docs/migration/manifest.json",
+    "linux/COMPATIBILITY.md",
+    "linux/build_packages.py",
+    "linux/patch_engine.py",
+    "linux/requirements.txt",
+    "linux/smoke-window.sh",
+    "linux/test-requirements.txt",
+    "linux/test_build_packages.py",
+    "linux/test_patch_engine.py"
+  ],
+  "files": [
+    {
+      "source_path": ".github/workflows/android.yml",
+      "destination_path": ".github/workflows/android.yml",
+      "mode": "100644",
+      "git_blob": "938b8f0b5c05a4c2ef61e963452ee6549658dc68",
+      "bytes": 18748,
+      "destination_git_blob": "540409c9e543578b4f60507bf5920208d1704efe",
+      "destination_bytes": 19133
+    },
+    {
+      "source_path": ".gitignore",
+      "destination_path": ".gitignore",
+      "mode": "100644",
+      "git_blob": "5ed9dc8a8a290aad49b2fd0b544036b8e5cc3942",
+      "bytes": 193
+    },
+    {
+      "source_path": "MUSABAI_RUNTIME_AND_AI_ROUTER_FIX.md",
+      "destination_path": "MUSABAI_RUNTIME_AND_AI_ROUTER_FIX.md",
+      "mode": "100644",
+      "git_blob": "3402ce507302242acdbc5c461878042d8fc53fae",
+      "bytes": 14329
+    },
+    {
+      "source_path": "PHASE10_ACCEPTANCE.md",
+      "destination_path": "PHASE10_ACCEPTANCE.md",
+      "mode": "100644",
+      "git_blob": "6d160baa8d1abeb7863de18a88283c5289e79dba",
+      "bytes": 22350
+    },
+    {
+      "source_path": "PHASE1_BASELINE_AUDIT.md",
+      "destination_path": "PHASE1_BASELINE_AUDIT.md",
+      "mode": "100644",
+      "git_blob": "49e0974cbca097184fb36e694161e9d96f7f66c7",
+      "bytes": 7918
+    },
+    {
+      "source_path": "PHASE5_MEMORY_RAG_ORCHESTRATION.md",
+      "destination_path": "PHASE5_MEMORY_RAG_ORCHESTRATION.md",
+      "mode": "100644",
+      "git_blob": "f7ab1618a350f09ee8f979c48f41ac6456876ee0",
+      "bytes": 1287
+    },
+    {
+      "source_path": "PHASE6_EXECUTION.md",
+      "destination_path": "PHASE6_EXECUTION.md",
+      "mode": "100644",
+      "git_blob": "b70f5e377edac03c45a50323e1226aa682cef1b8",
+      "bytes": 1892
+    },
+    {
+      "source_path": "PHASE7_OBSERVABILITY.md",
+      "destination_path": "PHASE7_OBSERVABILITY.md",
+      "mode": "100644",
+      "git_blob": "870fb0711a5967bb27db919867cc3c929f8c3a9b",
+      "bytes": 1472
+    },
+    {
+      "source_path": "PHASE8_CHECKPOINTS.md",
+      "destination_path": "PHASE8_CHECKPOINTS.md",
+      "mode": "100644",
+      "git_blob": "6c263f21e65701efb4aaf1bf235268016123dde9",
+      "bytes": 1218
+    },
+    {
+      "source_path": "README.md",
+      "destination_path": "docs/migration/NewAl-Cloud-original-README.md",
+      "mode": "100644",
+      "git_blob": "c1334438add348b5ede6e60fdc9170bdad05cd35",
+      "bytes": 5633
+    },
+    {
+      "source_path": "android-lite/SIGNING.md",
+      "destination_path": "android-lite/SIGNING.md",
+      "mode": "100644",
+      "git_blob": "222062790bde82b42ff3c8ebbdca71dc9f417239",
+      "bytes": 3591
+    },
+    {
+      "source_path": "android-lite/app/build.gradle.kts",
+      "destination_path": "android-lite/app/build.gradle.kts",
+      "mode": "100644",
+      "git_blob": "7ee1332548559a2e1a66271260ba2dd8a08190a8",
+      "bytes": 3145
+    },
+    {
+      "source_path": "android-lite/app/src/main/AndroidManifest.xml",
+      "destination_path": "android-lite/app/src/main/AndroidManifest.xml",
+      "mode": "100644",
+      "git_blob": "8b2ebb7a282753a0e39c612f81e67a6fd477eb95",
+      "bytes": 5772
+    },
+    {
+      "source_path": "android-lite/app/src/main/assets/connectors.json",
+      "destination_path": "android-lite/app/src/main/assets/connectors.json",
+      "mode": "100644",
+      "git_blob": "bbf1581d337fa4f88a5269bf095addfe54aabf6d",
+      "bytes": 73
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/A11y.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/A11y.java",
+      "mode": "100644",
+      "git_blob": "1aa1d0ed34cba024ba9aef6c8e3c2fdf56f31f69",
+      "bytes": 4590
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Access.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Access.java",
+      "mode": "100644",
+      "git_blob": "7f4cf8f80a783bf611768d2b9109b7a515601843",
+      "bytes": 5411
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/ActivepiecesMcp.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/ActivepiecesMcp.java",
+      "mode": "100644",
+      "git_blob": "92176fadba87b3e625f293882659d009c83910e4",
+      "bytes": 30008
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/AgentService.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/AgentService.java",
+      "mode": "100644",
+      "git_blob": "c43ade8c91c4fc8e357389bb7b7b8f868973b564",
+      "bytes": 7099
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/AutomationStore.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/AutomationStore.java",
+      "mode": "100644",
+      "git_blob": "b2d470b7e17eef38455548c2eae34557c923aea9",
+      "bytes": 2655
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/CandidateSelection.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/CandidateSelection.java",
+      "mode": "100644",
+      "git_blob": "9e05564500557ed32566225e76e6e0446ceb5945",
+      "bytes": 13448
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/ConnectorMcp.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/ConnectorMcp.java",
+      "mode": "100644",
+      "git_blob": "3459156f54077d463de9a73c812b6998bbf28469",
+      "bytes": 12858
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/ConnectorVault.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/ConnectorVault.java",
+      "mode": "100644",
+      "git_blob": "c94d8d5a2b4ba8268c715a00bb130ef17dcf5ad5",
+      "bytes": 3060
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Connectors.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Connectors.java",
+      "mode": "100644",
+      "git_blob": "e5925bc4d0f0e2d766a23dca5d04d899c949a221",
+      "bytes": 28786
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/DocumentFiles.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/DocumentFiles.java",
+      "mode": "100644",
+      "git_blob": "9804237188ce237a1c1fa2a7482662187946179b",
+      "bytes": 3650
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/EngineReadiness.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/EngineReadiness.java",
+      "mode": "100644",
+      "git_blob": "dbf2d4225bc923e359ff795b709b1e3bd19f5310",
+      "bytes": 2054
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/LocalNotificationAgentService.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/LocalNotificationAgentService.java",
+      "mode": "100644",
+      "git_blob": "8eea99aa81b9a8167903cff3738c73c6a1f152c5",
+      "bytes": 2068
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/MainActivity.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/MainActivity.java",
+      "mode": "100644",
+      "git_blob": "34eff1e5d8186bc80cdb13ce4bcbf04fed37aaaa",
+      "bytes": 21221
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/ModelImport.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/ModelImport.java",
+      "mode": "100644",
+      "git_blob": "aadcbfce680f15c2d2486c4b0cf9186206960b1e",
+      "bytes": 5267
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Phone.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Phone.java",
+      "mode": "100644",
+      "git_blob": "2089f9155c0250980d5f096ffc48374cbf858c92",
+      "bytes": 22191
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/PhoneControlService.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/PhoneControlService.java",
+      "mode": "100644",
+      "git_blob": "9c8c5e420d8fc757d1e8e9c7abaa8d7b5faae9fb",
+      "bytes": 19342
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/PhoneServer.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/PhoneServer.java",
+      "mode": "100644",
+      "git_blob": "88f6537ef68999bf9487a095e41eb08c3514fab8",
+      "bytes": 5013
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/ProviderSecrets.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/ProviderSecrets.java",
+      "mode": "100644",
+      "git_blob": "785e9815068df9185e8d947e09fa574e499b121a",
+      "bytes": 2317
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/SafeFileProvider.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/SafeFileProvider.java",
+      "mode": "100644",
+      "git_blob": "fa7eead49797ab50fcbb553dcb3e4ef955bc44cf",
+      "bytes": 2183
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Setup.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Setup.java",
+      "mode": "100644",
+      "git_blob": "fac0bf420089bba7371dc1bc8c7b70358cc87812",
+      "bytes": 10671
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Shared.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Shared.java",
+      "mode": "100644",
+      "git_blob": "d14ba179a77c4bc9de6f31afb4089beeab234452",
+      "bytes": 4819
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/Termux.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/Termux.java",
+      "mode": "100644",
+      "git_blob": "49b691554e448b8ec3e2e4d7944257420cae4da4",
+      "bytes": 3464
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/TermuxJobs.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/TermuxJobs.java",
+      "mode": "100644",
+      "git_blob": "ec4b1773de9111c71b794ed6e995473860b3f93a",
+      "bytes": 6684
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/TermuxResultService.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/TermuxResultService.java",
+      "mode": "100644",
+      "git_blob": "ca68759593bd6fb90fde5d0cee375c57df9347af",
+      "bytes": 737
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/TestBridgeReports.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/TestBridgeReports.java",
+      "mode": "100644",
+      "git_blob": "9b4d0cf75489dd33266bbb43a8abea8922813685",
+      "bytes": 678
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/TextFold.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/TextFold.java",
+      "mode": "100644",
+      "git_blob": "4d41fa67745e18fef57a67d97ca889aa52aaa74f",
+      "bytes": 2975
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/WebBridge.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/WebBridge.java",
+      "mode": "100644",
+      "git_blob": "a322628309647f79aa9646cbef45c00e6a772e48",
+      "bytes": 13364
+    },
+    {
+      "source_path": "android-lite/app/src/main/java/dev/newal/code/lite/testbridge/MusabTestBridge.java",
+      "destination_path": "android-lite/app/src/main/java/dev/newal/code/lite/testbridge/MusabTestBridge.java",
+      "mode": "100644",
+      "git_blob": "d7afb3ec5fecb9e0e12a4b66469f8894ab742817",
+      "bytes": 1334
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/drawable/ic_launcher.xml",
+      "destination_path": "android-lite/app/src/main/res/drawable/ic_launcher.xml",
+      "mode": "100644",
+      "git_blob": "0f17eed213d6aa6eea952a5d91d8ffd871cd4c4b",
+      "bytes": 893
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/drawable/ic_stat.xml",
+      "destination_path": "android-lite/app/src/main/res/drawable/ic_stat.xml",
+      "mode": "100644",
+      "git_blob": "127b509e72acb63f28eea431068c175c39922e93",
+      "bytes": 470
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/values-ar/strings.xml",
+      "destination_path": "android-lite/app/src/main/res/values-ar/strings.xml",
+      "mode": "100644",
+      "git_blob": "af1071437b90e98ad983356ebc9bda5fd4a7c15c",
+      "bytes": 949
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/values-night/themes.xml",
+      "destination_path": "android-lite/app/src/main/res/values-night/themes.xml",
+      "mode": "100644",
+      "git_blob": "5da2f2147e96bca4e2dd8f86b8348b89105ca797",
+      "bytes": 219
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/values/strings.xml",
+      "destination_path": "android-lite/app/src/main/res/values/strings.xml",
+      "mode": "100644",
+      "git_blob": "ab43c71bf078667d2ccdfe7799ef928a25071bf7",
+      "bytes": 775
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/values/themes.xml",
+      "destination_path": "android-lite/app/src/main/res/values/themes.xml",
+      "mode": "100644",
+      "git_blob": "6bbdf8806dac1b6bf7dd9a1a06aae318af0a4c99",
+      "bytes": 429
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/xml/phone_control.xml",
+      "destination_path": "android-lite/app/src/main/res/xml/phone_control.xml",
+      "mode": "100644",
+      "git_blob": "015fb82bec73508af1c18af38d2421feea8bea7a",
+      "bytes": 683
+    },
+    {
+      "source_path": "android-lite/app/src/main/res/xml/shortcuts.xml",
+      "destination_path": "android-lite/app/src/main/res/xml/shortcuts.xml",
+      "mode": "100644",
+      "git_blob": "1277149ff7a6d7de2a53bbd463336a15efc3ce6d",
+      "bytes": 1002
+    },
+    {
+      "source_path": "android-lite/app/src/test/java/dev/newal/code/lite/ActivepiecesMcpTest.java",
+      "destination_path": "android-lite/app/src/test/java/dev/newal/code/lite/ActivepiecesMcpTest.java",
+      "mode": "100644",
+      "git_blob": "ace2b732c0e876675cbcd0374632fc75c03029d5",
+      "bytes": 1277
+    },
+    {
+      "source_path": "android-lite/app/src/test/java/dev/newal/code/lite/CandidateSelectionTest.java",
+      "destination_path": "android-lite/app/src/test/java/dev/newal/code/lite/CandidateSelectionTest.java",
+      "mode": "100644",
+      "git_blob": "f5b0c9c6353226bca762e1653ff35e4b4affcb6f",
+      "bytes": 15582
+    },
+    {
+      "source_path": "android-lite/app/src/test/java/dev/newal/code/lite/ConnectorMcpTest.java",
+      "destination_path": "android-lite/app/src/test/java/dev/newal/code/lite/ConnectorMcpTest.java",
+      "mode": "100644",
+      "git_blob": "b5638a035f955d2e299862e64145ce4117c24680",
+      "bytes": 2403
+    },
+    {
+      "source_path": "android-lite/app/src/test/java/dev/newal/code/lite/EngineReadinessTest.java",
+      "destination_path": "android-lite/app/src/test/java/dev/newal/code/lite/EngineReadinessTest.java",
+      "mode": "100644",
+      "git_blob": "3d02c9ba5cf50015af88257193281453b90bc32b",
+      "bytes": 4387
+    },
+    {
+      "source_path": "android-lite/app/src/test/java/dev/newal/code/lite/TextFoldTest.java",
+      "destination_path": "android-lite/app/src/test/java/dev/newal/code/lite/TextFoldTest.java",
+      "mode": "100644",
+      "git_blob": "d82bbdde03fa25d9817cbbcbd396392f536c4af6",
+      "bytes": 1905
+    },
+    {
+      "source_path": "android-lite/build.gradle.kts",
+      "destination_path": "android-lite/build.gradle.kts",
+      "mode": "100644",
+      "git_blob": "57caa56dc522ad4cb469128ba1f0cf464b0704e7",
+      "bytes": 74
+    },
+    {
+      "source_path": "android-lite/gradle.properties",
+      "destination_path": "android-lite/gradle.properties",
+      "mode": "100644",
+      "git_blob": "18825f968c6a47c3e86e7dea7949d0f3f842bab2",
+      "bytes": 106
+    },
+    {
+      "source_path": "android-lite/native/launcher.c",
+      "destination_path": "android-lite/native/launcher.c",
+      "mode": "100644",
+      "git_blob": "2eb28e1598cd935f51793825896b960ea2959884",
+      "bytes": 1078
+    },
+    {
+      "source_path": "android-lite/native/prepare.sh",
+      "destination_path": "android-lite/native/prepare.sh",
+      "mode": "100644",
+      "git_blob": "118df73771993992f4314f564dc802c8c9f6fe3d",
+      "bytes": 5529
+    },
+    {
+      "source_path": "android-lite/settings.gradle.kts",
+      "destination_path": "android-lite/settings.gradle.kts",
+      "mode": "100644",
+      "git_blob": "908acc704c8f53327c5534991c59d1fe63e6c50b",
+      "bytes": 366
+    },
+    {
+      "source_path": "android-lite/signing-cert-sha256.txt",
+      "destination_path": "android-lite/signing-cert-sha256.txt",
+      "mode": "100644",
+      "git_blob": "b3d2f8a96c3ef978141014f3f370c3c27e6a7524",
+      "bytes": 65
+    },
+    {
+      "source_path": "build.gradle.kts",
+      "destination_path": "build.gradle.kts",
+      "mode": "100644",
+      "git_blob": "57caa56dc522ad4cb469128ba1f0cf464b0704e7",
+      "bytes": 74
+    },
+    {
+      "source_path": "connectors/DEPLOYMENT.md",
+      "destination_path": "connectors/DEPLOYMENT.md",
+      "mode": "100644",
+      "git_blob": "7815eb41fee9838f9f29d5e520822d247c801909",
+      "bytes": 10478
+    },
+    {
+      "source_path": "connectors/EVOLUTION.md",
+      "destination_path": "connectors/EVOLUTION.md",
+      "mode": "100644",
+      "git_blob": "cb7dfd0f3f0bc003e343b3b3fb59bfdf519756ad",
+      "bytes": 2589
+    },
+    {
+      "source_path": "connectors/addon_tests.py",
+      "destination_path": "connectors/addon_tests.py",
+      "mode": "100644",
+      "git_blob": "81cbe0738c6802f945573b9515b90c443b3a020a",
+      "bytes": 1825
+    },
+    {
+      "source_path": "connectors/addons.py",
+      "destination_path": "connectors/addons.py",
+      "mode": "100644",
+      "git_blob": "63f72c1f58d346ef1bf0419c80b871b958ab2c3a",
+      "bytes": 9749
+    },
+    {
+      "source_path": "connectors/agent_policy.py",
+      "destination_path": "connectors/agent_policy.py",
+      "mode": "100644",
+      "git_blob": "aa5213355bdf0f93144cdd8cc91e2e0064cb05b4",
+      "bytes": 9091
+    },
+    {
+      "source_path": "connectors/agent_prompt.md",
+      "destination_path": "connectors/agent_prompt.md",
+      "mode": "100644",
+      "git_blob": "149fa0b44b651db2fa778d7aeac43d723f7886e9",
+      "bytes": 6052
+    },
+    {
+      "source_path": "connectors/agent_prompt_lean.md",
+      "destination_path": "connectors/agent_prompt_lean.md",
+      "mode": "100644",
+      "git_blob": "27e3e5f786a9d050f7042a1762bf420fc43f2506",
+      "bytes": 4892
+    },
+    {
+      "source_path": "connectors/alive.py",
+      "destination_path": "connectors/alive.py",
+      "mode": "100644",
+      "git_blob": "3ff9367e3082cbf619dac5c46c17e956b2a4e9c3",
+      "bytes": 1192
+    },
+    {
+      "source_path": "connectors/apply.py",
+      "destination_path": "connectors/apply.py",
+      "mode": "100644",
+      "git_blob": "0f31a8e67ff0660201cb42231e2c32fae5fd1733",
+      "bytes": 48562
+    },
+    {
+      "source_path": "connectors/apply_cursor.py",
+      "destination_path": "connectors/apply_cursor.py",
+      "mode": "100644",
+      "git_blob": "930a2711870506e467e8ec34f3098072990060b2",
+      "bytes": 10506
+    },
+    {
+      "source_path": "connectors/apply_ext_05_fixes.py",
+      "destination_path": "connectors/apply_ext_05_fixes.py",
+      "mode": "100644",
+      "git_blob": "2629e68f33a81f0c3a287d25181c679540d6cd0a",
+      "bytes": 2075
+    },
+    {
+      "source_path": "connectors/apply_ext_10_review.py",
+      "destination_path": "connectors/apply_ext_10_review.py",
+      "mode": "100644",
+      "git_blob": "8f988798d4a7ebb7dc04dc2730ec8ea5ba3e1474",
+      "bytes": 1849
+    },
+    {
+      "source_path": "connectors/apply_ext_20_index.py",
+      "destination_path": "connectors/apply_ext_20_index.py",
+      "mode": "100644",
+      "git_blob": "f44787fba2fbb2fdbe46230832b88b0096a8c46f",
+      "bytes": 1738
+    },
+    {
+      "source_path": "connectors/apply_ext_30_tabs.py",
+      "destination_path": "connectors/apply_ext_30_tabs.py",
+      "mode": "100644",
+      "git_blob": "8b4ecfe938fb4ad65dce217df8a76349427a808f",
+      "bytes": 1001
+    },
+    {
+      "source_path": "connectors/apply_ext_40_verify.py",
+      "destination_path": "connectors/apply_ext_40_verify.py",
+      "mode": "100644",
+      "git_blob": "6706ab254bc57c45c782d6d5657ac10d40740d97",
+      "bytes": 880
+    },
+    {
+      "source_path": "connectors/apply_ext_41_persist.py",
+      "destination_path": "connectors/apply_ext_41_persist.py",
+      "mode": "100644",
+      "git_blob": "2623a0712f062de98bb06604fa77db72120cb51e",
+      "bytes": 2951
+    },
+    {
+      "source_path": "connectors/apply_ext_42_shots.py",
+      "destination_path": "connectors/apply_ext_42_shots.py",
+      "mode": "100644",
+      "git_blob": "ffd0ee5103d6351c42e854f3a284d7d85c6faa26",
+      "bytes": 1860
+    },
+    {
+      "source_path": "connectors/apply_ext_50_more.py",
+      "destination_path": "connectors/apply_ext_50_more.py",
+      "mode": "100644",
+      "git_blob": "4242c1b458bef1a71f76ed90ac9a5723137acb85",
+      "bytes": 925
+    },
+    {
+      "source_path": "connectors/apply_ext_60_smart.py",
+      "destination_path": "connectors/apply_ext_60_smart.py",
+      "mode": "100644",
+      "git_blob": "6b756390e6cd6ccd9f8a53e5665fda8ae178bd60",
+      "bytes": 1171
+    },
+    {
+      "source_path": "connectors/apply_ext_70_phone.py",
+      "destination_path": "connectors/apply_ext_70_phone.py",
+      "mode": "100644",
+      "git_blob": "e1f9a249a75a2b65f4fcf4dc6c21121dd4ccff87",
+      "bytes": 2082
+    },
+    {
+      "source_path": "connectors/apply_ext_80_fleet.py",
+      "destination_path": "connectors/apply_ext_80_fleet.py",
+      "mode": "100644",
+      "git_blob": "4d933cac9e41d97204e46d7455aad8e553b4749f",
+      "bytes": 4496
+    },
+    {
+      "source_path": "connectors/apply_ext_90_tests.py",
+      "destination_path": "connectors/apply_ext_90_tests.py",
+      "mode": "100644",
+      "git_blob": "eb4b922f3b400f725a92bd2140f77f8633087c42",
+      "bytes": 409
+    },
+    {
+      "source_path": "connectors/apply_ext_95_prompt.py",
+      "destination_path": "connectors/apply_ext_95_prompt.py",
+      "mode": "100644",
+      "git_blob": "5fc155cec8636ff3298f93e80e770a471efa7dee",
+      "bytes": 1917
+    },
+    {
+      "source_path": "connectors/apply_ext_96_arabic.py",
+      "destination_path": "connectors/apply_ext_96_arabic.py",
+      "mode": "100644",
+      "git_blob": "e8e8e0ffeac801a637f47a85683748b7002d09b7",
+      "bytes": 514
+    },
+    {
+      "source_path": "connectors/apply_ext_96_phonefix.py",
+      "destination_path": "connectors/apply_ext_96_phonefix.py",
+      "mode": "100644",
+      "git_blob": "901fa5353da72d4383e75a7f02f3c9dba2d72aa5",
+      "bytes": 8382
+    },
+    {
+      "source_path": "connectors/apply_ext_97_ui.py",
+      "destination_path": "connectors/apply_ext_97_ui.py",
+      "mode": "100644",
+      "git_blob": "4a090b41df9343ab5fb5e313ad274daa36fa886f",
+      "bytes": 3019
+    },
+    {
+      "source_path": "connectors/apply_ext_98_lean.py",
+      "destination_path": "connectors/apply_ext_98_lean.py",
+      "mode": "100644",
+      "git_blob": "bccbc09448dd1fc510e19a08f999c1961df95f7a",
+      "bytes": 8515
+    },
+    {
+      "source_path": "connectors/apply_ext_99_alive.py",
+      "destination_path": "connectors/apply_ext_99_alive.py",
+      "mode": "100644",
+      "git_blob": "381019e14949df49b6aaf29e08cceb8123d1478b",
+      "bytes": 784
+    },
+    {
+      "source_path": "connectors/apply_ext_99_codecheck.py",
+      "destination_path": "connectors/apply_ext_99_codecheck.py",
+      "mode": "100644",
+      "git_blob": "c33f159cc2623c74c6795817dc0aa0c64e11b9bb",
+      "bytes": 1626
+    },
+    {
+      "source_path": "connectors/apply_ext_99_finish.py",
+      "destination_path": "connectors/apply_ext_99_finish.py",
+      "mode": "100644",
+      "git_blob": "44caa6309e17b1b4dc3888cd20de12276df51274",
+      "bytes": 2906
+    },
+    {
+      "source_path": "connectors/apply_ext_99_grounding.py",
+      "destination_path": "connectors/apply_ext_99_grounding.py",
+      "mode": "100644",
+      "git_blob": "0a9b4e5837a13bcb43f4da935be86460eaa588a6",
+      "bytes": 7727
+    },
+    {
+      "source_path": "connectors/apply_ext_99_guard.py",
+      "destination_path": "connectors/apply_ext_99_guard.py",
+      "mode": "100644",
+      "git_blob": "649761d45dc63f08726e0625a3baf699cc8ebd2e",
+      "bytes": 670
+    },
+    {
+      "source_path": "connectors/apply_ext_99_loop.py",
+      "destination_path": "connectors/apply_ext_99_loop.py",
+      "mode": "100644",
+      "git_blob": "4477c45b7ff6673e80786707e4cc0dd5f623e4ee",
+      "bytes": 5187
+    },
+    {
+      "source_path": "connectors/apply_ext_99_projection.py",
+      "destination_path": "connectors/apply_ext_99_projection.py",
+      "mode": "100644",
+      "git_blob": "cd206645d4739564c6a162d660c65cff371a3a2f",
+      "bytes": 1087
+    },
+    {
+      "source_path": "connectors/apply_ext_99_vital.py",
+      "destination_path": "connectors/apply_ext_99_vital.py",
+      "mode": "100644",
+      "git_blob": "b5373cc1312141086a43616966444b5b2a325a0a",
+      "bytes": 3866
+    },
+    {
+      "source_path": "connectors/apply_links.py",
+      "destination_path": "connectors/apply_links.py",
+      "mode": "100644",
+      "git_blob": "997b4e11881c22b712780b00ac77a00fd151179a",
+      "bytes": 6754
+    },
+    {
+      "source_path": "connectors/apply_parity.py",
+      "destination_path": "connectors/apply_parity.py",
+      "mode": "100644",
+      "git_blob": "4c09c88a87912dff26ff258be66df2e7fb676f21",
+      "bytes": 8392
+    },
+    {
+      "source_path": "connectors/auto_update.py",
+      "destination_path": "connectors/auto_update.py",
+      "mode": "100644",
+      "git_blob": "474d935a1a6a965896e92fd157c336599c0edc28",
+      "bytes": 10502
+    },
+    {
+      "source_path": "connectors/auto_update_tests.py",
+      "destination_path": "connectors/auto_update_tests.py",
+      "mode": "100644",
+      "git_blob": "702b2f298e83cecda55177f80dbd3b27815b213e",
+      "bytes": 8876
+    },
+    {
+      "source_path": "connectors/automatic_updates.js",
+      "destination_path": "connectors/automatic_updates.js",
+      "mode": "100644",
+      "git_blob": "e3575e3b383c490049831295b63b7ac91b48bf5d",
+      "bytes": 1348
+    },
+    {
+      "source_path": "connectors/automation.py",
+      "destination_path": "connectors/automation.py",
+      "mode": "100644",
+      "git_blob": "315e115e792fa8bd7f65b46102fc29418a097891",
+      "bytes": 13385
+    },
+    {
+      "source_path": "connectors/automation_tests.py",
+      "destination_path": "connectors/automation_tests.py",
+      "mode": "100644",
+      "git_blob": "8051ce72e32ce99fd3ce334f1c7fbd59e07e5636",
+      "bytes": 10572
+    },
+    {
+      "source_path": "connectors/broker.py",
+      "destination_path": "connectors/broker.py",
+      "mode": "100644",
+      "git_blob": "ee1dc14183732664ca4f6c6dff7a992dca45fee8",
+      "bytes": 10479
+    },
+    {
+      "source_path": "connectors/browser_router.py",
+      "destination_path": "connectors/browser_router.py",
+      "mode": "100644",
+      "git_blob": "ba575329ef3ca6e2d61508ba940d292d05cba21f",
+      "bytes": 9500
+    },
+    {
+      "source_path": "connectors/browser_router_tests.py",
+      "destination_path": "connectors/browser_router_tests.py",
+      "mode": "100644",
+      "git_blob": "a979876b2f2e5c2e479b12c71ad620752edbebb7",
+      "bytes": 2860
+    },
+    {
+      "source_path": "connectors/build_update_bundle.py",
+      "destination_path": "connectors/build_update_bundle.py",
+      "mode": "100644",
+      "git_blob": "130d4538c47ff94f1691be547bdc6cc3cc22b720",
+      "bytes": 4473
+    },
+    {
+      "source_path": "connectors/claude_parity.py",
+      "destination_path": "connectors/claude_parity.py",
+      "mode": "100644",
+      "git_blob": "11556534c354717d6d03028fac35d08722409964",
+      "bytes": 19151
+    },
+    {
+      "source_path": "connectors/claude_parity_tests.py",
+      "destination_path": "connectors/claude_parity_tests.py",
+      "mode": "100644",
+      "git_blob": "41c806241aa1d66c3ada18625cac013f1b76ddfc",
+      "bytes": 4879
+    },
+    {
+      "source_path": "connectors/code_check.py",
+      "destination_path": "connectors/code_check.py",
+      "mode": "100644",
+      "git_blob": "b361c35c688d70b29d390a9af1825cc1d2a760ac",
+      "bytes": 14450
+    },
+    {
+      "source_path": "connectors/code_intel.py",
+      "destination_path": "connectors/code_intel.py",
+      "mode": "100644",
+      "git_blob": "a101b6514a7769377c1296bd8516d6c95cdc3835",
+      "bytes": 10926
+    },
+    {
+      "source_path": "connectors/continuity.py",
+      "destination_path": "connectors/continuity.py",
+      "mode": "100644",
+      "git_blob": "e81906939bcb983b52ad4de0327c9bf44cef7321",
+      "bytes": 6679
+    },
+    {
+      "source_path": "connectors/continuity_tests.py",
+      "destination_path": "connectors/continuity_tests.py",
+      "mode": "100644",
+      "git_blob": "99fbea805c6265fe70d78bc6b3021b6338726998",
+      "bytes": 11133
+    },
+    {
+      "source_path": "connectors/cursor_ui.css",
+      "destination_path": "connectors/cursor_ui.css",
+      "mode": "100644",
+      "git_blob": "4b2e8280b0be5c21c4e069ace786a8d5761fc8d4",
+      "bytes": 3788
+    },
+    {
+      "source_path": "connectors/cursor_ui.js",
+      "destination_path": "connectors/cursor_ui.js",
+      "mode": "100644",
+      "git_blob": "f56d0e58aa3fe0e8be5af8e69e70ef8e0a6cf79d",
+      "bytes": 17450
+    },
+    {
+      "source_path": "connectors/dev_ports.py",
+      "destination_path": "connectors/dev_ports.py",
+      "mode": "100644",
+      "git_blob": "69802a0478f76f923557f89dade5e38c3489c98e",
+      "bytes": 646
+    },
+    {
+      "source_path": "connectors/document_engine.py",
+      "destination_path": "connectors/document_engine.py",
+      "mode": "100644",
+      "git_blob": "2ba0bc95b2ec941ce288f1058bf21c9e8871a94a",
+      "bytes": 7100
+    },
+    {
+      "source_path": "connectors/document_engine_tests.py",
+      "destination_path": "connectors/document_engine_tests.py",
+      "mode": "100644",
+      "git_blob": "413b323786a4b6125c9ff56b1492ab7b5d83ac7d",
+      "bytes": 3011
+    },
+    {
+      "source_path": "connectors/document_tests.py",
+      "destination_path": "connectors/document_tests.py",
+      "mode": "100644",
+      "git_blob": "82844af75cb07e234bebc5c9c03a5c7e1a3f1aa7",
+      "bytes": 3659
+    },
+    {
+      "source_path": "connectors/documents.py",
+      "destination_path": "connectors/documents.py",
+      "mode": "100644",
+      "git_blob": "2e3636cae445d8a177146eec7ffa1f2930a783b0",
+      "bytes": 11981
+    },
+    {
+      "source_path": "connectors/evolution.py",
+      "destination_path": "connectors/evolution.py",
+      "mode": "100644",
+      "git_blob": "1cf64bba0de9e42d1f86fd6a5434c131f3b94e38",
+      "bytes": 39773
+    },
+    {
+      "source_path": "connectors/evolution_tests.py",
+      "destination_path": "connectors/evolution_tests.py",
+      "mode": "100644",
+      "git_blob": "6bc2018e8c270285ed44a3435bd860aa6cf1483b",
+      "bytes": 16542
+    },
+    {
+      "source_path": "connectors/execution.py",
+      "destination_path": "connectors/execution.py",
+      "mode": "100644",
+      "git_blob": "d1d4574d73ffaa3eb2590b8659d61ca39f39e55c",
+      "bytes": 8474
+    },
+    {
+      "source_path": "connectors/execution_tests.py",
+      "destination_path": "connectors/execution_tests.py",
+      "mode": "100644",
+      "git_blob": "243fc26e1bdb8c3999befb0881cfdd1508200a39",
+      "bytes": 1700
+    },
+    {
+      "source_path": "connectors/ext_alive_tests.py",
+      "destination_path": "connectors/ext_alive_tests.py",
+      "mode": "100644",
+      "git_blob": "bed4540551043c8013444b9a64a54841130882de",
+      "bytes": 1208
+    },
+    {
+      "source_path": "connectors/ext_codecheck_tests.py",
+      "destination_path": "connectors/ext_codecheck_tests.py",
+      "mode": "100644",
+      "git_blob": "1d41959bbd51ade4b70f21e084f312cd18b2b8d1",
+      "bytes": 18405
+    },
+    {
+      "source_path": "connectors/ext_finish_tests.py",
+      "destination_path": "connectors/ext_finish_tests.py",
+      "mode": "100644",
+      "git_blob": "745e57a8977d6aa2cd6f3d453c49d1b044111e4b",
+      "bytes": 9743
+    },
+    {
+      "source_path": "connectors/ext_fleet.css",
+      "destination_path": "connectors/ext_fleet.css",
+      "mode": "100644",
+      "git_blob": "7cf7a9c8af82b84f215b3cc643fd037ce4f91dcc",
+      "bytes": 2784
+    },
+    {
+      "source_path": "connectors/ext_fleet.js",
+      "destination_path": "connectors/ext_fleet.js",
+      "mode": "100644",
+      "git_blob": "5637c7c7be60e028c7e002515591ca2ef29b730a",
+      "bytes": 15777
+    },
+    {
+      "source_path": "connectors/ext_grounding_tests.py",
+      "destination_path": "connectors/ext_grounding_tests.py",
+      "mode": "100644",
+      "git_blob": "3bac4b254652d50a71adb1605764524e1e572dc7",
+      "bytes": 2183
+    },
+    {
+      "source_path": "connectors/ext_guard_tests.py",
+      "destination_path": "connectors/ext_guard_tests.py",
+      "mode": "100644",
+      "git_blob": "46ba6ef92489b07ee4b0bebcffd63d7d74b1a626",
+      "bytes": 5153
+    },
+    {
+      "source_path": "connectors/ext_lean_tests.py",
+      "destination_path": "connectors/ext_lean_tests.py",
+      "mode": "100644",
+      "git_blob": "f87c02c7307c2c00212f60c031f2e98620e973c0",
+      "bytes": 11059
+    },
+    {
+      "source_path": "connectors/ext_loop_tests.py",
+      "destination_path": "connectors/ext_loop_tests.py",
+      "mode": "100644",
+      "git_blob": "f0813128fa12d485781a1081b363acb501f5c349",
+      "bytes": 6976
+    },
+    {
+      "source_path": "connectors/ext_phone.css",
+      "destination_path": "connectors/ext_phone.css",
+      "mode": "100644",
+      "git_blob": "4016c3f07ab3d890ec77b2360c1da526dbc797f1",
+      "bytes": 1669
+    },
+    {
+      "source_path": "connectors/ext_phonefix_tests.py",
+      "destination_path": "connectors/ext_phonefix_tests.py",
+      "mode": "100644",
+      "git_blob": "08835b9fb17845097c0ba790e7bc990c6578f569",
+      "bytes": 4811
+    },
+    {
+      "source_path": "connectors/ext_projection_tests.py",
+      "destination_path": "connectors/ext_projection_tests.py",
+      "mode": "100644",
+      "git_blob": "e40758be1f252c381c0fe69ae07439a68c5862fb",
+      "bytes": 5290
+    },
+    {
+      "source_path": "connectors/ext_review.css",
+      "destination_path": "connectors/ext_review.css",
+      "mode": "100644",
+      "git_blob": "0d38f20652e1985cf4132ba1c6675ea3a54a1cff",
+      "bytes": 1260
+    },
+    {
+      "source_path": "connectors/ext_review.js",
+      "destination_path": "connectors/ext_review.js",
+      "mode": "100644",
+      "git_blob": "c4afbf8d6c25313c33b7e168874382de5aa32ed4",
+      "bytes": 5159
+    },
+    {
+      "source_path": "connectors/ext_tabs.css",
+      "destination_path": "connectors/ext_tabs.css",
+      "mode": "100644",
+      "git_blob": "9f7d0fcd207dfd20b21a97cc510f84de0380ee2c",
+      "bytes": 825
+    },
+    {
+      "source_path": "connectors/ext_tabs.js",
+      "destination_path": "connectors/ext_tabs.js",
+      "mode": "100644",
+      "git_blob": "67bfe7652f9d5c0b20088bf379c47e2946c7033b",
+      "bytes": 6342
+    },
+    {
+      "source_path": "connectors/ext_tests.py",
+      "destination_path": "connectors/ext_tests.py",
+      "mode": "100644",
+      "git_blob": "b9cdab4217e534365a44e2a141dfd58b7915c987",
+      "bytes": 23602
+    },
+    {
+      "source_path": "connectors/ext_vital_tests.py",
+      "destination_path": "connectors/ext_vital_tests.py",
+      "mode": "100644",
+      "git_blob": "37f965b0112e61fbef30e60039b6047d598287ce",
+      "bytes": 7494
+    },
+    {
+      "source_path": "connectors/finish.py",
+      "destination_path": "connectors/finish.py",
+      "mode": "100644",
+      "git_blob": "97eabe64af4a93f2e60583857f1640c602428b5a",
+      "bytes": 6547
+    },
+    {
+      "source_path": "connectors/fleet.py",
+      "destination_path": "connectors/fleet.py",
+      "mode": "100644",
+      "git_blob": "1f181da2632ccdacc863cb600d64b25fce151135",
+      "bytes": 13994
+    },
+    {
+      "source_path": "connectors/free_provider_adapters.py",
+      "destination_path": "connectors/free_provider_adapters.py",
+      "mode": "100644",
+      "git_blob": "c61e1835ee24dd12ff07c8954f91730db005b7cf",
+      "bytes": 7043
+    },
+    {
+      "source_path": "connectors/free_provider_adapters_tests.py",
+      "destination_path": "connectors/free_provider_adapters_tests.py",
+      "mode": "100644",
+      "git_blob": "616a9580b3603a14b47b83330ed63ca7f4684055",
+      "bytes": 2935
+    },
+    {
+      "source_path": "connectors/gh_monitor.py",
+      "destination_path": "connectors/gh_monitor.py",
+      "mode": "100644",
+      "git_blob": "c477bff3925c63afc914949968b28e45427008e1",
+      "bytes": 17828
+    },
+    {
+      "source_path": "connectors/git_workspace.py",
+      "destination_path": "connectors/git_workspace.py",
+      "mode": "100644",
+      "git_blob": "4e1644f8c779855e34225d5846aaecff9198f5ed",
+      "bytes": 4041
+    },
+    {
+      "source_path": "connectors/git_workspace_tests.py",
+      "destination_path": "connectors/git_workspace_tests.py",
+      "mode": "100644",
+      "git_blob": "6ce3eb268efd933bb6760a12129e6f4cb3fe08f0",
+      "bytes": 1849
+    },
+    {
+      "source_path": "connectors/guard.py",
+      "destination_path": "connectors/guard.py",
+      "mode": "100644",
+      "git_blob": "8f7c7f08dbd3dc4272c9dbe2a11e8fba39638c9b",
+      "bytes": 8336
+    },
+    {
+      "source_path": "connectors/hosted/REGISTRATION.md",
+      "destination_path": "connectors/hosted/REGISTRATION.md",
+      "mode": "100644",
+      "git_blob": "c13ea9176438c6cdbc244a987a09375e8ce1baab",
+      "bytes": 3523
+    },
+    {
+      "source_path": "connectors/hosted/broker.mjs",
+      "destination_path": "connectors/hosted/broker.mjs",
+      "mode": "100644",
+      "git_blob": "65014f440878d5cf5df8407048f6b7da4fda274d",
+      "bytes": 11264
+    },
+    {
+      "source_path": "connectors/hosted/providers.json",
+      "destination_path": "connectors/hosted/providers.json",
+      "mode": "100644",
+      "git_blob": "594a4e641b00e7792637e783c5054cf0005ff56f",
+      "bytes": 2873
+    },
+    {
+      "source_path": "connectors/hosted/tests/broker.test.mjs",
+      "destination_path": "connectors/hosted/tests/broker.test.mjs",
+      "mode": "100644",
+      "git_blob": "df0a6c560f3ed0d4246ce05d63bf6e03b7b048a8",
+      "bytes": 4285
+    },
+    {
+      "source_path": "connectors/hosted/tests/mcp-oauth.test.mjs",
+      "destination_path": "connectors/hosted/tests/mcp-oauth.test.mjs",
+      "mode": "100644",
+      "git_blob": "7e0434ed6f68684869af534a4628b5608758e313",
+      "bytes": 2720
+    },
+    {
+      "source_path": "connectors/hosted/worker.mjs",
+      "destination_path": "connectors/hosted/worker.mjs",
+      "mode": "100644",
+      "git_blob": "68db36dc18b91065ab598a22d007ba363374527f",
+      "bytes": 68
+    },
+    {
+      "source_path": "connectors/lean.py",
+      "destination_path": "connectors/lean.py",
+      "mode": "100644",
+      "git_blob": "c2f229e0f75e85b5e6c4f73da4f5ea1b3587f005",
+      "bytes": 1996
+    },
+    {
+      "source_path": "connectors/lean_ui.css",
+      "destination_path": "connectors/lean_ui.css",
+      "mode": "100644",
+      "git_blob": "effab2dd7e846ecfa1b8a71c812bad9f3ee8b2cf",
+      "bytes": 4591
+    },
+    {
+      "source_path": "connectors/lean_ui.js",
+      "destination_path": "connectors/lean_ui.js",
+      "mode": "100644",
+      "git_blob": "6fdbcb3f021679dc998282c3c08df4449066d638",
+      "bytes": 2788
+    },
+    {
+      "source_path": "connectors/lsp_once.py",
+      "destination_path": "connectors/lsp_once.py",
+      "mode": "100644",
+      "git_blob": "1f845261bcb5b81f43773a04dd150c8cfb9df2ae",
+      "bytes": 22880
+    },
+    {
+      "source_path": "connectors/managed_linux.py",
+      "destination_path": "connectors/managed_linux.py",
+      "mode": "100644",
+      "git_blob": "7442d7155cbc3ecb0bb987539e037f1dae11443a",
+      "bytes": 6600
+    },
+    {
+      "source_path": "connectors/managed_linux_tests.py",
+      "destination_path": "connectors/managed_linux_tests.py",
+      "mode": "100644",
+      "git_blob": "5409f1f15f8183b34bc7285a445ca2589e9c49d4",
+      "bytes": 2892
+    },
+    {
+      "source_path": "connectors/mcp_bundles.py",
+      "destination_path": "connectors/mcp_bundles.py",
+      "mode": "100644",
+      "git_blob": "98c653ef3e0ab552793303f706f8920dcfe33808",
+      "bytes": 30162
+    },
+    {
+      "source_path": "connectors/mcp_bundles_tests.py",
+      "destination_path": "connectors/mcp_bundles_tests.py",
+      "mode": "100644",
+      "git_blob": "223cc765b95f89fa8173dd8152a2454acf677372",
+      "bytes": 25180
+    },
+    {
+      "source_path": "connectors/mcp_config.py",
+      "destination_path": "connectors/mcp_config.py",
+      "mode": "100644",
+      "git_blob": "43310e337d9eddc76f8539ddc4c97acce4fc1090",
+      "bytes": 19767
+    },
+    {
+      "source_path": "connectors/mcp_config_tests.py",
+      "destination_path": "connectors/mcp_config_tests.py",
+      "mode": "100644",
+      "git_blob": "857d8b00a956db4318b6fe8ddc0a1e82c164f84a",
+      "bytes": 12541
+    },
+    {
+      "source_path": "connectors/mcp_registry.py",
+      "destination_path": "connectors/mcp_registry.py",
+      "mode": "100644",
+      "git_blob": "f33be00d932d80912b64e5973f8be3794b64897e",
+      "bytes": 10466
+    },
+    {
+      "source_path": "connectors/mcp_registry_tests.py",
+      "destination_path": "connectors/mcp_registry_tests.py",
+      "mode": "100644",
+      "git_blob": "362e55b697e48995ce004adb6856a589dc70a7d3",
+      "bytes": 5167
+    },
+    {
+      "source_path": "connectors/mcp_ui.js",
+      "destination_path": "connectors/mcp_ui.js",
+      "mode": "100644",
+      "git_blob": "b118ced4f85cb423929864286bd8bea96f5468ed",
+      "bytes": 38187
+    },
+    {
+      "source_path": "connectors/memory_api.py",
+      "destination_path": "connectors/memory_api.py",
+      "mode": "100644",
+      "git_blob": "00245c4a06e39c878a246d8d8da531a065ebbc35",
+      "bytes": 2173
+    },
+    {
+      "source_path": "connectors/memory_tests.py",
+      "destination_path": "connectors/memory_tests.py",
+      "mode": "100644",
+      "git_blob": "6f0cc2d073fb2b6febf1b2783ae3715a2d1aa867",
+      "bytes": 4140
+    },
+    {
+      "source_path": "connectors/mentions.py",
+      "destination_path": "connectors/mentions.py",
+      "mode": "100644",
+      "git_blob": "586af21a952d49da392038638b33a43f147fb4b1",
+      "bytes": 2880
+    },
+    {
+      "source_path": "connectors/observability.py",
+      "destination_path": "connectors/observability.py",
+      "mode": "100644",
+      "git_blob": "6969cc1d40904dc8dbc7a837bed6ac5128e8209d",
+      "bytes": 10910
+    },
+    {
+      "source_path": "connectors/observability_tests.py",
+      "destination_path": "connectors/observability_tests.py",
+      "mode": "100644",
+      "git_blob": "08dfe0e8dba8b188a20405b1224bb47e778d73ab",
+      "bytes": 3707
+    },
+    {
+      "source_path": "connectors/orchestrator.py",
+      "destination_path": "connectors/orchestrator.py",
+      "mode": "100644",
+      "git_blob": "510f22ca34747f52dbcfcc3a0c01f27cbc397bfc",
+      "bytes": 5956
+    },
+    {
+      "source_path": "connectors/orchestrator_tests.py",
+      "destination_path": "connectors/orchestrator_tests.py",
+      "mode": "100644",
+      "git_blob": "3548f5f8117003bde9105d1360d019658479a422",
+      "bytes": 2260
+    },
+    {
+      "source_path": "connectors/package-lock.json",
+      "destination_path": "connectors/package-lock.json",
+      "mode": "100644",
+      "git_blob": "3a5a541b18ce5685ea167a893b07256f86ce2a48",
+      "bytes": 18515
+    },
+    {
+      "source_path": "connectors/package.json",
+      "destination_path": "connectors/package.json",
+      "mode": "100644",
+      "git_blob": "41313bae1d947a58d8fb10bb644df61cb91285f0",
+      "bytes": 163
+    },
+    {
+      "source_path": "connectors/package_baseline.py",
+      "destination_path": "connectors/package_baseline.py",
+      "mode": "100644",
+      "git_blob": "34b9850bb513beca8b3408db220a9533073e1e0a",
+      "bytes": 2524
+    },
+    {
+      "source_path": "connectors/phase10_linux_validation.py",
+      "destination_path": "connectors/phase10_linux_validation.py",
+      "mode": "100644",
+      "git_blob": "a117f3b6133b9f46b135bfd90a963d647bdd448e",
+      "bytes": 5068
+    },
+    {
+      "source_path": "connectors/phase10_mcp_validation.py",
+      "destination_path": "connectors/phase10_mcp_validation.py",
+      "mode": "100644",
+      "git_blob": "5b9f9833c1c574a85cf4755f76e4c104294527e2",
+      "bytes": 4009
+    },
+    {
+      "source_path": "connectors/phone_ext.py",
+      "destination_path": "connectors/phone_ext.py",
+      "mode": "100644",
+      "git_blob": "96635a1e3c4e66e251cd98cc021b3d32aaa931e3",
+      "bytes": 15952
+    },
+    {
+      "source_path": "connectors/phone_fast.py",
+      "destination_path": "connectors/phone_fast.py",
+      "mode": "100644",
+      "git_blob": "c6399268cb56076ac5a9913c7c1a975cb1f77d11",
+      "bytes": 20682
+    },
+    {
+      "source_path": "connectors/project_map.py",
+      "destination_path": "connectors/project_map.py",
+      "mode": "100644",
+      "git_blob": "3efc1b541da5f92828839fb86a40531731f99086",
+      "bytes": 3636
+    },
+    {
+      "source_path": "connectors/project_rag.py",
+      "destination_path": "connectors/project_rag.py",
+      "mode": "100644",
+      "git_blob": "31c762fac7c88fa1c9c722f8b0f020f42185d86e",
+      "bytes": 11335
+    },
+    {
+      "source_path": "connectors/project_rag_tests.py",
+      "destination_path": "connectors/project_rag_tests.py",
+      "mode": "100644",
+      "git_blob": "1170baa6347eb980439760c127be8eaf355ea13b",
+      "bytes": 3585
+    },
+    {
+      "source_path": "connectors/prompt_tests.py",
+      "destination_path": "connectors/prompt_tests.py",
+      "mode": "100644",
+      "git_blob": "e2095543295758da4fba7c7cb710b8a2b43bf351",
+      "bytes": 1839
+    },
+    {
+      "source_path": "connectors/promptfoo_provider.py",
+      "destination_path": "connectors/promptfoo_provider.py",
+      "mode": "100644",
+      "git_blob": "08125eb589c171efb3ef7463e641a528f9a52783",
+      "bytes": 1304
+    },
+    {
+      "source_path": "connectors/promptfooconfig.yaml",
+      "destination_path": "connectors/promptfooconfig.yaml",
+      "mode": "100644",
+      "git_blob": "332ec6fb15f90c7c8cbbecb7a9971121a46ad015",
+      "bytes": 821
+    },
+    {
+      "source_path": "connectors/provider_keys.py",
+      "destination_path": "connectors/provider_keys.py",
+      "mode": "100644",
+      "git_blob": "46ba23639886ed15522b46f7e2eaed3d3ae435ea",
+      "bytes": 5260
+    },
+    {
+      "source_path": "connectors/provider_keys_tests.py",
+      "destination_path": "connectors/provider_keys_tests.py",
+      "mode": "100644",
+      "git_blob": "bd53992722cfa2ba65ec11b555b30864fd92b8c3",
+      "bytes": 4565
+    },
+    {
+      "source_path": "connectors/provider_pool.py",
+      "destination_path": "connectors/provider_pool.py",
+      "mode": "100644",
+      "git_blob": "c1169d82baf9012435964dc36c548ed2d0062e8d",
+      "bytes": 35579
+    },
+    {
+      "source_path": "connectors/provider_pool_tests.py",
+      "destination_path": "connectors/provider_pool_tests.py",
+      "mode": "100644",
+      "git_blob": "fa74c5522dc7472ef5e09b25623e0a2b4787a237",
+      "bytes": 30488
+    },
+    {
+      "source_path": "connectors/publish_update_channel.py",
+      "destination_path": "connectors/publish_update_channel.py",
+      "mode": "100644",
+      "git_blob": "89cf75409ecd8a32d630d4490b67a137092aaf26",
+      "bytes": 3704
+    },
+    {
+      "source_path": "connectors/request_context.py",
+      "destination_path": "connectors/request_context.py",
+      "mode": "100644",
+      "git_blob": "7d9bd38ea6eab816c5bad0bed047fcaabd643d2c",
+      "bytes": 6327
+    },
+    {
+      "source_path": "connectors/review.py",
+      "destination_path": "connectors/review.py",
+      "mode": "100644",
+      "git_blob": "7c430e6c473acdc4a65c641dd3a6930398c6a311",
+      "bytes": 3898
+    },
+    {
+      "source_path": "connectors/runtime.py",
+      "destination_path": "connectors/runtime.py",
+      "mode": "100644",
+      "git_blob": "975aba7aaed6e8993c3dbe51445f829c91278811",
+      "bytes": 20392
+    },
+    {
+      "source_path": "connectors/runtime_manager.py",
+      "destination_path": "connectors/runtime_manager.py",
+      "mode": "100644",
+      "git_blob": "da64ab0ec1ce1b8ccf6970e775e90071d1d7c309",
+      "bytes": 24160
+    },
+    {
+      "source_path": "connectors/runtime_manager_tests.py",
+      "destination_path": "connectors/runtime_manager_tests.py",
+      "mode": "100644",
+      "git_blob": "a81aa01ad17bb96834f09ee39c5b4b3ae13f3c2f",
+      "bytes": 11665
+    },
+    {
+      "source_path": "connectors/search_router.py",
+      "destination_path": "connectors/search_router.py",
+      "mode": "100644",
+      "git_blob": "eb4c71aaed6f595aee3157acb8c91f2e977ee36a",
+      "bytes": 13885
+    },
+    {
+      "source_path": "connectors/search_router_tests.py",
+      "destination_path": "connectors/search_router_tests.py",
+      "mode": "100644",
+      "git_blob": "530c487df21a344b662e15bbbaa973b21cd9516f",
+      "bytes": 4636
+    },
+    {
+      "source_path": "connectors/session_images.py",
+      "destination_path": "connectors/session_images.py",
+      "mode": "100644",
+      "git_blob": "1af272ee7644f39d195b801363728ec8b0d6cd46",
+      "bytes": 2549
+    },
+    {
+      "source_path": "connectors/smart.py",
+      "destination_path": "connectors/smart.py",
+      "mode": "100644",
+      "git_blob": "f716fff7169afccce6f685ed9548e7b45cc546a1",
+      "bytes": 4687
+    },
+    {
+      "source_path": "connectors/stream_ui.js",
+      "destination_path": "connectors/stream_ui.js",
+      "mode": "100644",
+      "git_blob": "650767bedcb335df58fff1df571e0bb02c7c5469",
+      "bytes": 491
+    },
+    {
+      "source_path": "connectors/task_state.py",
+      "destination_path": "connectors/task_state.py",
+      "mode": "100644",
+      "git_blob": "aca95f5f329e9c0a33dd60ba6b245af487987109",
+      "bytes": 12151
+    },
+    {
+      "source_path": "connectors/task_state_tests.py",
+      "destination_path": "connectors/task_state_tests.py",
+      "mode": "100644",
+      "git_blob": "3bf9eee9ddd9c6e79e534a9861c01fd40978e95a",
+      "bytes": 4301
+    },
+    {
+      "source_path": "connectors/task_supervisor.py",
+      "destination_path": "connectors/task_supervisor.py",
+      "mode": "100644",
+      "git_blob": "22a299f3095f9f2377e52df13bdd4980941ed3b2",
+      "bytes": 16198
+    },
+    {
+      "source_path": "connectors/task_supervisor_tests.py",
+      "destination_path": "connectors/task_supervisor_tests.py",
+      "mode": "100644",
+      "git_blob": "212f8b21bce1a84e3f193a6dd98fa5215e24bd65",
+      "bytes": 12437
+    },
+    {
+      "source_path": "connectors/templates.py",
+      "destination_path": "connectors/templates.py",
+      "mode": "100644",
+      "git_blob": "dbb1a6dc4bb1dd026c4e1aa9a952ccb7f69b49cd",
+      "bytes": 9171
+    },
+    {
+      "source_path": "connectors/termux_bridge_server.py",
+      "destination_path": "connectors/termux_bridge_server.py",
+      "mode": "100644",
+      "git_blob": "e04ee0579ec5bfbbb9aaf016b08490e76daed661",
+      "bytes": 19911
+    },
+    {
+      "source_path": "connectors/termux_bridge_tests.py",
+      "destination_path": "connectors/termux_bridge_tests.py",
+      "mode": "100644",
+      "git_blob": "6a95229af98fc5b7c01d050407bfe69ee9f8ff55",
+      "bytes": 9342
+    },
+    {
+      "source_path": "connectors/termux_loop.py",
+      "destination_path": "connectors/termux_loop.py",
+      "mode": "100644",
+      "git_blob": "3082894acaa9c5dde10203eb4ac9bc29a7f69c2d",
+      "bytes": 8444
+    },
+    {
+      "source_path": "connectors/test_chat_shots.py",
+      "destination_path": "connectors/test_chat_shots.py",
+      "mode": "100644",
+      "git_blob": "7007254d303ad42eafb26eb38905f26a8c607997",
+      "bytes": 4881
+    },
+    {
+      "source_path": "connectors/test_connectors.py",
+      "destination_path": "connectors/test_connectors.py",
+      "mode": "100644",
+      "git_blob": "fd126b36baf2217eb7c86f09b3a403028e069b54",
+      "bytes": 13998
+    },
+    {
+      "source_path": "connectors/test_signing_policy.py",
+      "destination_path": "connectors/test_signing_policy.py",
+      "mode": "100644",
+      "git_blob": "f2cf24f8d8334cfc263954c5cb30fa7e9068b48d",
+      "bytes": 3419
+    },
+    {
+      "source_path": "connectors/test_update_publication.py",
+      "destination_path": "connectors/test_update_publication.py",
+      "mode": "100644",
+      "git_blob": "3031bb4b0dccbbc2ea8adff61f5f0f8765a084aa",
+      "bytes": 1761
+    },
+    {
+      "source_path": "connectors/tests/automatic-updates.test.mjs",
+      "destination_path": "connectors/tests/automatic-updates.test.mjs",
+      "mode": "100644",
+      "git_blob": "c1764c1b80e1895fc2a5d83362f2cd907dfe53ec",
+      "bytes": 1233
+    },
+    {
+      "source_path": "connectors/tests/cursor-chat.test.mjs",
+      "destination_path": "connectors/tests/cursor-chat.test.mjs",
+      "mode": "100644",
+      "git_blob": "3020c884ae7bd3003bd5718125f059d0b449b0d5",
+      "bytes": 8233
+    },
+    {
+      "source_path": "connectors/tests/mcp-ui.test.mjs",
+      "destination_path": "connectors/tests/mcp-ui.test.mjs",
+      "mode": "100644",
+      "git_blob": "ad67ba6ffeeb0727b7bfe323dde5e441effce1ed",
+      "bytes": 12852
+    },
+    {
+      "source_path": "connectors/tests/stream-ui.test.mjs",
+      "destination_path": "connectors/tests/stream-ui.test.mjs",
+      "mode": "100644",
+      "git_blob": "e5f490a5ceecaba53d66d3d081b897967002b85c",
+      "bytes": 1751
+    },
+    {
+      "source_path": "connectors/tests/ui.test.mjs",
+      "destination_path": "connectors/tests/ui.test.mjs",
+      "mode": "100644",
+      "git_blob": "7b19d8195aa843aec96ef171d34dfb18a99b648f",
+      "bytes": 10655
+    },
+    {
+      "source_path": "connectors/tests/workspace.test.mjs",
+      "destination_path": "connectors/tests/workspace.test.mjs",
+      "mode": "100644",
+      "git_blob": "b67709e522ca9b03f6a703ac66641d170b9382b4",
+      "bytes": 19646
+    },
+    {
+      "source_path": "connectors/tool_protocol.py",
+      "destination_path": "connectors/tool_protocol.py",
+      "mode": "100644",
+      "git_blob": "0395178fad94d2a8473aaa586e817f6239bfc17d",
+      "bytes": 9299
+    },
+    {
+      "source_path": "connectors/tool_protocol_tests.py",
+      "destination_path": "connectors/tool_protocol_tests.py",
+      "mode": "100644",
+      "git_blob": "32e56f9e5ec2f690caa0f8ed63bec6b3e8f34342",
+      "bytes": 22018
+    },
+    {
+      "source_path": "connectors/tool_search.py",
+      "destination_path": "connectors/tool_search.py",
+      "mode": "100644",
+      "git_blob": "4727f600a96a0283afcae0df07e788c9a8353d04",
+      "bytes": 6103
+    },
+    {
+      "source_path": "connectors/tool_search_tests.py",
+      "destination_path": "connectors/tool_search_tests.py",
+      "mode": "100644",
+      "git_blob": "86f571c6481cb9fdb233bd3409c6cd1633821421",
+      "bytes": 5595
+    },
+    {
+      "source_path": "connectors/ui.css",
+      "destination_path": "connectors/ui.css",
+      "mode": "100644",
+      "git_blob": "c45c3b36b1ce55a0266111ad648c1c7a5a8fc1db",
+      "bytes": 2104
+    },
+    {
+      "source_path": "connectors/ui.js",
+      "destination_path": "connectors/ui.js",
+      "mode": "100644",
+      "git_blob": "8d4053115aab68e4580c1d71dbae9c26eb4166d5",
+      "bytes": 22885
+    },
+    {
+      "source_path": "connectors/verify_lint.py",
+      "destination_path": "connectors/verify_lint.py",
+      "mode": "100644",
+      "git_blob": "d67d854716895959b622082bc15a447fad1ad660",
+      "bytes": 1418
+    },
+    {
+      "source_path": "connectors/verify_package.py",
+      "destination_path": "connectors/verify_package.py",
+      "mode": "100644",
+      "git_blob": "4fa698d0e39891a836dbebe1ebbdd325ac1fcbfb",
+      "bytes": 2312
+    },
+    {
+      "source_path": "connectors/vital.py",
+      "destination_path": "connectors/vital.py",
+      "mode": "100644",
+      "git_blob": "ed7c52b7c368cc67fd4e56c5fa699fcc13e90add",
+      "bytes": 6465
+    },
+    {
+      "source_path": "connectors/workbench.py",
+      "destination_path": "connectors/workbench.py",
+      "mode": "100644",
+      "git_blob": "d2568d548394e15d85fc50d1329ef22c60685e10",
+      "bytes": 1396
+    },
+    {
+      "source_path": "connectors/workbench_tests.py",
+      "destination_path": "connectors/workbench_tests.py",
+      "mode": "100644",
+      "git_blob": "e664d071b1d64ad224ac6a8c6d9c5a091736a931",
+      "bytes": 2910
+    },
+    {
+      "source_path": "connectors/workspace.js",
+      "destination_path": "connectors/workspace.js",
+      "mode": "100644",
+      "git_blob": "138f92f401063f154fdf800c41d3184ab45c053d",
+      "bytes": 24806
+    },
+    {
+      "source_path": "desktop/autonomy/README.md",
+      "destination_path": "desktop/autonomy/README.md",
+      "mode": "100644",
+      "git_blob": "0438b13dbcde1fa9b3e62f2ad9c8c65adbee5add",
+      "bytes": 1370
+    },
+    {
+      "source_path": "desktop/autonomy/apply_autonomy.py",
+      "destination_path": "desktop/autonomy/apply_autonomy.py",
+      "mode": "100644",
+      "git_blob": "2f97064259ddd6346290532126f379a09339c783",
+      "bytes": 6505
+    },
+    {
+      "source_path": "desktop/autonomy/autonomy.py",
+      "destination_path": "desktop/autonomy/autonomy.py",
+      "mode": "100644",
+      "git_blob": "27682956bd18176e7b035bbec8ec71e966222421",
+      "bytes": 16493
+    },
+    {
+      "source_path": "desktop/autonomy/test_agent_integration.py",
+      "destination_path": "desktop/autonomy/test_agent_integration.py",
+      "mode": "100644",
+      "git_blob": "9a7f58dc872f347bb1efd34ad85cb011d95dde57",
+      "bytes": 12427
+    },
+    {
+      "source_path": "desktop/autonomy/test_memory.py",
+      "destination_path": "desktop/autonomy/test_memory.py",
+      "mode": "100644",
+      "git_blob": "80ffab5ea189c7ec56135538e1697dfdde27d584",
+      "bytes": 11947
+    },
+    {
+      "source_path": "gradle.properties",
+      "destination_path": "gradle.properties",
+      "mode": "100644",
+      "git_blob": "344ead5cef7da31ebb80c3d996c5f4c44a2f0460",
+      "bytes": 73
+    },
+    {
+      "source_path": "settings.gradle.kts",
+      "destination_path": "settings.gradle.kts",
+      "mode": "100644",
+      "git_blob": "098abb434ff2f641fc0095f669e52a6ba6498785",
+      "bytes": 326
+    },
+    {
+      "source_path": "tools/patch_cloud_heart.py",
+      "destination_path": "tools/patch_cloud_heart.py",
+      "mode": "100644",
+      "git_blob": "e26504a27d7ba811dd07a8249654b555a5fadddd",
+      "bytes": 1180
+    }
+  ],
+  "build_inputs": {
+    "python": "Ubuntu 24.04 system Python 3.12",
+    "node": "24.22.0",
+    "pywebview": "6.2.1",
+    "python_runtime_requirements": [
+      "bottle==0.13.4",
+      "proxy-tools==0.1.0",
+      "typing-extensions==4.16.0"
+    ],
+    "llama_cpp": {
+      "tag": "b11752",
+      "asset": "llama-b11752-bin-ubuntu-x64.tar.gz",
+      "sha256": "fae47156b074fffad9287febe11af032042325fa5cf9895e40ce6be3f6bfd251"
+    },
+    "appimagetool": {
+      "tag": "continuous",
+      "commit": "854e19e951900cf141245b384d45735942521abe",
+      "asset_sha256": "95cbe7cce9717fce90c484e34052ee7c7f1d7635b33c12525b4776826a7d29b6"
+    },
+    "appimage_runtime": {
+      "tag": "continuous",
+      "commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "asset": "runtime-x86_64",
+      "sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46"
+    }
+  },
+  "migration_adjustments": [
+    {
+      "path": ".github/workflows/android.yml",
+      "source_blob": "938b8f0b5c05a4c2ef61e963452ee6549658dc68",
+      "destination_blob": "540409c9e543578b4f60507bf5920208d1704efe",
+      "reason": "Runs the desktop regression suite from an empty temporary Git repository. Its secret-publishing guard otherwise scans the migration commit's test-only placeholder tokens as outgoing changes; the application and guard behavior are unchanged."
+    }
+  ]
+}

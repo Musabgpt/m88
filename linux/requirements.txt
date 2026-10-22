@@ -1,0 +1,5 @@
+# Pure-Python pywebview runtime; GTK/WebKitGTK are supplied by Ubuntu/Mint packages.
+pywebview==6.2.1
+bottle==0.13.4
+proxy-tools==0.1.0
+typing-extensions==4.16.0

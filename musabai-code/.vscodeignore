@@ -1,0 +1,11 @@
+# The packaged extension needs package.json, README.md, dist/, media/ and themes/ only.
+src/**
+test/**
+scripts/**
+dist-test/**
+dist-integration/**
+.vscode-test/**
+**/*.map
+**/*.vsix
+**/tsconfig.json
+.gitignore

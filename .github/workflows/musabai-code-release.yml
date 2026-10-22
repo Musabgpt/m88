@@ -1,0 +1,119 @@
+name: MusabAI Code release
+
+# Build the editor and publish a GitHub Release with the .deb, portable tarball and the VS Code .vsix.
+# Trigger it by pushing a version tag (e.g. git tag v0.1.0 && git push origin v0.1.0), or by hand with a tag.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: musabai-code-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VSCODIUM_VERSION: "1.140.06880"
+  VSCODIUM_SHA256: 61223b74f9e40834117311ec4177cb386d09b84c1aae4f9e674c96580569cef3
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    name: Build and publish the release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends desktop-file-utils dpkg-dev librsvg2-bin
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.22.0"
+          cache: npm
+          cache-dependency-path: musabai-code/package-lock.json
+
+      - name: Check the tag matches the package version
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./musabai-code/package.json').version")"
+          if [ "$TAG" != "v$version" ]; then
+            echo "Tag $TAG does not match musabai-code version v$version. Bump the version or fix the tag." >&2
+            exit 1
+          fi
+
+      - name: Build the extension and the terminal agent
+        working-directory: musabai-code
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run package
+
+      - name: Cache the pinned VSCodium release
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/vscodium-cache
+          key: vscodium-linux-x64-${{ env.VSCODIUM_VERSION }}
+
+      - name: Download and verify VSCodium
+        run: |
+          set -euo pipefail
+          tarball="$RUNNER_TEMP/vscodium-cache/VSCodium-linux-x64-$VSCODIUM_VERSION.tar.gz"
+          mkdir -p "$RUNNER_TEMP/vscodium-cache"
+          if [ ! -f "$tarball" ]; then
+            curl -fsSL --retry 3 -o "$tarball" \
+              "https://github.com/VSCodium/vscodium/releases/download/$VSCODIUM_VERSION/VSCodium-linux-x64-$VSCODIUM_VERSION.tar.gz"
+          fi
+          echo "$VSCODIUM_SHA256  $tarball" | sha256sum --check
+          echo "VSCODIUM_TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Build the packages
+        run: |
+          set -euo pipefail
+          python3 linux/musabai-code/build_editor.py --vscodium "$VSCODIUM_TARBALL" --sha256 "$VSCODIUM_SHA256" \
+            --extension musabai-code --out "$RUNNER_TEMP/dist"
+          version="$(node -p "require('./musabai-code/package.json').version")"
+          cp musabai-code/dist/musabai-code.vsix "$RUNNER_TEMP/dist/musabai-code-$version.vsix"
+          cd "$RUNNER_TEMP/dist"
+          sha256sum ./*.deb ./*.tar.gz ./*.vsix | tee SHA256SUMS
+
+      - name: Check the .deb installs and launches
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y "$RUNNER_TEMP"/dist/musabai-code_*_amd64.deb
+          musabai-code --version
+          musabai-agent --version
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="MusabAI Code $TAG — a free, Cursor-style AI editor for Linux.
+
+          **Install (Linux Mint 22 / Ubuntu 24.04, x86_64):**
+          \`\`\`sh
+          sudo apt install --reinstall ./musabai-code_*_amd64.deb
+          \`\`\`
+          Or build from source in one command:
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
+          \`\`\`
+          The \`.vsix\` installs MusabAI into an existing VS Code / VSCodium: \`code --install-extension musabai-code-*.vsix\`.
+
+          Verify downloads against \`SHA256SUMS\`."
+          gh release create "$TAG" "$RUNNER_TEMP"/dist/*.deb "$RUNNER_TEMP"/dist/*.tar.gz "$RUNNER_TEMP"/dist/*.vsix "$RUNNER_TEMP"/dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --title "MusabAI Code $TAG" --notes "$notes"
