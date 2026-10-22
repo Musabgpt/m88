@@ -29,8 +29,10 @@ export async function findBrowser(deps: BrowserDeps): Promise<string | undefined
     const found = await deps.which(name);
     if (found) return found;
   }
+  // Installs that are not on PATH: `which` checks a path with a slash as it is.
   for (const abs of ABSOLUTE) {
-    if (await deps.which(abs)) return abs;
+    const found = await deps.which(abs);
+    if (found) return found;
   }
   return undefined;
 }
@@ -52,14 +54,20 @@ export class BrowserSession {
     const exe = await findBrowser(this.deps);
     if (!exe) throw new Error('No Chromium-family browser found. Install one (e.g. `sudo apt install chromium`) or set MUSABAI_BROWSER.');
     // Some environments only start Chromium with --no-sandbox; try the safer launch first, then fall back once.
-    let wsUrl: string;
     try {
-      wsUrl = await this.launch(exe, Boolean(this.deps.noSandbox));
+      let wsUrl: string;
+      try {
+        wsUrl = await this.launch(exe, Boolean(this.deps.noSandbox));
+      } catch (error) {
+        if (this.deps.noSandbox) throw error;
+        wsUrl = await this.launch(exe, true);
+      }
+      await this.connect(wsUrl);
     } catch (error) {
-      if (this.deps.noSandbox) throw error;
-      wsUrl = await this.launch(exe, true);
+      // Leave nothing half-started behind: the next action tries a clean launch.
+      await this.close();
+      throw error;
     }
-    await this.connect(wsUrl);
   }
 
   private async launch(exe: string, noSandbox: boolean): Promise<string> {
@@ -79,6 +87,10 @@ export class BrowserSession {
     ];
     const proc = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     this.proc = proc;
+    // The browser closing later (the user closes the window, or it crashes) ends this session; the next action starts a new one.
+    proc.on('exit', () => {
+      if (this.proc === proc) this.reset(new Error('the browser was closed'));
+    });
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('the browser did not expose a DevTools endpoint in time')), 30000);
       let buffer = '';
@@ -90,16 +102,36 @@ export class BrowserSession {
           resolve(match[0]);
         }
       });
-      proc.on('exit', (code) => reject(new Error(`the browser exited before it was ready (code ${code ?? 'unknown'})`)));
+      // A missing or broken executable (e.g. a wrong MUSABAI_BROWSER) fails the launch instead of crashing the process.
+      proc.on('error', (error) => {
+        clearTimeout(timer);
+        reject(new Error(`could not start the browser ${exe}: ${error.message}`));
+      });
+      proc.on('exit', (code) => {
+        clearTimeout(timer);
+        reject(new Error(`the browser exited before it was ready (code ${code ?? 'unknown'})`));
+      });
     });
+  }
+
+  /** Forgets the connection (after the browser went away) so the next action launches it again. */
+  private reset(error: Error): void {
+    for (const { reject } of this.pending.values()) reject(error);
+    this.pending.clear();
+    this.ws = undefined;
+    this.sessionId = undefined;
   }
 
   private async connect(wsUrl: string): Promise<void> {
     const ws = new WebSocket(wsUrl, { perMessageDeflate: false, maxPayload: 256 * 1024 * 1024 });
     this.ws = ws;
     await new Promise<void>((resolve, reject) => {
-      ws.on('open', () => resolve());
-      ws.on('error', (e) => reject(e as Error));
+      ws.once('open', () => resolve());
+      ws.once('error', (e) => reject(e as Error));
+    });
+    ws.on('error', () => undefined);
+    ws.on('close', () => {
+      if (this.ws === ws) this.reset(new Error('the connection to the browser closed'));
     });
     ws.on('message', (raw) => this.onMessage(String(raw)));
     const { targetId } = await this.send('Target.createTarget', { url: 'about:blank' }, undefined);
@@ -141,7 +173,10 @@ export class BrowserSession {
 
   private send(method: string, params: Record<string, unknown> = {}, sessionId = this.sessionId): Promise<any> {
     const ws = this.ws;
-    if (!ws) return Promise.reject(new Error('the browser is not running'));
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      if (ws) this.reset(new Error('the connection to the browser closed'));
+      return Promise.reject(new Error('the browser is not running (it was closed); the next open starts it again'));
+    }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -164,23 +199,29 @@ export class BrowserSession {
     if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) URLs can be opened.');
     await this.start();
     this.consoleErrors = [];
+    // Listen before navigating: a fast page can fire its load event right behind the navigate reply.
+    const loaded = this.waitFor('Page.loadEventFired');
     await this.send('Page.navigate', { url });
     // Wait for the load event, but never hang: settle after a short grace period either way.
-    await Promise.race([this.waitFor('Page.loadEventFired'), new Promise((r) => setTimeout(r, 15000))]);
-    await new Promise((r) => setTimeout(r, 400));
+    await within(loaded, 15000);
+    await delay(400);
     return this.state();
   }
 
+  /** Resolves on the event, or as soon as the connection closes (a browser that went away sends nothing more). */
   private waitFor(method: string): Promise<void> {
     const ws = this.ws!;
     return new Promise((resolve) => {
+      const done = () => {
+        ws.off('message', handler);
+        ws.off('close', done);
+        resolve();
+      };
       const handler = (raw: WebSocket.RawData) => {
-        if (JSON.parse(String(raw)).method === method) {
-          ws.off('message', handler);
-          resolve();
-        }
+        if (JSON.parse(String(raw)).method === method) done();
       };
       ws.on('message', handler);
+      ws.once('close', done);
     });
   }
 
@@ -261,10 +302,16 @@ export class BrowserSession {
     this.sessionId = undefined;
     const proc = this.proc;
     this.proc = undefined;
-    if (proc && !proc.killed) {
-      proc.kill();
-      await new Promise((r) => setTimeout(r, 300));
-      if (!proc.killed) proc.kill('SIGKILL');
+    // proc.killed only says a signal was sent; whether the browser is gone is exitCode/signalCode.
+    const running = () => Boolean(proc?.pid) && proc!.exitCode === null && proc!.signalCode === null;
+    if (proc && running()) {
+      const exited = new Promise<void>((resolve) => proc.once('exit', () => resolve()));
+      proc.kill('SIGTERM');
+      await within(exited, 1500);
+      if (running()) {
+        proc.kill('SIGKILL');
+        await within(exited, 1000);
+      }
     }
     if (this.tmpdir) {
       for (let i = 0; i < 3; i++) {
@@ -272,10 +319,24 @@ export class BrowserSession {
           await rm(this.tmpdir, { recursive: true, force: true });
           break;
         } catch {
-          await new Promise((r) => setTimeout(r, 300));
+          await delay(300);
         }
       }
       this.tmpdir = undefined;
     }
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Waits for `promise`, or `ms` at most. The timer is cleared either way, so a settled wait never holds the process open. */
+async function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([promise, new Promise<undefined>((resolve) => (timer = setTimeout(() => resolve(undefined), ms)))]);
+  } finally {
+    clearTimeout(timer);
   }
 }

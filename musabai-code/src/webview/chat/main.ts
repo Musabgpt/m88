@@ -49,10 +49,11 @@ const TOOL_ICONS: Record<string, string> = {
   edit_file: 'edit', multi_edit: 'edit', write_file: 'new-file', delete_file: 'trash', run_terminal_cmd: 'terminal',
   terminal_output: 'output', read_lints: 'warning', todo_write: 'checklist', fetch_rules: 'law', web_search: 'globe',
   web_fetch: 'link-external', git: 'git-branch', github: 'github', laptop: 'device-desktop', command: 'terminal',
-  write_outside: 'edit', delete: 'trash', mcp: 'plug',
+  write_outside: 'edit', read_outside: 'file', delete: 'trash', mcp: 'plug', web: 'globe', update_memory: 'bookmark',
 };
 const MODE_ICONS: Record<string, string> = { agent: '∞', plan: 'checklist', ask: 'comment-discussion', manual: 'edit' };
-const EDIT_TOOLS = new Set(['edit_file', 'multi_edit', 'write_file', 'delete_file']);
+// Memory notes are reviewed like edits: a diff badge, a click opens the change, and the turn offers its checkpoint.
+const EDIT_TOOLS = new Set(['edit_file', 'multi_edit', 'write_file', 'delete_file', 'update_memory']);
 
 // ---- skeleton ---------------------------------------------------------------------------------------
 
@@ -270,7 +271,8 @@ function renderTool(part: Extract<UiPart, { kind: 'tool' }>): HTMLElement {
   el.append(head);
   const a = part.approval;
   if (a && !a.answer) {
-    const always = a.kind === 'command' ? a.detail.split(/\s+/).slice(0, 2).join(' ') : '';
+    // Exactly what "Always allow" remembers, and where, so it never covers more than the card shows.
+    const always = `${tr('Always allow')}${a.alwaysLabel ? ` “${a.alwaysLabel.length > 80 ? `${a.alwaysLabel.slice(0, 79)}…` : a.alwaysLabel}”` : ''} · ${tr(a.alwaysScope === 'everywhere' ? 'all projects' : 'this project')}`;
     el.append(
       h(
         'div',
@@ -283,7 +285,7 @@ function renderTool(part: Extract<UiPart, { kind: 'tool' }>): HTMLElement {
           { class: 'approval-actions' },
           h('button', { class: 'primary', onclick: () => post({ type: 'approval', id: a.id, answer: 'allow' }) }, a.kind === 'command' ? tr('Run') : tr('Allow')),
           h('button', { class: 'secondary', onclick: () => post({ type: 'approval', id: a.id, answer: 'deny' }) }, tr('Skip')),
-          a.canAlways ? h('button', { class: 'link', onclick: () => post({ type: 'approval', id: a.id, answer: 'always' }) }, `${tr('Always allow')}${always ? ` “${always}”` : ''}`) : null,
+          a.canAlways ? h('button', { class: 'link', onclick: () => post({ type: 'approval', id: a.id, answer: 'always' }) }, always) : null,
         ),
       ),
     );
@@ -807,7 +809,11 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey && document.activeElement !== input) {
+  // Enter approves only when nothing else has the focus: on a focused control (Skip, a link, a code-block button)
+  // Enter does what that control does, so it can never turn a Skip into a Run.
+  const active = document.activeElement as HTMLElement | null;
+  const onControl = Boolean(active && active !== document.body && active.closest('button, a, input, textarea, select, summary, [contenteditable], [tabindex]'));
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !onControl) {
     const approve = list.querySelector<HTMLButtonElement>('.approval .primary');
     if (approve) {
       e.preventDefault();

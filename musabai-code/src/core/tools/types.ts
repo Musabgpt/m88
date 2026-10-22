@@ -91,6 +91,10 @@ export interface ToolContext {
   /** Files the agent read or changed in this session, newest last. */
   touched: Set<string>;
   visionModel: boolean;
+  /** The folder whose .musabai/memory.md holds the project notes; default root. */
+  memoryRoot?: string;
+  /** Review tracking for memory changes when they land outside root (see memoryRoot); default changes. */
+  memoryChanges?: ChangeTracker;
 }
 
 export interface Tool {

@@ -1,3 +1,6 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", hellip: '…', mdash: '—', ndash: '–', copy: '©' };
 
 export function decodeEntities(text: string): string {
@@ -42,21 +45,92 @@ export function htmlToText(html: string): { title: string; text: string } {
 }
 
 const BROWSER_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) MusabAI-Code/0.1 Safari/537.36',
+  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) MusabAI-Code/0.2 Safari/537.36',
   Accept: 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en,ar;q=0.8',
 };
 
-export async function webFetch(url: string, fetchImpl: typeof fetch = fetch, maxChars = 40_000): Promise<{ url: string; title: string; text: string; contentType: string }> {
-  if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) URLs can be fetched.');
-  const host = new URL(url).hostname;
-  if (/^(localhost|127\.|0\.0\.0\.0|\[?::1\]?|169\.254\.)/.test(host) && !process.env.MUSABAI_ALLOW_LOCAL_FETCH) {
-    // The agent can still reach local servers with run_terminal_cmd (curl), where the user sees it.
-    throw new Error('Local addresses are not fetched by web_fetch; use run_terminal_cmd with curl for a local server.');
+function ipv4Private(ip: string): boolean {
+  const [a, b] = ip.split('.').map(Number);
+  return (
+    a === 0 || a === 10 || a === 127 || a >= 224 || // this host, private, loopback, multicast and reserved
+    (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
+    (a === 169 && b === 254) || // link-local (cloud metadata)
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 192 && b === 0) || // IETF protocol assignments
+    (a === 198 && (b === 18 || b === 19)) // benchmarking
+  );
+}
+
+function embeddedIpv4(hi: string, lo: string): string {
+  const h = Number.parseInt(hi, 16);
+  const l = Number.parseInt(lo, 16);
+  return `${h >> 8}.${h & 255}.${l >> 8}.${l & 255}`;
+}
+
+/**
+ * True for the addresses web_fetch must never reach from this laptop: loopback, private and carrier-grade NAT
+ * networks, link-local (cloud metadata), multicast, unique-local and link-local IPv6, and IPv4 written as IPv6
+ * (::ffff:127.0.0.1, NAT64, 6to4).
+ */
+export function isPrivateAddress(address: string): boolean {
+  let ip = address.toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '');
+  const kind = isIP(ip);
+  if (kind === 4) return ipv4Private(ip);
+  if (kind !== 6) return true;
+  // The URL parser writes every IPv6 form the same way: compressed, lowercase, an embedded IPv4 in hex.
+  ip = new URL(`http://[${ip}]/`).hostname.slice(1, -1);
+  const mapped = /^::(?:ffff:(?:0:)?)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(ip) ?? /^64:ff9b::(?:[0-9a-f]{1,4}:)*?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(ip);
+  if (mapped) return ipv4Private(embeddedIpv4(mapped[1], mapped[2]));
+  const sixToFour = /^2002:([0-9a-f]{1,4}):([0-9a-f]{1,4})(:|$)/.exec(ip);
+  if (sixToFour) return ipv4Private(embeddedIpv4(sixToFour[1], sixToFour[2]));
+  // ::/96 (unspecified, loopback, IPv4-compatible), unique-local fc00::/7, link- and site-local fe80::/9, multicast ff00::/8.
+  return ip.startsWith('::') || /^f[cd]/.test(ip) || /^fe[89a-f]/.test(ip) || ip.startsWith('ff');
+}
+
+type Lookup = (host: string) => Promise<string[]>;
+
+const systemLookup: Lookup = async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
+
+/** Refuses a URL whose host is, or resolves to, a local or private address. */
+async function assertPublic(url: URL, resolve: Lookup): Promise<void> {
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  const local = new Error('Local and private network addresses are not fetched by web_fetch; use run_terminal_cmd with curl for a local server.');
+  if (!host || /(^|\.)localhost\.?$/i.test(host)) throw local;
+  let addresses: string[];
+  try {
+    addresses = isIP(host) ? [host] : await resolve(host);
+  } catch (error) {
+    throw new Error(`Could not resolve ${host}: ${(error as Error).message}`);
   }
-  const res = await fetchImpl(url, { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(25_000) });
+  if (!addresses.length || addresses.some(isPrivateAddress)) throw local;
+}
+
+export async function webFetch(
+  url: string,
+  fetchImpl: typeof fetch = fetch,
+  maxChars = 40_000,
+  options: { lookup?: Lookup } = {},
+): Promise<{ url: string; title: string; text: string; contentType: string }> {
+  if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) URLs can be fetched.');
+  // The agent can still reach local servers with run_terminal_cmd (curl), where the user sees and approves it.
+  const checked = !process.env.MUSABAI_ALLOW_LOCAL_FETCH;
+  let current = new URL(url);
+  let res: Response;
+  // Redirects are followed by hand so every hop is checked, not only the first host.
+  for (let hop = 0; ; hop++) {
+    if (checked) await assertPublic(current, options.lookup ?? systemLookup);
+    res = await fetchImpl(current, { headers: BROWSER_HEADERS, redirect: 'manual', signal: AbortSignal.timeout(25_000) });
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!location) break;
+    await res.body?.cancel().catch(() => undefined);
+    if (hop >= 5) throw new Error(`Too many redirects for ${url}`);
+    current = new URL(location, current);
+    if (!/^https?:$/.test(current.protocol)) throw new Error(`${url} redirects to a URL that is not http(s).`);
+  }
   const contentType = res.headers.get('content-type') || '';
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${current.href}`);
   const raw = await res.text();
   let title = '';
   let text = raw;
@@ -69,7 +143,7 @@ export async function webFetch(url: string, fetchImpl: typeof fetch = fetch, max
     }
   }
   if (text.length > maxChars) text = `${text.slice(0, maxChars)}\n…(page truncated at ${maxChars} characters)`;
-  return { url: res.url || url, title, text, contentType };
+  return { url: current.href, title, text, contentType };
 }
 
 export interface SearchResult {

@@ -20,7 +20,7 @@ after(async () => {
   await Promise.all(cleanups.map((c) => c()));
 });
 
-async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][]; maxSteps?: number } = {}) {
+async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][]; maxSteps?: number; rules?: AgentDeps['rules'] } = {}) {
   const server = await mockServer({ 'POST /chat/completions': script.map((events) => (_req, res) => sse(res, events)) });
   servers.push(server);
   let backup: MockServer | undefined;
@@ -59,7 +59,7 @@ async function setup(script: unknown[][], options: { policy?: CommandPolicy; bac
       return 'allow';
     },
     environment: environmentProvider(dir, 'terminal'),
-    rules: rulesProvider(dir, () => []),
+    rules: options.rules ?? rulesProvider(dir, () => []),
     changes,
     checkpoints,
     maxSteps: options.maxSteps,
@@ -151,6 +151,39 @@ describe('agent loop', () => {
     const second = await t.session.run({ turnId: 'm1', text: 'Continue working toward the goal.', mode: agent, modelId: 'kilo-auto/free' });
     assert.equal(second.reason, 'completed');
     assert.equal(second.text, 'All done.');
+  });
+
+  it('keeps working when the project rules cannot be loaded, and says so once', async () => {
+    let loads = 0;
+    const t = await setup([toolCallChunks([{ id: 'c', name: 'read_file', args: { path: 'hello.py' } }]), textChunks('Read it.')], {
+      rules: async () => {
+        loads++;
+        throw new SyntaxError('Invalid regular expression: Unterminated group');
+      },
+    });
+    const result = await t.session.run({ turnId: 'r1', text: 'look', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Read it.');
+    assert.equal(loads, 2, 'tried again once the files in play changed');
+    assert.equal(t.events.filter((e) => e.type === 'status' && /Project rules could not be loaded/.test(e.message)).length, 1);
+  });
+
+  it('reads the rules again only when the files in play change or a tool may have changed files', async () => {
+    let loads = 0;
+    const t = await setup(
+      [
+        toolCallChunks([{ id: 'a', name: 'list_dir', args: {} }]),
+        toolCallChunks([{ id: 'b', name: 'list_dir', args: { depth: 1 } }]),
+        toolCallChunks([{ id: 'c', name: 'edit_file', args: { path: 'hello.py', old_string: 'print("hi")', new_string: 'print("x")' } }]),
+        textChunks('Done.'),
+      ],
+      { rules: async () => (loads++, { rules: [], text: '' }) },
+    );
+    const result = await t.session.run({ turnId: 'k1', text: 'go', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    // Step 1 loads; steps 2 and 3 follow read-only listings and reuse them; step 4 follows the edit and loads again.
+    assert.equal(loads, 2);
+    assert.equal(t.server.requests.length, 4);
   });
 
   it('stops a running command when the user cancels', async () => {

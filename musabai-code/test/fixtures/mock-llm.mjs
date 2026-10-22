@@ -64,10 +64,14 @@ function reply(body) {
   }
   if (system.includes('You are in Ask mode')) return text('`hello.py` prints a greeting with `print("hi")` — a one-line Python script.');
   if (/hello|greet|change|edit|fix/i.test(userText)) {
-    if (rounds === 0) return calls([['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'in_progress' }, { id: '2', content: 'Change the greeting', status: 'pending' }, { id: '3', content: 'Run it to verify', status: 'pending' }] }], ['list_dir', { path: '.' }], ['read_file', { path: 'hello.py' }]]);
-    if (rounds === 1) return calls([['edit_file', { path: 'hello.py', old_string: 'print("hi")', new_string: 'print("Hello, world! مرحبا بالعالم")' }], ['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'completed' }, { id: '2', content: 'Change the greeting', status: 'completed' }, { id: '3', content: 'Run it to verify', status: 'in_progress' }], merge: false }]]);
-    if (rounds === 2) return calls([['run_terminal_cmd', { command: 'python3 hello.py', explanation: 'Run the script to check the new greeting' }]]);
-    if (rounds === 3) return calls([['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'completed' }, { id: '2', content: 'Change the greeting', status: 'completed' }, { id: '3', content: 'Run it to verify', status: 'completed' }] }]]);
+    // "remember …": save a project note first (update_memory), then the usual edit.
+    const remember = /remember/i.test(userText) ? 1 : 0;
+    if (remember && rounds === 0) return calls([['update_memory', { text: 'The dev server runs on port 8000' }]]);
+    const round = rounds - remember;
+    if (round === 0) return calls([['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'in_progress' }, { id: '2', content: 'Change the greeting', status: 'pending' }, { id: '3', content: 'Run it to verify', status: 'pending' }] }], ['list_dir', { path: '.' }], ['read_file', { path: 'hello.py' }]]);
+    if (round === 1) return calls([['edit_file', { path: 'hello.py', old_string: 'print("hi")', new_string: 'print("Hello, world! مرحبا بالعالم")' }], ['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'completed' }, { id: '2', content: 'Change the greeting', status: 'completed' }, { id: '3', content: 'Run it to verify', status: 'in_progress' }], merge: false }]]);
+    if (round === 2) return calls([['run_terminal_cmd', { command: 'python3 hello.py', explanation: 'Run the script to check the new greeting' }]]);
+    if (round === 3) return calls([['todo_write', { todos: [{ id: '1', content: 'Read hello.py', status: 'completed' }, { id: '2', content: 'Change the greeting', status: 'completed' }, { id: '3', content: 'Run it to verify', status: 'completed' }] }]]);
     return text('Done. `hello.py` now prints **"Hello, world! مرحبا بالعالم"** and running it shows the new greeting:\n\n```bash\npython3 hello.py\n```\n\nReview the change in the editor, then accept or reject it.');
   }
   return text(`مرحبًا! I am a mock model. You said: ${userText.slice(0, 120)}`);

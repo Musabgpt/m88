@@ -31,6 +31,10 @@ export interface AgentDeps {
   disabledTools?: () => string[];
   maxSteps?: number;
   maxOutputTokens?: number;
+  /** Where update_memory keeps the project notes; default the host root (a background agent uses the main checkout). */
+  memoryRoot?: string;
+  /** Where memory changes are offered for review when that is not `changes` (a background agent's notes land in the main checkout). */
+  memoryChanges?: ChangeTracker;
 }
 
 export interface TurnInput {
@@ -151,6 +155,10 @@ export class AgentSession {
     let retries = 0;
     let finalText = '';
     let modelId: string | undefined;
+    // Rules are read again only when the files in play change or a tool may have changed files (rule files included).
+    let rulesKey: string | undefined;
+    let rulesText = '';
+    let rulesWarned = false;
 
     const finish = (reason: TurnResult['reason'], error?: string): TurnResult => {
       this.dropImages();
@@ -162,8 +170,19 @@ export class AgentSession {
       if (signal?.aborted) return finish('cancelled');
       emit({ type: 'step', step });
       const referenced = [...(input.referencedFiles ?? []), ...this.touched];
-      const { rules, text: rulesText } = await this.deps.rules(referenced, input.mentionedRules ?? []);
-      this.rules = rules;
+      const key = referenced.join('\0');
+      if (key !== rulesKey) {
+        rulesKey = key;
+        try {
+          const loaded = await this.deps.rules(referenced, input.mentionedRules ?? []);
+          this.rules = loaded.rules;
+          rulesText = loaded.text;
+        } catch (error) {
+          // A broken rule file must not stop the agent: work without the rules and say so once.
+          if (!rulesWarned) emit({ type: 'status', message: `Project rules could not be loaded: ${error instanceof Error ? error.message : String(error)}` });
+          rulesWarned = true;
+        }
+      }
       const env = await this.deps.environment();
       const system = systemPrompt({ ...env, mode: input.mode, rulesText, toolNames: tools.map((t) => t.name) });
       const current = await pool.resolve(input.modelId);
@@ -282,7 +301,10 @@ export class AgentSession {
           fetchImpl: this.deps.fetchImpl,
           touched: this.touched,
           visionModel: completion.spec.capabilities.includes('vision'),
+          memoryRoot: this.deps.memoryRoot,
+          memoryChanges: this.deps.memoryChanges,
         };
+        if (!tool.readOnly) rulesKey = undefined;
         let result: ToolResult;
         try {
           result = await tool.execute(args, ctx);

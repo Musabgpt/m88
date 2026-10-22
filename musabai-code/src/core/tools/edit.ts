@@ -1,12 +1,15 @@
 import { stats, unifiedDiff } from '../diff';
 import { EditError, applyEdit, applyEdits, checkPlaceholders } from '../edit';
-import { isInside, relPath, resolvePath } from '../util';
+import { isInside, realInside, realPathOf, relPath, resolvePath } from '../util';
 import { type Tool, type ToolContext, type ToolResult, ToolError, bool, str } from './types';
 
+/** Asks before a change outside the project, including through a symlink inside it that points outside. */
 async function guardOutside(ctx: ToolContext, abs: string): Promise<void> {
-  if (isInside(ctx.root, abs)) return;
-  const answer = await ctx.approve({ kind: 'write_outside', path: abs }, `write:${abs}`);
-  if (answer === 'deny') throw new ToolError(`The user did not allow changing ${abs} (outside the project).`);
+  if (isInside(ctx.root, abs) && (await realInside(ctx.root, abs))) return;
+  const real = await realPathOf(abs);
+  const shown = real === abs ? abs : `${abs} → ${real}`;
+  const answer = await ctx.approve({ kind: 'write_outside', path: shown }, `write:${real}`);
+  if (answer === 'deny') throw new ToolError(`The user did not allow changing ${shown} (outside the project).`);
 }
 
 /** Writes through the host and records the change for checkpoints and review. */
@@ -185,7 +188,7 @@ export const deleteFile: Tool = {
     const info = await ctx.host.stat(abs);
     if (!info) return { ok: true, content: `${rel} does not exist.`, summary: `${rel} already gone` };
     if (info.type !== 'file') throw new ToolError(`${rel} is not a file; only files can be deleted with this tool.`);
-    if (!isInside(ctx.root, abs)) {
+    if (!isInside(ctx.root, abs) || !(await realInside(ctx.root, abs))) {
       const answer = await ctx.approve({ kind: 'delete', path: abs }, `delete:${abs}`);
       if (answer === 'deny') throw new ToolError(`The user did not allow deleting ${abs}.`);
     }

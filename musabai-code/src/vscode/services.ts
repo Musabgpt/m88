@@ -27,7 +27,8 @@ export class Services implements vscode.Disposable {
   index?: CodebaseIndex;
   mcp?: McpManager;
   changes?: ChangeTracker;
-  private rgPath?: string;
+  /** The editor's own ripgrep (for hosts on machines without rg installed). */
+  rgPath?: string;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly workspaceDisposables: vscode.Disposable[] = [];
   private readonly onDidChangeWorkspaceEmitter = new vscode.EventEmitter<void>();
@@ -119,11 +120,17 @@ export class Services implements vscode.Disposable {
         pending.set(rel, op);
         if (timer) clearTimeout(timer);
         timer = setTimeout(async () => {
-          for (const [file, action] of pending) {
-            if (action === 'delete') this.index?.forget(file);
-            else await this.index?.updateFile(file).catch(() => undefined);
-          }
+          const batch = [...pending];
           pending.clear();
+          // Index only what the full build would: files git does not ignore (no build output, .venv, caches…).
+          const host = this.host;
+          const indexed = host ? new Set(await host.listFiles({ limit: 100_000, fresh: true }).catch(() => [] as string[])) : new Set<string>();
+          for (const [file, action] of batch) {
+            const rel = file.split(path.sep).join('/');
+            if (action === 'delete' || !indexed.has(rel)) {
+              if (this.index?.has(rel)) this.index.forget(rel);
+            } else await this.index?.updateFile(rel).catch(() => undefined);
+          }
         }, 1500);
       };
       this.workspaceDisposables.push(

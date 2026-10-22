@@ -25,6 +25,8 @@ const AR: Record<string, string> = {
   'Skip': 'تخطي',
   'Allow': 'سماح',
   'Always allow': 'سماح دائمًا',
+  'all projects': 'كل المشاريع',
+  'this project': 'هذا المشروع',
   'Allowed': 'تم السماح',
   'Skipped': 'تم التخطي',
   'Build': 'نفّذ الخطة',

@@ -4,10 +4,11 @@ import type { MentionChip } from '../webview/shared/protocol';
 import { BackgroundAgents } from './background';
 import { ChatController } from './chatController';
 import { TabCompletion } from './completion';
-import { chatModel, get, set } from './config';
+import { chatModel, get, language, set } from './config';
 import { GitHubCommands } from './githubCommands';
 import { Importer } from './importer';
 import { InlineEditController } from './inlineEdit';
+import { t } from './l10n';
 import { PhoneServer } from './phoneServer';
 import { ReviewController } from './review';
 import { generateCommitMessage } from './scm';
@@ -67,7 +68,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
   const background = new BackgroundAgents(services, context);
   const settings = new SettingsPanel(context, services, chat);
   const importer = new Importer(services, context);
-  const phone = new PhoneServer(chat, services);
+  const phone = new PhoneServer(chat, services, {
+    scriptPath: path.join(context.extensionPath, 'dist', 'webview', 'phone.js'),
+    lang: language,
+    onIdleStop: (minutes) => void vscode.window.showInformationMessage(`MusabAI: ${t('The phone link stopped after {0} minutes without a phone connected.', minutes)}`),
+  });
   context.subscriptions.push(review, inline, terminals, chat, tab, github, background, settings, phone);
 
   context.subscriptions.push(
@@ -227,19 +232,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
 
   register('musabai.checkForUpdates', () => checkForUpdates(context, true));
 
+  let pairingPanel: vscode.WebviewPanel | undefined;
   register('musabai.phone.start', async () => {
     try {
       const info = await phone.start(get('phone.port', 0));
-      const panel = vscode.window.createWebviewPanel('musabai.phone', 'MusabAI — Phone Link', vscode.ViewColumn.Active, { enableScripts: false });
-      panel.webview.html = phone.pairingHtml(info);
+      // One pairing panel: running the command again shows a fresh one-time code in it.
+      if (!pairingPanel) {
+        pairingPanel = vscode.window.createWebviewPanel('musabai.phone', 'MusabAI — Phone Link', vscode.ViewColumn.Active, { enableScripts: false });
+        pairingPanel.onDidDispose(() => (pairingPanel = undefined));
+      } else pairingPanel.reveal();
+      pairingPanel.webview.html = phone.pairingHtml(info);
     } catch (e) {
-      void vscode.window.showErrorMessage(`Could not start the phone link: ${(e as Error).message}`);
+      void vscode.window.showErrorMessage(`${t('Could not start the phone link')}: ${(e as Error).message}`);
     }
   });
   register('musabai.phone.stop', async () => {
     const was = phone.running;
     await phone.stop();
-    void vscode.window.showInformationMessage(was ? 'MusabAI phone link stopped.' : 'The phone link was not running.');
+    pairingPanel?.dispose();
+    void vscode.window.showInformationMessage(was ? t('MusabAI phone link stopped.') : t('The phone link was not running.'));
   });
 
   // Start MCP servers in the background so their tools are ready for the first request.

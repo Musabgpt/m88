@@ -7,7 +7,7 @@ import { CheckpointStore } from '../core/checkpoints';
 import { AUTO_MODEL_ID, type CustomModelConfig, PROVIDER_KEYS, customSpec } from '../core/providers/catalog';
 import { configDir, credentialsPath, keyResolver, readCredentials, writeCredential } from '../core/credentials';
 import { unifiedDiff } from '../core/diff';
-import { git, gitInfo, branchChanges, commitDiff } from '../core/git';
+import { git, gitInfo, branchChanges, commitDiff, pushWithToken } from '../core/git';
 import { GitHubApi, envOrGhToken, parseRemote } from '../core/github';
 import { type ApprovalRequest, type ApprovalResult, NodeHost } from '../core/host';
 import { CodebaseIndex } from '../core/index/indexer';
@@ -21,9 +21,8 @@ import { BUILTIN_MODES } from '../core/tools';
 import type { AgentEvent, ModeDefinition } from '../core/tools/types';
 import { newId, relPath } from '../core/util';
 import { readMemory } from '../core/memory';
+import { VERSION } from '../core/version';
 import { environmentProvider, rulesProvider } from '../core/workspace';
-
-const VERSION = '0.1.0';
 const color = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code: string) => (text: string) => (color ? `\x1b[${code}m${text}\x1b[0m` : text);
 const dim = c('2');
@@ -248,12 +247,16 @@ class Session {
     const what =
       request.kind === 'command' ? `Run ${bold(request.command)}${request.reason ? dim(` — ${request.reason}`) : ''}` :
       request.kind === 'write_outside' ? `Change ${bold(request.path)} (outside the project)` :
+      request.kind === 'read_outside' ? `Read ${bold(request.path)} (outside the project)` :
       request.kind === 'delete' ? `Delete ${bold(request.path)}` :
       request.kind === 'laptop' ? `Laptop ${bold(request.action)} ${request.detail}` :
-      request.kind === 'browser' ? `Browser ${bold(request.action)} ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
+      request.kind === 'browser' ? `Browser ${bold(request.action)} ${request.detail}` :
+      request.kind === 'web' ? `${request.action === 'search' ? 'Search the web for' : 'Fetch'} ${bold(request.detail)}` :
+      request.kind === 'github' ? `Publish on GitHub (${bold(request.action)}): ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
     if (!this.atLineStart) this.out('\n');
-    const answer = (await this.ask(`${yellow('?')} ${what}  ${dim('[y]es / [n]o / [a]lways')} `)).toLowerCase();
-    return answer.startsWith('a') ? 'always' : answer.startsWith('y') || answer === '' ? 'allow' : 'deny';
+    // Like the MCP trust question, a bare Enter is "no": approving needs a deliberate y (or a).
+    const answer = (await this.ask(`${yellow('?')} ${what}  ${dim('[y]es / [N]o / [a]lways')} `)).toLowerCase();
+    return answer.startsWith('a') ? 'always' : answer.startsWith('y') ? 'allow' : 'deny';
   }
 
   private render(e: AgentEvent): void {
@@ -570,10 +573,9 @@ async function pullRequest(o: Options, pool: ProviderPool): Promise<number> {
   const meta = await api.repo(ref);
   const base = typeof o.flags.base === 'string' ? o.flags.base : meta.default_branch;
   if (!info.branch || info.branch === base) throw new Error(`create a branch first (you are on ${base}): git checkout -b my-change`);
-  const host = new NodeHost({ root });
   const token = await envOrGhToken(root);
-  const push = await host.exec(`git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$MUSABAI_GH_TOKEN"; }; f' push -u origin HEAD`, { env: { MUSABAI_GH_TOKEN: token ?? '' } });
-  if (push.exitCode !== 0) throw new Error(`git push failed:\n${push.output}`);
+  const push = await pushWithToken(root, token, ['-u', 'origin', 'HEAD']);
+  if (push.code !== 0) throw new Error(`git push failed:\n${push.stderr || push.stdout}`);
   const text = await pullRequestText(pool, o.model, root, base);
   const pr = await api.createPull(ref, { title: text.title, body: text.body, head: info.branch, base, draft: Boolean(o.flags.draft) });
   process.stdout.write(`${green('opened')} #${pr.number} ${pr.title}\n${pr.html_url}\n`);

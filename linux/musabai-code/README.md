@@ -29,7 +29,7 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
 بعد التثبيت: افتح **MusabAI Code** من القائمة، أو من الطرفية `musabai-code ~/مشروعي`.
 
 تستخدم VS Code أو VSCodium (الإصدار 1.105 أو أحدث) وتريد MusabAI داخله؟ ثبّت ملف الإضافة من نفس ملفات GitHub Actions:
-`code --install-extension musabai-code-0.1.0.vsix`.
+`code --install-extension musabai-code-*.vsix`.
 
 ## أول تشغيل
 
@@ -80,6 +80,9 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
 ## الأمان
 
 - وضع تشغيل الأوامر: **اسأل دائمًا** أو **القائمة المسموحة** (الافتراضي) أو **تلقائي**. الأوامر الخطرة (sudo وrm -rf وforce-push و`curl | sh`…) تطلب الموافقة دائمًا.
+  في القائمة المسموحة يسأل الوكيل أيضًا عن أي أمر فيه `$(…)` أو إعادة توجيه تكتب ملفًا (`>`)، و«سماح دائمًا» لأوامر مثل `rm` و`bash` و`node` يخص الأمر نفسه فقط.
+- قراءة ملف خارج المشروع (أو عبر رابط رمزي يقود خارجه)، وجلب صفحات الويب والبحث (خارج وضع التشغيل التلقائي)، والنشر على GitHub (طلب دمج أو تعليق) تطلب موافقتك.
+- ملاحظات الذاكرة (`.musabai/memory.md`) تظهر في شريط التغييرات مثل أي تعديل، وتقدر ترفضها أو تستعيد نقطة قبلها.
 - في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
   تُظهر المحادثة تنبيهًا مع زر **Trust this folder**؛ اضغطه ثم **Trust** إذا كان المشروع لك، فيعمل الوكيل عاديًا.
 - خوادم MCP التي يضعها المشروع لا تبدأ إلا بعد موافقتك.
@@ -118,7 +121,7 @@ assembles MusabAI Code and installs the `.deb`. From a checkout, run `./linux/mu
 Then open **MusabAI Code** from the menu, or run `musabai-code ~/your-project`.
 
 To use MusabAI inside an existing VS Code or VSCodium (1.105 or newer), install the extension from the same
-artifact: `code --install-extension musabai-code-0.1.0.vsix`.
+artifact: `code --install-extension musabai-code-*.vsix`.
 
 ## First run
 
@@ -179,7 +182,12 @@ Every action that changes something asks first. Turn the feature off in MusabAI 
 ## Safety
 
 - **Run mode** decides when commands need your approval: *Ask every time*, *Allow-list* (the default) or *Auto-run*.
-  Risky commands (sudo, `rm -rf`, force-push, `curl | sh`…) always ask.
+  Risky commands (sudo, `rm -rf`, force-push, `curl | sh`…) always ask. In *Allow-list* mode a command with `$(…)` or
+  a redirection that writes a file (`>`) asks too, and *Always allow* for programs such as `rm`, `bash` or `node`
+  covers only that exact command.
+- Reading a file outside the project (or through a symbolic link that leads out of it), fetching web pages and web
+  searches (outside *Auto-run*), and publishing on GitHub (a pull request or a comment) ask first.
+- Project memory (`.musabai/memory.md`) shows up in the changes bar like any edit: reject it, or restore a checkpoint.
 - **Restricted Mode** (an untrusted folder):
   - the agent asks before every command;
   - the project's MCP servers stay off;

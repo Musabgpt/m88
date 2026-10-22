@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { PROTECT, project } from '../../src/core/agent/context';
@@ -8,7 +8,7 @@ import { NodeHost } from '../../src/core/host';
 import { addedLines, extractCodeBlock, parseJsonLoose } from '../../src/core/oneshot';
 import { loadRules, nestedDirs, parseMdc, rulesPrompt, selectRules } from '../../src/core/rules';
 import type { ChatMessage } from '../../src/core/types';
-import { globToRegExp, matchesGlob, parseArgs } from '../../src/core/util';
+import { globToRegExp, matchesGlob, parseArgs, splitGlobList } from '../../src/core/util';
 import { htmlToText, parseDuckDuckGo } from '../../src/core/web';
 import { tempDir } from './helpers';
 
@@ -21,6 +21,16 @@ describe('globs and arguments', () => {
     assert.ok(matchesGlob('a/b.test.js', '**/*.{test,spec}.js'));
     assert.ok(globToRegExp('docs/*.md').test('docs/a.md'));
     assert.ok(!globToRegExp('docs/*.md').test('docs/x/a.md'));
+  });
+
+  it('keeps the commas inside braces and never throws on an unbalanced brace', () => {
+    assert.deepEqual(splitGlobList('src/**/*.{ts,tsx}, docs/**,*.[ch]'), ['src/**/*.{ts,tsx}', 'docs/**', '*.[ch]']);
+    assert.deepEqual(splitGlobList('*.ts,*.tsx'), ['*.ts', '*.tsx']);
+    assert.ok(matchesGlob('src/a/b.tsx', 'src/**/*.{ts,tsx}'));
+    assert.doesNotThrow(() => globToRegExp('src/**/*.{ts'));
+    assert.ok(globToRegExp('src/**/*.{ts').test('src/x.{ts'), 'an unbalanced brace is a literal character');
+    assert.ok(globToRegExp('a}b').test('a}b'));
+    assert.equal(matchesGlob('a.ts', ['src/**/*.{ts', '*.ts']), true);
   });
 
   it('repairs common JSON slips but never truncated output', () => {
@@ -40,6 +50,45 @@ describe('rules', () => {
     assert.deepEqual(b.meta.globs, ['**/*.py', 'tests/**']);
     assert.equal(b.meta.alwaysApply, true);
     assert.deepEqual(parseMdc('just text').meta, {});
+    // Cursor's brace globs stay whole, in every front-matter shape.
+    assert.deepEqual(parseMdc('---\nglobs: src/**/*.{ts,tsx}\n---\nx').meta.globs, ['src/**/*.{ts,tsx}']);
+    assert.deepEqual(parseMdc('---\nglobs: "*.{js,jsx}", docs/**\n---\nx').meta.globs, ['*.{js,jsx}', 'docs/**']);
+    assert.deepEqual(parseMdc('---\nglobs: ["app/**/*.{vue,ts}", "*.css"]\n---\nx').meta.globs, ['app/**/*.{vue,ts}', '*.css']);
+  });
+
+  it('loads and attaches a rule with brace globs instead of failing every chat', async () => {
+    const { dir, cleanup } = await tempDir();
+    try {
+      await mkdir(path.join(dir, '.cursor', 'rules'), { recursive: true });
+      await writeFile(path.join(dir, '.cursor', 'rules', 'ts.mdc'), '---\nglobs: src/**/*.{ts,tsx}\n---\nTypeScript rule');
+      await writeFile(path.join(dir, '.cursor', 'rules', 'odd.mdc'), '---\nglobs: src/**/*.{ts\n---\nOdd rule');
+      const rules = await loadRules(dir);
+      const sel = selectRules(rules, ['src/app/view.tsx']);
+      assert.deepEqual(sel.attached.map((r) => r.name), ['ts']);
+      assert.match(rulesPrompt(sel), /TypeScript rule/);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('does not read rule files that are links to files outside the project', async () => {
+    const { dir, cleanup } = await tempDir();
+    const outside = await tempDir();
+    try {
+      await writeFile(path.join(outside.dir, 'secret.txt'), 'API_KEY=sk-secret');
+      await mkdir(path.join(dir, '.cursor', 'rules'), { recursive: true });
+      await symlink(path.join(outside.dir, 'secret.txt'), path.join(dir, 'AGENTS.md'));
+      await symlink(path.join(outside.dir, 'secret.txt'), path.join(dir, '.cursorrules'));
+      await symlink(path.join(outside.dir, 'secret.txt'), path.join(dir, '.cursor', 'rules', 'leak.mdc'));
+      await writeFile(path.join(dir, 'real.md'), 'Inside rule');
+      await symlink(path.join(dir, 'real.md'), path.join(dir, '.cursor', 'rules', 'inside.mdc'));
+      const rules = await loadRules(dir);
+      assert.deepEqual(rules.map((r) => r.name), ['inside'], 'a link inside the project is fine; links out are skipped');
+      assert.ok(rules.every((r) => !r.body.includes('sk-secret')));
+    } finally {
+      await cleanup();
+      await outside.cleanup();
+    }
   });
 
   it('loads Cursor rules, .cursorrules, AGENTS.md (nested too) and user rules, and selects them', async () => {

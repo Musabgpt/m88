@@ -1,6 +1,6 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { matchesGlob, relPath } from './util';
+import { matchesGlob, realInside, relPath, splitGlobList } from './util';
 
 export type RuleKind = 'always' | 'auto' | 'agent' | 'manual';
 
@@ -27,17 +27,10 @@ function unquote(value: string): string {
 }
 
 function splitGlobs(value: string): string[] {
-  const v = value.trim();
-  if (!v) return [];
-  if (v.startsWith('[') && v.endsWith(']')) {
-    return v
-      .slice(1, -1)
-      .split(',')
-      .map(unquote)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  return v.split(',').map(unquote).map((s) => s.trim()).filter(Boolean);
+  let v = value.trim();
+  if (v.startsWith('[') && v.endsWith(']')) v = v.slice(1, -1);
+  // Commas inside braces belong to the glob: "src/**/*.{ts,tsx}" is one pattern.
+  return splitGlobList(v).map(unquote).map((s) => s.trim()).filter(Boolean);
 }
 
 /** Parses Cursor's .mdc front matter (description, globs, alwaysApply) without a YAML dependency. */
@@ -89,8 +82,16 @@ async function walk(dir: string, depth = 0): Promise<string[]> {
   return out.sort();
 }
 
-async function readOptional(file: string): Promise<string | undefined> {
+const MAX_RULE_FILE = 1_000_000;
+
+/**
+ * A project file's text, or undefined when it is missing, not a regular file, too large, or a link that leads
+ * outside the project (rules go into every prompt, so they must not pull in other files of the laptop).
+ */
+async function readOptional(root: string, file: string): Promise<string | undefined> {
   try {
+    const info = await stat(file);
+    if (!info.isFile() || info.size > MAX_RULE_FILE || !(await realInside(root, file))) return undefined;
     return await readFile(file, 'utf8');
   } catch {
     return undefined;
@@ -104,7 +105,7 @@ export async function loadRules(root: string, userRules: string[] = [], nestedAg
     [path.join(root, '.musabai', 'rules'), 'musabai'],
   ] as const) {
     for (const file of await walk(dir)) {
-      const text = await readOptional(file);
+      const text = await readOptional(root, file);
       if (text === undefined) continue;
       const { meta, body } = parseMdc(text);
       if (!body) continue;
@@ -119,14 +120,14 @@ export async function loadRules(root: string, userRules: string[] = [], nestedAg
       });
     }
   }
-  const legacy = await readOptional(path.join(root, '.cursorrules'));
+  const legacy = await readOptional(root, path.join(root, '.cursorrules'));
   if (legacy?.trim()) rules.push({ name: 'cursorrules', path: '.cursorrules', description: 'Project rules', globs: [], kind: 'always', body: legacy.trim(), source: 'cursorrules' });
-  const agents = await readOptional(path.join(root, 'AGENTS.md'));
+  const agents = await readOptional(root, path.join(root, 'AGENTS.md'));
   if (agents?.trim()) rules.push({ name: 'AGENTS.md', path: 'AGENTS.md', description: 'Project notes for agents', globs: [], kind: 'always', body: agents.trim(), source: 'agents' });
   for (const dir of nestedAgentDirs) {
     const rel = relPath(root, dir);
     if (!rel || rel === '.' || rel.startsWith('..')) continue;
-    const text = await readOptional(path.join(dir, 'AGENTS.md'));
+    const text = await readOptional(root, path.join(dir, 'AGENTS.md'));
     if (text?.trim()) {
       rules.push({ name: `${rel}/AGENTS.md`, path: `${rel}/AGENTS.md`, description: `Notes for ${rel}/`, globs: [`${rel}/**`], kind: 'auto', body: text.trim(), source: 'agents' });
     }

@@ -1,5 +1,5 @@
 import { stripAnsi } from '../host';
-import { allowPrefix, evaluateCommand } from '../policy';
+import { alwaysAllowKey, evaluateCommand } from '../policy';
 import { resolvePath, truncateMiddle } from '../util';
 import { type Tool, ToolError, bool, num, str } from './types';
 
@@ -35,7 +35,7 @@ export const runTerminalCmd: Tool = {
     if (verdict.decision === 'ask') {
       const answer = await ctx.approve(
         { kind: 'command', command, cwd, reason: str(args, 'explanation', false) || verdict.reason, background },
-        verdict.dangerous ? undefined : `cmd:${allowPrefix(command)}`,
+        verdict.dangerous ? undefined : alwaysAllowKey(command),
       );
       if (answer === 'deny') {
         return {

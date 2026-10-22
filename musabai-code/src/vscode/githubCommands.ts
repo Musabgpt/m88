@@ -1,6 +1,6 @@
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { branchChanges, commitDiff, git, gitInfo } from '../core/git';
+import { branchChanges, commitDiff, git, gitInfo, pushWithToken } from '../core/git';
 import { type RepoRef, parseRemote } from '../core/github';
 import { type ReviewResult, commitMessage, pullRequestText, reviewDiff, reviewMarkdown } from '../core/oneshot';
 import { slug } from '../core/util';
@@ -50,9 +50,8 @@ export class GitHubCommands implements vscode.Disposable {
       return;
     }
     const token = await this.services.githubToken(true);
-    const helper = token ? ['-c', 'credential.helper=', '-c', 'credential.helper=!f() { echo username=x-access-token; echo "password=$MUSABAI_GH_TOKEN"; }; f'] : [];
-    const out = await this.services.host!.exec(`git ${helper.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')} push -u origin HEAD`, { env: token ? { MUSABAI_GH_TOKEN: token } : {} });
-    if (out.exitCode !== 0) throw new Error(`git push failed: ${out.output.trim().split('\n').slice(-3).join(' ')}`);
+    const out = await pushWithToken(root, token, ['-u', 'origin', 'HEAD']);
+    if (out.code !== 0) throw new Error(`git push failed: ${(out.stderr || out.stdout).trim().split('\n').slice(-3).join(' ')}`);
   }
 
   async createPullRequest(): Promise<void> {

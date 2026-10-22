@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { type ParseError, applyEdits, modify, parse } from 'jsonc-parser';
 import * as vscode from 'vscode';
 import { PROVIDER_KEYS } from '../core/providers/catalog';
 import { loadRules, RULE_TEMPLATE } from '../core/rules';
@@ -165,25 +166,24 @@ export class SettingsPanel implements vscode.Disposable {
         if (!suggestion) break;
         const file = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'musabai', 'mcp.json');
         await mkdir(path.dirname(file), { recursive: true });
-        let data: { mcpServers?: Record<string, unknown> } = {};
-        const existing = await readFile(file, 'utf8').catch(() => undefined);
-        if (existing?.trim()) {
-          try {
-            data = JSON.parse(existing.replace(/^\s*\/\/.*$/gm, ''));
-          } catch {
-            // Don't clobber a file we can't parse: let the user add it by hand.
-            await vscode.window.showTextDocument(vscode.Uri.file(file));
-            void vscode.window.showWarningMessage(`MusabAI: couldn't edit ${path.basename(file)} automatically. Add "${suggestion.name}" to mcpServers yourself.`);
-            break;
-          }
+        const existing = (await readFile(file, 'utf8').catch(() => undefined)) ?? '';
+        const errors: ParseError[] = [];
+        const data = (existing.trim() ? parse(existing, errors, { allowTrailingComma: true }) : {}) as { mcpServers?: Record<string, unknown> } | undefined;
+        if (errors.length || !data || typeof data !== 'object' || Array.isArray(data)) {
+          // Don't clobber a file we can't parse: let the user add it by hand.
+          await vscode.window.showTextDocument(vscode.Uri.file(file));
+          void vscode.window.showWarningMessage(`MusabAI: couldn't edit ${path.basename(file)} automatically. Add "${suggestion.name}" to mcpServers yourself.`);
+          break;
         }
-        data.mcpServers ??= {};
-        if (data.mcpServers[suggestion.name]) {
+        if (data.mcpServers?.[suggestion.name]) {
           void vscode.window.showInformationMessage(`MusabAI: "${suggestion.name}" is already in your mcp.json.`);
           break;
         }
-        data.mcpServers[suggestion.name] = suggestion.config;
-        await writeFile(file, `${JSON.stringify(data, null, 2)}\n`);
+        // An edit in place keeps the user's comments, order and formatting.
+        const base = existing.trim() ? existing : '{}\n';
+        const edits = modify(base, ['mcpServers', suggestion.name], suggestion.config, { formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' } });
+        const updated = applyEdits(base, edits);
+        await writeFile(file, updated.endsWith('\n') ? updated : `${updated}\n`);
         await this.services.mcp?.reload();
         await this.services.mcp?.startAll();
         await this.push();
@@ -208,7 +208,10 @@ export class SettingsPanel implements vscode.Disposable {
         if (m.enabled) disabled.delete(m.name);
         else disabled.add(m.name);
         await set('mcp.disabledServers', [...disabled]);
+        // Turning a server off ends its process too, not only hides its tools.
         if (m.enabled) await this.services.mcp?.startAll();
+        else await this.services.mcp?.stop(m.name);
+        await this.push();
         break;
       }
       case 'rebuildIndex':

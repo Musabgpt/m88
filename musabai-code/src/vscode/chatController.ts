@@ -8,7 +8,6 @@ import { CheckpointStore } from '../core/checkpoints';
 import { type ApprovalRequest, type ApprovalResult, NodeHost } from '../core/host';
 import { type Mention, resolveMentions } from '../core/mentions';
 import { complete, extractCodeBlock } from '../core/oneshot';
-import { allowPrefix } from '../core/policy';
 import { AUTO_MODEL_ID } from '../core/providers/catalog';
 import type { AgentEvent } from '../core/tools/types';
 import { newId } from '../core/util';
@@ -142,21 +141,34 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
     void this.view.webview.postMessage(message);
   }
 
-  /** The init payload for a newly-connected external surface (the phone link). */
-  async snapshot(): Promise<Extract<HostMessage, { type: 'init' }>> {
+  /** The init payload: view state, chat list, the active chat and the pending changes (for the view and the phone link). */
+  private async initMessage(): Promise<Extract<HostMessage, { type: 'init' }>> {
     const live = await this.liveChat(this.activeId || this.store.activeId || '');
     this.activeId = live.stored.id;
     return { type: 'init', state: await this.viewState(), chats: this.store.list(), chat: view(live.stored), changes: await this.changeFiles() };
   }
 
-  /** Sends a prompt from an external surface (the phone link) into the active chat. */
-  async sendExternal(text: string): Promise<void> {
-    if (!text.trim()) return;
-    if (!this.activeId) {
-      const live = await this.liveChat(this.store.activeId || '');
-      this.activeId = live.stored.id;
-    }
-    await this.runTurn(text, [], [], get('mode', 'agent'), chatModel());
+  /** The init payload for a newly-connected external surface (the phone link). */
+  snapshot(): Promise<Extract<HostMessage, { type: 'init' }>> {
+    return this.initMessage();
+  }
+
+  /**
+   * Sends a prompt from an external surface (the phone link) into the active chat. It does not wait for the
+   * answer; "busy" means the chat is still working, so the phone keeps the text and can offer Stop.
+   */
+  async sendExternal(text: string): Promise<'started' | 'busy' | 'empty'> {
+    if (!text.trim()) return 'empty';
+    const live = await this.liveChat(this.activeId || this.store.activeId || '');
+    this.activeId = live.stored.id;
+    if (live.controller) return 'busy';
+    void this.runTurn(text, [], [], get('mode', 'agent'), chatModel()).catch((e: Error) => this.services.log.error(`phone prompt: ${e.message}`));
+    return 'started';
+  }
+
+  /** Answers a pending approval from an external surface (the phone link): allow or skip, never "always". */
+  answerExternal(id: string, answer: 'allow' | 'deny'): void {
+    this.answer(id, answer === 'allow' ? 'allow' : 'deny');
   }
 
   async reveal(focusInput = true): Promise<void> {
@@ -228,17 +240,9 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
 
   private async postInit(): Promise<void> {
     if (!this.view) return;
-    const live = await this.liveChat(this.activeId || this.store.activeId || '');
-    this.activeId = live.stored.id;
-    const message: HostMessage = {
-      type: 'init',
-      state: await this.viewState(),
-      chats: this.store.list(),
-      chat: view(live.stored),
-      changes: await this.changeFiles(),
-    };
-    void this.view.webview.postMessage(message);
-    for (const queued of this.queue.splice(0)) void this.view.webview.postMessage(queued);
+    const message = await this.initMessage();
+    void this.view?.webview.postMessage(message);
+    for (const queued of this.queue.splice(0)) void this.view?.webview.postMessage(queued);
   }
 
   // ---- chats ------------------------------------------------------------------------------------
@@ -382,20 +386,39 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
     if (pending && live) this.apply(live, { type: 'agent', messageId: pending.messageId, event: pending.event });
   }
 
+  /**
+   * What "Always allow" would remember, shown on the card exactly: a `cmd:` prefix goes to the allow list (every
+   * project), a `cmd=` command and the other keys are remembered for this project only.
+   */
+  private alwaysOf(key: string | undefined): Pick<ApprovalView, 'canAlways' | 'alwaysLabel' | 'alwaysScope'> {
+    if (!key) return { canAlways: false };
+    if (key.startsWith('cmd:')) return { canAlways: true, alwaysLabel: key.slice(4), alwaysScope: 'everywhere' };
+    if (key.startsWith('cmd=')) return { canAlways: true, alwaysLabel: key.slice(4), alwaysScope: 'project' };
+    if (key.startsWith('web:fetch:')) return { canAlways: true, alwaysLabel: key.slice('web:fetch:'.length), alwaysScope: 'project' };
+    return { canAlways: true, alwaysScope: 'project' };
+  }
+
   private approvalView(id: string, request: ApprovalRequest, key?: string): ApprovalView {
+    const always = this.alwaysOf(key);
     switch (request.kind) {
       case 'command':
-        return { id, kind: 'command', title: request.background ? 'Run in the background?' : 'Run this command?', detail: request.command, reason: request.reason, canAlways: Boolean(key) };
+        return { id, kind: 'command', title: request.background ? 'Run in the background?' : 'Run this command?', detail: request.command, reason: request.reason, ...always };
       case 'write_outside':
         return { id, kind: 'write_outside', title: 'Change a file outside the project?', detail: request.path, canAlways: false };
+      case 'read_outside':
+        return { id, kind: 'read_outside', title: 'Read outside the project?', detail: request.path, ...always };
       case 'delete':
         return { id, kind: 'delete', title: 'Delete this file?', detail: request.path, canAlways: false };
       case 'laptop':
-        return { id, kind: 'laptop', title: `Laptop: ${request.action.replace(/_/g, ' ')}`, detail: request.detail, canAlways: Boolean(key) };
+        return { id, kind: 'laptop', title: `Laptop: ${request.action.replace(/_/g, ' ')}`, detail: request.detail, ...always };
       case 'browser':
-        return { id, kind: 'browser', title: `Browser: ${request.action}`, detail: request.detail, canAlways: Boolean(key) };
+        return { id, kind: 'browser', title: `Browser: ${request.action}`, detail: request.detail, ...always };
+      case 'web':
+        return { id, kind: 'web', title: request.action === 'search' ? 'Search the web?' : 'Fetch this page?', detail: request.detail, ...always };
+      case 'github':
+        return { id, kind: 'github', title: `Publish on GitHub: ${request.action.replace(/_/g, ' ')}?`, detail: request.detail, canAlways: false };
       case 'mcp':
-        return { id, kind: 'mcp', title: `MCP ${request.server}: ${request.tool}`, detail: request.args, canAlways: Boolean(key) };
+        return { id, kind: 'mcp', title: `MCP ${request.server}: ${request.tool}`, detail: request.args, ...always };
     }
   }
 
@@ -414,9 +437,12 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         const title =
           request.kind === 'command' ? t('MusabAI wants to run a command') :
           request.kind === 'write_outside' ? t('MusabAI wants to change a file outside the project') :
+          request.kind === 'read_outside' ? t('MusabAI wants to read outside the project') :
           request.kind === 'delete' ? t('MusabAI wants to delete a file') :
           request.kind === 'laptop' ? t('MusabAI wants to use the laptop') :
-          request.kind === 'browser' ? t('MusabAI wants to use the browser') : t('MusabAI wants to use an MCP tool');
+          request.kind === 'browser' ? t('MusabAI wants to use the browser') :
+          request.kind === 'web' ? t('MusabAI wants to use the web') :
+          request.kind === 'github' ? t('MusabAI wants to publish on GitHub') : t('MusabAI wants to use an MCP tool');
         const buttons = [t('Allow'), t('Deny'), ...(approval.canAlways ? [t('Always allow')] : [])];
         void vscode.window.showWarningMessage(`${title}: ${approval.detail.slice(0, 200)}`, ...buttons).then((choice) => {
           if (!choice) return;

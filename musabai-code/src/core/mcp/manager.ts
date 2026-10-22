@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { type ParseError, parse } from 'jsonc-parser';
 import { sanitizeToolName } from '../tools';
 import type { McpLike, McpToolRef } from '../tools/types';
 import { McpClient, type McpServerConfig } from './client';
@@ -21,14 +22,11 @@ function record(value: unknown, root: string): Record<string, string> | undefine
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, interpolate(String(v), root)]));
 }
 
-/** Parses Cursor's {"mcpServers": {...}} and VS Code's {"servers": {...}} formats. */
+/** Parses Cursor's {"mcpServers": {...}} and VS Code's {"servers": {...}} formats (JSON with comments, like VS Code). */
 export function parseMcpConfig(text: string, root: string, source: 'project' | 'global', configFile: string): McpServerConfig[] {
-  let data: any;
-  try {
-    data = JSON.parse(text.replace(/^\s*\/\/.*$/gm, ''));
-  } catch {
-    return [];
-  }
+  const errors: ParseError[] = [];
+  const data: any = parse(text, errors, { allowTrailingComma: true });
+  if (errors.length || !data || typeof data !== 'object') return [];
   const servers = data?.mcpServers ?? data?.servers ?? {};
   const out: McpServerConfig[] = [];
   for (const [name, raw] of Object.entries<any>(servers)) {
@@ -100,6 +98,7 @@ export interface McpManagerOptions {
 export class McpManager implements McpLike {
   private clients = new Map<string, McpClient>();
   private untrusted = new Set<string>();
+  private readonly asking = new Map<string, Promise<boolean>>();
   private loaded = false;
 
   constructor(private readonly options: McpManagerOptions) {}
@@ -124,30 +123,53 @@ export class McpManager implements McpLike {
     return !client.config.disabled && !(this.options.disabled?.() ?? []).includes(client.config.name);
   }
 
+  /** A project server runs only once the user trusts it (and never in Restricted Mode); global servers are the user's own. */
+  private async trusted(client: McpClient): Promise<boolean> {
+    const ask = this.options.trustProjectServer;
+    if (client.config.source !== 'project' || !ask) return true;
+    // Two starts at once (the startup timer and the first chat) share one question instead of asking twice.
+    let question = this.asking.get(client.config.name);
+    if (!question) {
+      question = ask(client.config).finally(() => this.asking.delete(client.config.name));
+      this.asking.set(client.config.name, question);
+    }
+    const ok = await question;
+    if (ok) this.untrusted.delete(client.config.name);
+    else this.untrusted.add(client.config.name);
+    return ok;
+  }
+
+  private async launch(client: McpClient): Promise<void> {
+    await client.start().catch((error: Error) => this.options.log?.(`MCP ${client.config.name} failed to start: ${error.message}`));
+  }
+
+  /** Starts every enabled, trusted server that is not running, and stops the ones that were disabled meanwhile. */
   async startAll(): Promise<void> {
     if (!this.loaded) await this.reload();
     await Promise.all(
       [...this.clients.values()].map(async (client) => {
-        if (!this.enabled(client) || client.state === 'ready' || client.state === 'starting') return;
-        if (client.config.source === 'project' && this.options.trustProjectServer) {
-          const ok = await this.options.trustProjectServer(client.config);
-          if (!ok) {
-            this.untrusted.add(client.config.name);
-            return;
-          }
-          this.untrusted.delete(client.config.name);
+        if (!this.enabled(client)) {
+          if (client.state !== 'stopped') await client.stop();
+          return;
         }
-        await client.start().catch((error: Error) => this.options.log?.(`MCP ${client.config.name} failed to start: ${error.message}`));
+        if (client.state === 'ready' || client.state === 'starting') return;
+        if (await this.trusted(client)) await this.launch(client);
       }),
     );
   }
 
+  /** Restarts one server, with the same enabled and trust checks as startAll. */
   async restart(name: string): Promise<void> {
     const client = this.clients.get(name);
     if (!client) return;
     await client.stop();
-    this.untrusted.delete(name);
-    await client.start().catch((error: Error) => this.options.log?.(`MCP ${name} failed to start: ${error.message}`));
+    if (!this.enabled(client)) return;
+    if (await this.trusted(client)) await this.launch(client);
+  }
+
+  /** Stops one server's process (disabling a server ends it, not only hides its tools). */
+  async stop(name: string): Promise<void> {
+    await this.clients.get(name)?.stop();
   }
 
   status(): McpStatus[] {

@@ -85,7 +85,13 @@ try {
     extensionDevelopmentPath: root,
     extensionTestsPath: path.join(root, 'dist-integration', 'suite.js'),
     launchArgs: [ws, '--user-data-dir', userData, ...editorArgs],
-    extensionTestsEnv: { MUSABAI_MOCK_URL: url, MUSABAI_TEST_WORKSPACE: ws, HOME: tmp, ...(process.env.MUSABAI_BROWSER ? { MUSABAI_BROWSER: process.env.MUSABAI_BROWSER } : {}) },
+    extensionTestsEnv: {
+      MUSABAI_MOCK_URL: url,
+      MUSABAI_TEST_WORKSPACE: ws,
+      HOME: tmp,
+      ...(process.env.MUSABAI_BROWSER ? { MUSABAI_BROWSER: process.env.MUSABAI_BROWSER } : {}),
+      ...(process.env.MUSABAI_ALLOW_BROWSER_SKIP ? { MUSABAI_ALLOW_BROWSER_SKIP: process.env.MUSABAI_ALLOW_BROWSER_SKIP } : {}),
+    },
   });
 } catch (error) {
   console.error(`Integration tests failed: ${error?.message ?? error}`);

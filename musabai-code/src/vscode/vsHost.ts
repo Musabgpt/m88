@@ -1,19 +1,15 @@
 import { access, constants } from 'node:fs/promises';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { type ApprovalRequest, type ApprovalResult, type Diagnostic, type ExecOptions, type ExecResult, NodeHost, type SearchHit } from '../core/host';
+import { type ApprovalRequest, type ApprovalResult, type Diagnostic, type ExecOptions, type ExecResult, NodeHost, type SearchHit, ripgrepCandidates } from '../core/host';
 import type { CodebaseIndex } from '../core/index/indexer';
 import { relPath } from '../core/util';
 import type { AgentTerminal } from './agentTerminal';
 import { get } from './config';
 
+/** The ripgrep of the editor this extension runs in. */
 export async function bundledRipgrep(): Promise<string | undefined> {
-  const candidates = [
-    path.join(vscode.env.appRoot, 'node_modules.asar.unpacked', '@vscode', 'ripgrep-universal', 'bin', `${process.platform}-${process.arch}`, 'rg'),
-    path.join(vscode.env.appRoot, 'node_modules', '@vscode', 'ripgrep', 'bin', 'rg'),
-    path.join(vscode.env.appRoot, 'node_modules.asar.unpacked', '@vscode', 'ripgrep', 'bin', 'rg'),
-  ];
-  for (const candidate of candidates) {
+  for (const candidate of ripgrepCandidates([vscode.env.appRoot])) {
     try {
       await access(candidate, constants.X_OK);
       return candidate;
