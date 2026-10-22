@@ -8,6 +8,7 @@ import { chatModel, get, set } from './config';
 import { GitHubCommands } from './githubCommands';
 import { Importer } from './importer';
 import { InlineEditController } from './inlineEdit';
+import { PhoneServer } from './phoneServer';
 import { ReviewController } from './review';
 import { generateCommitMessage } from './scm';
 import { Services } from './services';
@@ -66,7 +67,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
   const background = new BackgroundAgents(services, context);
   const settings = new SettingsPanel(context, services, chat);
   const importer = new Importer(services, context);
-  context.subscriptions.push(review, inline, terminals, chat, tab, github, background, settings);
+  const phone = new PhoneServer(chat, services);
+  context.subscriptions.push(review, inline, terminals, chat, tab, github, background, settings, phone);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(ChatController.viewId, chat, { webviewOptions: { retainContextWhenHidden: true } }),
@@ -224,6 +226,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
   });
 
   register('musabai.checkForUpdates', () => checkForUpdates(context, true));
+
+  register('musabai.phone.start', async () => {
+    try {
+      const info = await phone.start(get('phone.port', 0));
+      const panel = vscode.window.createWebviewPanel('musabai.phone', 'MusabAI — Phone Link', vscode.ViewColumn.Active, { enableScripts: false });
+      panel.webview.html = phone.pairingHtml(info);
+    } catch (e) {
+      void vscode.window.showErrorMessage(`Could not start the phone link: ${(e as Error).message}`);
+    }
+  });
+  register('musabai.phone.stop', async () => {
+    const was = phone.running;
+    await phone.stop();
+    void vscode.window.showInformationMessage(was ? 'MusabAI phone link stopped.' : 'The phone link was not running.');
+  });
 
   // Start MCP servers in the background so their tools are ready for the first request.
   setTimeout(() => void services.mcp?.startAll(), 4000);

@@ -64,6 +64,9 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
   private pendingText?: { chatId: string; messageId: string; event: AgentEvent & { type: 'text' | 'reasoning' } };
   private flushTimer?: NodeJS.Timeout;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly messageEmitter = new vscode.EventEmitter<HostMessage>();
+  /** Fires every host→view message so an external surface (the phone link) can mirror the chat live. */
+  readonly onDidPost = this.messageEmitter.event;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -131,11 +134,29 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
   }
 
   private post(message: HostMessage): void {
+    this.messageEmitter.fire(message);
     if (!this.view || !this.ready) {
       if (message.type !== 'chatEvent') this.queue.push(message);
       return;
     }
     void this.view.webview.postMessage(message);
+  }
+
+  /** The init payload for a newly-connected external surface (the phone link). */
+  async snapshot(): Promise<Extract<HostMessage, { type: 'init' }>> {
+    const live = await this.liveChat(this.activeId || this.store.activeId || '');
+    this.activeId = live.stored.id;
+    return { type: 'init', state: await this.viewState(), chats: this.store.list(), chat: view(live.stored), changes: await this.changeFiles() };
+  }
+
+  /** Sends a prompt from an external surface (the phone link) into the active chat. */
+  async sendExternal(text: string): Promise<void> {
+    if (!text.trim()) return;
+    if (!this.activeId) {
+      const live = await this.liveChat(this.store.activeId || '');
+      this.activeId = live.stored.id;
+    }
+    await this.runTurn(text, [], [], get('mode', 'agent'), chatModel());
   }
 
   async reveal(focusInput = true): Promise<void> {
@@ -756,5 +777,6 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       void this.persist(live);
     }
     this.disposables.forEach((d) => d.dispose());
+    this.messageEmitter.dispose();
   }
 }

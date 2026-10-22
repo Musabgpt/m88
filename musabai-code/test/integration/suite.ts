@@ -25,7 +25,7 @@ test('activates with Cursor-style commands, keybindings, chat view and theme', a
   const musabai = await api();
   assert.ok(musabai.services.root, 'a workspace folder is open');
   const commands = await vscode.commands.getCommands(true);
-  for (const id of ['musabai.chat.open', 'musabai.inlineEdit', 'musabai.terminal.generateCommand', 'musabai.scm.generateCommitMessage', 'musabai.github.review', 'musabai.background.new', 'musabai.openSettings', 'musabai.import']) {
+  for (const id of ['musabai.chat.open', 'musabai.inlineEdit', 'musabai.terminal.generateCommand', 'musabai.scm.generateCommitMessage', 'musabai.github.review', 'musabai.background.new', 'musabai.openSettings', 'musabai.import', 'musabai.phone.start']) {
     assert.ok(commands.includes(id), `${id} is registered`);
   }
   const pkg = vscode.extensions.getExtension('musabai.musabai-code')!.packageJSON;
