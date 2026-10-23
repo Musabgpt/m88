@@ -27,7 +27,7 @@ import {
   reduceChat,
 } from '../webview/shared/protocol';
 import { ChatStore, type StoredChat } from './chatStore';
-import { chatModel, disabledTools, get, language, modes, policy, set } from './config';
+import { chatModel, disabledTools, get, language, modes, onDidChangeSkipPermissions, policy, set, skipPermissionsOn } from './config';
 import { t } from './l10n';
 import { problemsText, searchMentions } from './mentionSearch';
 import type { ReviewController } from './review';
@@ -83,6 +83,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         if (e.affectsConfiguration('musabai')) void this.postState();
       }),
       vscode.workspace.onDidGrantWorkspaceTrust(() => void this.postState()),
+      onDidChangeSkipPermissions(() => void this.postState()),
     );
   }
 
@@ -181,6 +182,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       hasWorkspace: Boolean(this.services.root),
       trusted: vscode.workspace.isTrusted,
       runMode: policy().mode,
+      skipPermissions: skipPermissionsOn(),
       version: String(this.context.extension.packageJSON.version ?? ''),
       indexStatus: this.services.index ? `${this.services.index.status.files} files indexed` : undefined,
     };
@@ -647,6 +649,10 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         if (message.mode !== 'ask' && this.services.root && !vscode.workspace.isTrusted) {
           await vscode.commands.executeCommand('workbench.trust.manage');
         }
+        await this.postState();
+        break;
+      case 'setSkipPermissions':
+        await vscode.commands.executeCommand(message.on ? 'musabai.agent.enableSkipPermissions' : 'musabai.agent.disableSkipPermissions');
         await this.postState();
         break;
       case 'setModel':

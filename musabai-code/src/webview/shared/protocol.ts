@@ -119,6 +119,8 @@ export interface ViewState {
   /** False in Restricted Mode: every agent command then asks. */
   trusted: boolean;
   runMode: 'ask' | 'allowlist' | 'auto';
+  /** Skip permissions is on: every command, sudo included, runs without asking. */
+  skipPermissions: boolean;
   version: string;
   indexStatus?: string;
 }
@@ -150,6 +152,7 @@ export type ViewMessage =
   | { type: 'deleteChat'; id: string }
   | { type: 'setMode'; mode: string }
   | { type: 'setRunMode'; mode: 'ask' | 'allowlist' | 'auto' }
+  | { type: 'setSkipPermissions'; on: boolean }
   | { type: 'setModel'; model: string }
   | { type: 'mentionQuery'; query: string }
   | { type: 'approval'; id: string; answer: 'allow' | 'deny' | 'always' }

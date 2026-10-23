@@ -273,6 +273,7 @@ kbd { font-family: var(--mono); font-size: 0.8em; opacity: 0.75; margin-left: 6p
 .pill:hover { background: var(--hover); color: var(--fg); }
 .pill .model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pill .codicon.small { font-size: 12px; }
+.pill.run.skip { color: var(--vscode-errorForeground); font-weight: 600; }
 .send { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: inline-flex; align-items: center; justify-content: center; }
 .send:hover { background: var(--vscode-button-hoverBackground); }
 .send.stop { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }

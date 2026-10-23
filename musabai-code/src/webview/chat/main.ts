@@ -414,8 +414,10 @@ function renderComposer(): void {
   const model = currentModel();
   modelBtn.replaceChildren(h('span', { class: 'model-name' }, model ? tr(model.name) : S.view?.model ?? ''), icon('chevron-down', 'small'));
   const run = RUN_MODES.find((r) => r.id === S.view?.runMode) ?? RUN_MODES[1];
-  runBtn.replaceChildren(icon(run.icon, 'small'), ` ${tr(run.label)}`, icon('chevron-down', 'small'));
+  const skip = Boolean(S.view?.skipPermissions);
+  runBtn.replaceChildren(icon(skip ? 'warning' : run.icon, 'small'), ` ${tr(skip ? 'Skip permissions' : run.label)}`, icon('chevron-down', 'small'));
   runBtn.classList.toggle('auto', run.id === 'auto');
+  runBtn.classList.toggle('skip', skip);
   sendBtn.replaceChildren(icon(busy ? 'debug-stop' : 'arrow-up'));
   sendBtn.title = busy ? tr('Stop') : tr('Send');
   sendBtn.classList.toggle('stop', busy);
@@ -653,7 +655,12 @@ function openRunMenu(): void {
       detail: r.id === 'auto' ? tr('runs commands without asking (risky ones still ask)') : r.id === 'allowlist' ? tr('read-only and allow-listed run; the rest ask') : tr('asks before every command'),
       icon: r.icon,
       run: () => { setRunMode(r.id); closePopup(); input.focus(); },
-    })),
+    })).concat({
+      label: `${S.view?.skipPermissions ? '✓ ' : ''}${tr('Skip permissions')}`,
+      detail: S.view?.skipPermissions ? tr('on: every command runs without asking, sudo included. Click to turn off') : tr('every command runs without asking, sudo included (asks you to confirm)'),
+      icon: 'warning',
+      run: () => { post({ type: 'setSkipPermissions', on: !S.view?.skipPermissions }); closePopup(); input.focus(); },
+    }),
   };
   renderPopup();
 }
