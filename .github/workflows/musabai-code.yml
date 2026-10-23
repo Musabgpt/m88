@@ -1,8 +1,9 @@
 name: MusabAI Code
 
 on:
+  # Every branch, not a list of branch names: main builds after a merge, and so does any branch MusabAI Code is worked on.
   push:
-    branches: [main]
+    branches: ["**"]
     paths:
       - musabai-code/**
       - linux/musabai-code/**
