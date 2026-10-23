@@ -7,7 +7,16 @@
 
 ## التثبيت على Linux Mint 22 (أو Ubuntu 24.04) — x86_64
 
-**الطريقة الأسهل: أمر واحد يبني كل شيء ويثبّته، وهو نفسه للتحديث:**
+**الطريقة الأسهل: أمر واحد ينزّل آخر إصدار ويتحقق منه ويثبّته، وهو نفسه للتحديث:**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-release.sh | bash
+```
+
+ينزّل حزمة `.deb` من صفحة الإصدارات على GitHub، ويتحقق منها بملف `SHA256SUMS`، ويثبّتها مع الأدوات التي يستعملها الوكيل
+(git وripgrep وxdotool وxclip وChromium). لإصدار معيّن: `… | bash -s -- v0.2.1`.
+
+**أو ابنِ كل شيء من المصدر بأمر واحد:**
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
@@ -107,7 +116,16 @@ same layout, workflow and shortcuts, but runs on **free models and free provider
 
 ## Install on Linux Mint 22 / Ubuntu 24.04 (x86_64)
 
-One command builds everything and installs it. Run the same command again to update:
+One command downloads the latest release, checks it and installs it. Run the same command again to update:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-release.sh | bash
+```
+
+It downloads the `.deb` from the GitHub Releases page, verifies it against the release's `SHA256SUMS` and installs it
+with the tools the agent uses (git, ripgrep, xdotool, xclip, Chromium). For a given version: `… | bash -s -- v0.2.1`.
+
+Or build everything from source with one command:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
