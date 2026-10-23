@@ -67,6 +67,7 @@ MusabAI Settings; they are kept in the system keyring.
 ## Safety
 
 - Commands follow the **run mode**: *Ask every time*, *Allow-list* (the default) or *Auto-run*. Risky commands always ask.
+- **Dangerously skip permissions** (off at every start): run *MusabAI: Dangerously Skip Permissions* from the command palette and confirm the warning, and the chat agent runs every command — `sudo` included — without asking, until you click the red status-bar item or restart the editor. Each command it runs is listed in the *MusabAI: commands run without asking* output. It never applies to background agents or untrusted folders. The terminal agent has the same switch: `musabai-agent --dangerously-skip-permissions`. `sudo` still needs a password unless it is cached or set to NOPASSWD, because commands get no keyboard input.
 - In **Restricted Mode** (an untrusted folder):
   - every command asks;
   - the project's MCP servers stay off;

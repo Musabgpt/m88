@@ -204,6 +204,16 @@
         "category": "MusabAI"
       },
       {
+        "command": "musabai.agent.enableSkipPermissions",
+        "title": "Dangerously Skip Permissions (run every command, sudo included, without asking)",
+        "category": "MusabAI"
+      },
+      {
+        "command": "musabai.agent.disableSkipPermissions",
+        "title": "Turn Off Skip Permissions",
+        "category": "MusabAI"
+      },
+      {
         "command": "musabai.terminal.generateCommand",
         "title": "Generate Terminal Command (Ctrl+K)",
         "category": "MusabAI",
@@ -406,6 +416,14 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "musabai.agent.enableSkipPermissions",
+          "when": "isWorkspaceTrusted && !musabai.skipPermissions"
+        },
+        {
+          "command": "musabai.agent.disableSkipPermissions",
+          "when": "musabai.skipPermissions"
+        },
         {
           "command": "musabai.inlineEdit.acceptBlock",
           "when": "false"

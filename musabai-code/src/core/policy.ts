@@ -4,12 +4,21 @@ export interface CommandPolicy {
   mode: RunMode;
   allow: string[];
   deny: string[];
+  /**
+   * The user's explicit, session-only switch: every command runs without asking, sudo and risky ones included.
+   * Off unless the user turns it on by hand; the deny list still asks.
+   */
+  skipPermissions?: boolean;
+  /** Called for each command that ran without asking only because skipPermissions is on, so the user can see it. */
+  audit?: (command: string, reason: string) => void;
 }
 
 export interface Verdict {
   decision: 'allow' | 'ask';
   reason: string;
   dangerous: boolean;
+  /** Allowed only because skipPermissions is on. */
+  skipped?: boolean;
 }
 
 /** Commands that read state only; allowed without asking in allowlist mode. */
@@ -100,10 +109,13 @@ function matchesPrefix(segment: string, prefixes: string[]): boolean {
 
 export function evaluateCommand(command: string, policy: CommandPolicy): Verdict {
   const text = command.trim();
-  for (const [re, reason] of DANGEROUS) {
-    if (re.test(text)) return { decision: 'ask', reason, dangerous: true };
-  }
   const segments = splitCommand(text).map(stripEnvPrefix);
+  const danger = DANGEROUS.find(([re]) => re.test(text));
+  if (policy.skipPermissions) {
+    if (segments.some((s) => matchesPrefix(s, policy.deny))) return { decision: 'ask', reason: 'matches your deny list', dangerous: false };
+    return { decision: 'allow', reason: danger ? `skip-permissions is on: ${danger[1]}` : 'skip-permissions is on', dangerous: Boolean(danger), skipped: true };
+  }
+  if (danger) return { decision: 'ask', reason: danger[1], dangerous: true };
   if (segments.some((s) => matchesPrefix(s, policy.deny))) return { decision: 'ask', reason: 'matches your deny list', dangerous: false };
   if (policy.mode === 'auto') return { decision: 'allow', reason: 'auto-run is on', dangerous: false };
   if (policy.mode === 'allowlist') {

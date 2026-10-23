@@ -34,10 +34,30 @@ export function configuredPolicy(): CommandPolicy {
   };
 }
 
-/** The policy the agent runs with: in Restricted Mode (an untrusted folder) every command waits for the user. */
+let skipPermissions = false;
+let skipAudit: ((command: string, reason: string) => void) | undefined;
+const skipChanged = new vscode.EventEmitter<boolean>();
+export const onDidChangeSkipPermissions = skipChanged.event;
+
+/** Whether the user turned on "skip permissions" for this window. It lives in memory only: every restart starts with it off. */
+export function skipPermissionsOn(): boolean {
+  return skipPermissions;
+}
+
+export function setSkipPermissions(on: boolean, audit?: (command: string, reason: string) => void): void {
+  skipPermissions = on;
+  skipAudit = on ? audit : undefined;
+  skipChanged.fire(on);
+}
+
+/**
+ * The policy the chat agent runs with: in Restricted Mode (an untrusted folder) every command waits for the user.
+ * Skip-permissions applies here only, never to background agents (they use configuredPolicy) or untrusted folders.
+ */
 export function policy(): CommandPolicy {
   const configured = configuredPolicy();
-  return vscode.workspace.isTrusted ? configured : { ...configured, mode: 'ask' };
+  if (!vscode.workspace.isTrusted) return { ...configured, mode: 'ask' };
+  return skipPermissions ? { ...configured, skipPermissions: true, audit: skipAudit } : configured;
 }
 
 export function modes(): ModeDefinition[] {

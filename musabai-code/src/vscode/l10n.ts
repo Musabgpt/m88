@@ -2,6 +2,13 @@ import { language } from './config';
 
 const AR: Record<string, string> = {
   'Allow': 'سماح',
+  'MusabAI runs commands without asking': 'MusabAI يشغّل الأوامر دون سؤال',
+  'Skip permissions is on: the agent runs every command, sudo included, without asking. Click to turn it off.': 'تخطّي الصلاحيات مفعّل: الوكيل يشغّل كل أمر، بما فيها sudo، دون أن يسألك. اضغط لإيقافه.',
+  'Skip permissions works only in a trusted folder.': 'تخطّي الصلاحيات يعمل في مجلد موثوق فقط.',
+  'Run everything without asking': 'شغّل كل شيء دون سؤال',
+  'Dangerously skip permissions?': 'تخطّي الصلاحيات (خطر)؟',
+  'Until you turn it off or restart the editor, the chat agent runs EVERY command on this computer without asking — sudo, deleting files, git push, installing and removing packages. A wrong command or a malicious instruction hidden in a file or web page can damage your system or leak your data. Background agents and untrusted folders are not affected. Every command is logged in the "MusabAI: commands run without asking" output.': 'إلى أن توقفه أو تعيد تشغيل المحرر، سيشغّل وكيل المحادثة كل أمر على هذا الجهاز دون أن يسألك — sudo، حذف الملفات، git push، تثبيت الحزم وإزالتها. أمر خاطئ أو تعليمات خبيثة مخبّأة في ملف أو صفحة ويب قد تخرّب نظامك أو تسرّب بياناتك. الوكلاء في الخلفية والمجلدات غير الموثوقة لا تتأثر. يُسجَّل كل أمر في مخرجات "MusabAI: commands run without asking".',
+  'The agent asks before commands again.': 'عاد الوكيل يسألك قبل تشغيل الأوامر.',
   'Deny': 'رفض',
   'Always allow': 'سماح دائمًا',
   'MusabAI wants to run a command': 'يريد MusabAI تشغيل أمر',

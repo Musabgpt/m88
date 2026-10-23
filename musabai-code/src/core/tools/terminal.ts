@@ -46,6 +46,10 @@ export const runTerminalCmd: Tool = {
         };
       }
     }
+    if (verdict.skipped) {
+      ctx.policy.audit?.(command, verdict.reason);
+      ctx.emit({ type: 'status', message: `Ran without asking (skip-permissions is on): ${command}` });
+    }
     const timeoutMs = num(args, 'timeout_seconds', 300, 5, 1800) * 1000;
     const result = await ctx.host.exec(command, {
       cwd,

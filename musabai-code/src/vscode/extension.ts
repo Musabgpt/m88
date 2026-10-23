@@ -4,10 +4,11 @@ import type { MentionChip } from '../webview/shared/protocol';
 import { BackgroundAgents } from './background';
 import { ChatController } from './chatController';
 import { TabCompletion } from './completion';
-import { chatModel, get, set } from './config';
+import { chatModel, get, onDidChangeSkipPermissions, set, setSkipPermissions, skipPermissionsOn } from './config';
 import { GitHubCommands } from './githubCommands';
 import { Importer } from './importer';
 import { InlineEditController } from './inlineEdit';
+import { t } from './l10n';
 import { ReviewController } from './review';
 import { generateCommitMessage } from './scm';
 import { Services } from './services';
@@ -96,6 +97,52 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
   );
 
   const register = (id: string, fn: (...args: any[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
+
+  // Skip permissions: off at every start, turned on by hand after a warning, shown in red while on, every command logged.
+  const skipLog = vscode.window.createOutputChannel('MusabAI: commands run without asking');
+  const skipStatus = vscode.window.createStatusBarItem('musabai.skipPermissions', vscode.StatusBarAlignment.Left, 1000);
+  skipStatus.name = 'MusabAI skip permissions';
+  skipStatus.text = `$(warning) ${t('MusabAI runs commands without asking')}`;
+  skipStatus.tooltip = t('Skip permissions is on: the agent runs every command, sudo included, without asking. Click to turn it off.');
+  skipStatus.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+  skipStatus.command = 'musabai.agent.disableSkipPermissions';
+  context.subscriptions.push(
+    skipLog,
+    skipStatus,
+    onDidChangeSkipPermissions((on) => {
+      if (on) skipStatus.show();
+      else skipStatus.hide();
+      void vscode.commands.executeCommand('setContext', 'musabai.skipPermissions', on);
+      skipLog.appendLine(`[${new Date().toLocaleString()}] skip permissions ${on ? 'ON' : 'OFF'}`);
+    }),
+  );
+  register('musabai.agent.enableSkipPermissions', async () => {
+    if (skipPermissionsOn()) return;
+    if (!vscode.workspace.isTrusted) {
+      void vscode.window.showWarningMessage(t('Skip permissions works only in a trusted folder.'));
+      return;
+    }
+    const confirm = t('Run everything without asking');
+    const choice = await vscode.window.showWarningMessage(
+      t('Dangerously skip permissions?'),
+      {
+        modal: true,
+        detail: t(
+          'Until you turn it off or restart the editor, the chat agent runs EVERY command on this computer without asking — sudo, deleting files, git push, installing and removing packages. ' +
+            'A wrong command or a malicious instruction hidden in a file or web page can damage your system or leak your data. ' +
+            'Background agents and untrusted folders are not affected. Every command is logged in the "MusabAI: commands run without asking" output.',
+        ),
+      },
+      confirm,
+    );
+    if (choice !== confirm) return;
+    setSkipPermissions(true, (command, reason) => skipLog.appendLine(`[${new Date().toLocaleString()}] ${command}${reason.includes(':') ? `   (${reason.split(': ').slice(1).join(': ')})` : ''}`));
+    skipLog.show(true);
+  });
+  register('musabai.agent.disableSkipPermissions', () => {
+    if (skipPermissionsOn()) setSkipPermissions(false);
+    void vscode.window.showInformationMessage(t('The agent asks before commands again.'));
+  });
 
   register('musabai.chat.open', async () => {
     const editor = vscode.window.activeTextEditor;

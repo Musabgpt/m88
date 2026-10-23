@@ -51,3 +51,27 @@ describe('command policy', () => {
     assert.equal(allowPrefix('ls -la'), 'ls');
   });
 });
+
+describe('skip permissions', () => {
+  const skip = { mode: 'ask' as const, allow: [], deny: ['npm publish'], skipPermissions: true };
+
+  it('is off unless the policy turns it on', () => {
+    assert.equal(evaluateCommand('sudo apt install x', auto).decision, 'ask');
+    assert.equal(evaluateCommand('sudo apt install x', auto).skipped, undefined);
+  });
+
+  it('runs every command, sudo and risky ones included, in any run mode, and marks it', () => {
+    for (const cmd of ['ls', 'npm install', 'sudo apt install -y x', 'rm -rf build', 'git push origin main']) {
+      const verdict = evaluateCommand(cmd, skip);
+      assert.equal(verdict.decision, 'allow', cmd);
+      assert.equal(verdict.skipped, true, cmd);
+    }
+    const sudo = evaluateCommand('sudo apt update', skip);
+    assert.equal(sudo.dangerous, true);
+    assert.match(sudo.reason, /sudo/);
+  });
+
+  it('still asks for the deny list', () => {
+    assert.equal(evaluateCommand('npm publish', skip).decision, 'ask');
+  });
+});

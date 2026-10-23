@@ -39,6 +39,7 @@ interface Options {
   mode: string;
   model: string;
   yes: boolean;
+  skipPermissions: boolean;
   cwd: string;
   format: 'text' | 'json' | 'stream-json';
   maxSteps: number;
@@ -69,6 +70,8 @@ ${bold('Options')}
       --base-url <url>   use any OpenAI-compatible server (Ollama, llama.cpp, LM Studio…) with --model
       --mode <mode>      agent | plan | ask | manual (default: agent)
   -y, --yes              run commands without asking (risky ones are still refused in --print mode)
+      --dangerously-skip-permissions
+                         run EVERY command without asking, sudo and risky ones included; this run only, each one logged
   -C, --cwd <dir>        project folder (default: current directory)
       --max-steps <n>    tool steps per request (default 60)
       --thinking         show the model's reasoning
@@ -79,7 +82,7 @@ In a session: type a request; @path adds a file or folder, @git your uncommitted
 Commands: /mode /model /models /new /undo /diff /accept /reject /review /commit /rules /mcp /image <file> /help /exit`;
 
 function parse(argv: string[]): Options {
-  const o: Options = { print: false, mode: 'agent', model: process.env.MUSABAI_MODEL || 'kilo-auto/free', yes: false, cwd: process.cwd(), format: 'text', maxSteps: 60, showThinking: false, rest: [], flags: {} };
+  const o: Options = { print: false, mode: 'agent', model: process.env.MUSABAI_MODEL || 'kilo-auto/free', yes: false, skipPermissions: false, cwd: process.cwd(), format: 'text', maxSteps: 60, showThinking: false, rest: [], flags: {} };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -88,6 +91,7 @@ function parse(argv: string[]): Options {
     else if (a === '-m' || a === '--model') o.model = next();
     else if (a === '--mode') o.mode = next();
     else if (a === '-y' || a === '--yes' || a === '--auto') o.yes = true;
+    else if (a === '--dangerously-skip-permissions') o.skipPermissions = true;
     else if (a === '-C' || a === '--cwd') o.cwd = path.resolve(next());
     else if (a === '--output-format') o.format = next() as Options['format'];
     else if (a === '--max-steps') o.maxSteps = Number(next()) || 60;
@@ -198,7 +202,16 @@ class Session {
         return (await this.ask(`${yellow('?')} Start the project's MCP server "${config.name}" (${detail})? [y/N] `)).toLowerCase().startsWith('y');
       },
     });
-    const policy = (): CommandPolicy => ({ mode: this.runMode, allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'], deny: config.denyList ?? [] });
+    const policy = (): CommandPolicy => ({
+      mode: this.runMode,
+      allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'],
+      deny: config.denyList ?? [],
+      skipPermissions: options.skipPermissions,
+      audit: (command) => process.stderr.write(`${yellow('[ran without asking]')} ${command}\n`),
+    });
+    if (options.skipPermissions) {
+      process.stderr.write(red('⚠ --dangerously-skip-permissions: every command runs without asking, sudo and risky ones included, until this run ends.\n'));
+    }
     this.agent = new AgentSession({
       pool: this.pool,
       host: this.host,
