@@ -2,7 +2,7 @@
   "name": "musabai-code",
   "displayName": "MusabAI Code",
   "description": "Free Cursor-style AI for VS Code: Agent, Plan and Ask chat, Ctrl+K inline edits, Tab autocomplete, terminal, GitHub and laptop tools — using free and local models.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "musabai",
   "icon": "media/icon.png",
   "private": true,
