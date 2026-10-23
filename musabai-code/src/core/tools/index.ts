@@ -5,7 +5,7 @@ import { browserTool } from './browser';
 import { updateMemory } from './memory';
 import { fetchRules, gitTool, githubTool, laptopTool, readLints, todoWrite, webFetchTool, webSearchTool } from './misc';
 import { runTerminalCmd, terminalOutput } from './terminal';
-import { type McpToolRef, type ModeDefinition, type Tool, ToolError } from './types';
+import { type McpToolRef, type ModeDefinition, type Tool, ToolError, declined } from './types';
 
 export const BUILTIN_TOOLS: Tool[] = [
   codebaseSearch,
@@ -101,7 +101,7 @@ export function mcpTool(ref: McpToolRef): Tool {
       if (!ctx.mcp) throw new ToolError('MCP is not available.');
       if (ctx.policy.mode !== 'auto' && !readOnly) {
         const answer = await ctx.approve({ kind: 'mcp', server: ref.server, tool: ref.name, args: JSON.stringify(args).slice(0, 600) }, `mcp:${ref.server}:${ref.name}`);
-        if (answer === 'deny') return { ok: false, content: `The user declined ${ref.server}/${ref.name}.`, summary: `Skipped ${ref.name}` };
+        if (answer === 'deny') return { ok: false, content: declined(ctx, `${ref.server}/${ref.name}`), summary: `Skipped ${ref.name}` };
       }
       const result = await ctx.mcp.call(ref.server, ref.name, args, ctx.signal);
       return {

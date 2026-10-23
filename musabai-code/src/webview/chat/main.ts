@@ -7,6 +7,7 @@ import {
   type MentionChip,
   type MentionItem,
   type ModelOption,
+  type RunModeChoice,
   type TodoLite,
   type UiMessage,
   type UiPart,
@@ -69,10 +70,11 @@ const input = h('textarea', { class: 'input', rows: 1, dir: 'auto', spellcheck: 
 const modeBtn = h('button', { class: 'pill', title: 'Mode (Ctrl+.)' });
 const modelBtn = h('button', { class: 'pill model', title: 'Model (Ctrl+/)' });
 const runBtn = h('button', { class: 'pill run', title: 'When commands run (approvals)' });
-const RUN_MODES: { id: 'ask' | 'allowlist' | 'auto'; label: string; icon: string }[] = [
-  { id: 'ask', label: 'Ask each time', icon: 'question' },
-  { id: 'allowlist', label: 'Allow-list', icon: 'shield' },
-  { id: 'auto', label: 'Auto-run', icon: 'zap' },
+const RUN_MODES: { id: RunModeChoice; label: string; icon: string; detail: string }[] = [
+  { id: 'ask', label: 'Ask each time', icon: 'question', detail: 'asks before every command' },
+  { id: 'allowlist', label: 'Allow-list', icon: 'shield', detail: 'read-only and allow-listed run; the rest ask' },
+  { id: 'auto', label: 'Auto-run', icon: 'zap', detail: 'runs commands without asking (risky ones still ask)' },
+  { id: 'unattended', label: 'Work alone', icon: 'robot', detail: 'never waits for you: runs what Auto-run runs, skips what needs your approval and lists it at the end' },
 ];
 const imageBtn = h('button', { class: 'icon-btn', title: tr('Attach image') }, icon('file-media'));
 const sendBtn = h('button', { class: 'send', title: tr('Send') });
@@ -417,7 +419,7 @@ function renderComposer(): void {
   modelBtn.replaceChildren(h('span', { class: 'model-name' }, model ? tr(model.name) : S.view?.model ?? ''), icon('chevron-down', 'small'));
   const run = RUN_MODES.find((r) => r.id === S.view?.runMode) ?? RUN_MODES[1];
   runBtn.replaceChildren(icon(run.icon, 'small'), ` ${tr(run.label)}`, icon('chevron-down', 'small'));
-  runBtn.classList.toggle('auto', run.id === 'auto');
+  runBtn.classList.toggle('auto', run.id === 'auto' || run.id === 'unattended');
   sendBtn.replaceChildren(icon(busy ? 'debug-stop' : 'arrow-up'));
   sendBtn.title = busy ? tr('Stop') : tr('Send');
   sendBtn.classList.toggle('stop', busy);
@@ -477,7 +479,13 @@ function renderNotice(): void {
   if (restricted) {
     notice.replaceChildren(
       icon('shield'),
-      h('span', { class: 'notice-text', dir: 'auto' }, tr('Restricted Mode: this folder is not trusted, so the agent asks before every command.')),
+      h(
+        'span',
+        { class: 'notice-text', dir: 'auto' },
+        v?.runMode === 'unattended'
+          ? tr('Restricted Mode: this folder is not trusted, so the agent skips every command while it works alone.')
+          : tr('Restricted Mode: this folder is not trusted, so the agent asks before every command.'),
+      ),
       h('button', { class: 'primary small', onclick: () => post({ type: 'manageTrust' }) }, tr('Trust this folder')),
     );
   } else if (noFolder) {
@@ -640,10 +648,11 @@ function openModeMenu(): void {
   renderPopup();
 }
 
-function setRunMode(mode: 'ask' | 'allowlist' | 'auto'): void {
+function setRunMode(mode: RunModeChoice): void {
   if (S.view) S.view.runMode = mode;
   post({ type: 'setRunMode', mode });
   renderComposer();
+  renderNotice();
 }
 
 function openRunMenu(): void {
@@ -652,7 +661,7 @@ function openRunMenu(): void {
     index: Math.max(0, RUN_MODES.findIndex((r) => r.id === S.view?.runMode)),
     items: RUN_MODES.map((r) => ({
       label: `${r.id === S.view?.runMode ? '✓ ' : ''}${tr(r.label)}`,
-      detail: r.id === 'auto' ? tr('runs commands without asking (risky ones still ask)') : r.id === 'allowlist' ? tr('read-only and allow-listed run; the rest ask') : tr('asks before every command'),
+      detail: tr(r.detail),
       icon: r.icon,
       run: () => { setRunMode(r.id); closePopup(); input.focus(); },
     })),

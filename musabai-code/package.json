@@ -589,16 +589,18 @@
           "type": "string",
           "scope": "application",
           "default": "allowlist",
-          "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask.",
+          "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask — or, with `unattended` (work alone), are skipped and listed at the end instead of waiting for you.",
           "enum": [
             "ask",
             "allowlist",
-            "auto"
+            "auto",
+            "unattended"
           ],
           "enumDescriptions": [
             "Ask every time",
             "Run read-only and allow-listed commands, ask for the rest",
-            "Auto-run (YOLO) except risky commands"
+            "Auto-run (YOLO) except risky commands",
+            "Work alone: run what Auto-run runs and never wait for you; whatever needs your approval is skipped and listed at the end"
           ]
         },
         "musabai.agent.allowList": {

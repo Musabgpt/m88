@@ -63,6 +63,12 @@ function reply(body) {
     return text('## Plan\n\n1. Update `hello.py` to print a friendlier greeting.\n2. Run `python3 hello.py` to verify.\n\nPress **Build** to run it in Agent mode.');
   }
   if (system.includes('You are in Ask mode')) return text('`hello.py` prints a greeting with `print("hi")` — a one-line Python script.');
+  // "… while I sleep": a risky command (skipped when working alone), then an ordinary one, then the report.
+  if (/while I sleep/i.test(userText)) {
+    if (rounds === 0) return calls([['run_terminal_cmd', { command: 'git push --force origin HEAD', explanation: 'Publish the branch' }]]);
+    if (rounds === 1) return calls([['run_terminal_cmd', { command: 'python3 hello.py', explanation: 'Check the script still runs' }]]);
+    return text('Done while you were away. The force-push needs your approval, so it is left for you.');
+  }
   if (/hello|greet|change|edit|fix/i.test(userText)) {
     // "remember …": save a project note first (update_memory), then the usual edit.
     const remember = /remember/i.test(userText) ? 1 : 0;

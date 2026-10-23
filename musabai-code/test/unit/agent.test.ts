@@ -201,3 +201,70 @@ describe('agent loop', () => {
     assert.equal(last.role, 'tool');
   });
 });
+
+describe('working alone', () => {
+  const ends = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'tool_end' }> => e.type === 'tool_end');
+  const statuses = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'status' }> => e.type === 'status').map((e) => e.message);
+
+  it('never waits for the user: what needs approval is skipped, the rest runs, and the skips are listed', async () => {
+    const outside = await tempDir();
+    cleanups.push(outside.cleanup);
+    const target = path.join(outside.dir, 'outside.txt');
+    const t = await setup(
+      [
+        toolCallChunks([
+          { id: 'c1', name: 'run_terminal_cmd', args: { command: 'git push --force origin main' } },
+          { id: 'c2', name: 'run_terminal_cmd', args: { command: 'python3 hello.py' } },
+          { id: 'c3', name: 'write_file', args: { path: target, content: 'x\n' } },
+        ]),
+        textChunks('Done; the force-push is left for you.'),
+      ],
+      { policy: { mode: 'auto', allow: [], deny: [], unattended: true } },
+    );
+    const result = await t.session.run({ turnId: 'u1', text: 'ship it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(t.approvals.length, 0, 'nothing waited for an answer');
+    assert.deepEqual(ends(t.events).map((e) => [e.name, e.ok]), [['run_terminal_cmd', false], ['run_terminal_cmd', true], ['write_file', false]]);
+    await assert.rejects(readFile(target), 'nothing was written outside the project');
+
+    const toolMsgs = t.server.requests[1].body.messages.filter((m: any) => m.role === 'tool');
+    assert.match(toolMsgs[0].content, /^Skipped running `git push --force origin main` \(force-pushes\): .*the user is away/);
+    assert.match(toolMsgs[1].content, /hi/);
+    assert.match(toolMsgs[2].content, /^Error: Skipped changing .*outside\.txt \(outside the project\): .*the user is away/);
+
+    const list = statuses(t.events).find((m) => m.startsWith('Skipped while working alone'));
+    assert.ok(list, 'the user gets the list of what was skipped');
+    assert.match(list!, /git push --force origin main/);
+    assert.match(list!, /outside\.txt/);
+    assert.match(t.server.requests[0].body.messages[0].content, /<working_alone>/);
+  });
+
+  it('keeps what the user allowed beforehand, and skips the rest even when every command would ask', async () => {
+    const t = await setup(
+      [
+        toolCallChunks([
+          { id: 'c1', name: 'run_terminal_cmd', args: { command: 'python3 hello.py' } },
+          { id: 'c2', name: 'run_terminal_cmd', args: { command: 'ls' } },
+        ]),
+        textChunks('ok'),
+      ],
+      // Restricted Mode: every command asks, so working alone every command is skipped unless allowed before.
+      { policy: { mode: 'ask', allow: [], deny: [], unattended: true } },
+    );
+    t.session.allow('cmd=python3 hello.py');
+    await t.session.run({ turnId: 'u2', text: 'run it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(t.approvals.length, 0);
+    assert.deepEqual(ends(t.events).map((e) => [e.name, e.ok]), [['run_terminal_cmd', true], ['run_terminal_cmd', false]]);
+    assert.match(statuses(t.events).find((m) => m.startsWith('Skipped while working alone')) ?? '', /run `ls`/);
+  });
+
+  it('asks as before when the user is there', async () => {
+    const t = await setup([toolCallChunks([{ id: 'c1', name: 'run_terminal_cmd', args: { command: 'git push --dry-run nowhere' } }]), textChunks('ok')], {
+      policy: { mode: 'auto', allow: [], deny: [] },
+    });
+    await t.session.run({ turnId: 'u3', text: 'push', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(t.approvals.length, 1);
+    assert.doesNotMatch(t.server.requests[0].body.messages[0].content, /<working_alone>/);
+    assert.ok(!statuses(t.events).some((m) => m.startsWith('Skipped while working alone')));
+  });
+});

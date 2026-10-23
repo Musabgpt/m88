@@ -132,6 +132,28 @@ test("a background agent's notes go to the project memory, and Apply still bring
   await rm(path.dirname(memory), { recursive: true, force: true });
 });
 
+test('working alone, the agent never waits: a risky command is skipped and listed, and the rest runs', async () => {
+  const musabai = await api();
+  const config = vscode.workspace.getConfiguration('musabai');
+  await config.update('agent.runMode', 'unattended', vscode.ConfigurationTarget.Global);
+  try {
+    // An approval nobody answers would hold this turn until the test times out: working alone nothing waits.
+    await musabai.chat.sendFromCommand('push the branch while I sleep');
+    const { chat } = await musabai.chat.snapshot();
+    const parts = chat.messages.filter((m) => m.role === 'assistant').flatMap((m) => m.parts ?? []);
+    const tools = parts.filter((p) => p.kind === 'tool') as Extract<(typeof parts)[number], { kind: 'tool' }>[];
+    assert.ok(!tools.some((p) => p.approval), 'no approval card was shown');
+    const push = tools.find((p) => p.name === 'run_terminal_cmd' && p.summary?.includes('git push'));
+    assert.equal(push?.status, 'failed');
+    assert.match(push?.summary ?? '', /^Skipped git push --force/);
+    assert.equal(tools.find((p) => p.name === 'run_terminal_cmd' && p.summary?.includes('python3'))?.status, 'done', 'the ordinary command ran');
+    const list = parts.find((p) => p.kind === 'status' && p.text.startsWith('Skipped while working alone')) as { text: string } | undefined;
+    assert.match(list?.text ?? '', /git push --force origin HEAD/, 'the user gets the list of what was skipped');
+  } finally {
+    await config.update('agent.runMode', 'auto', vscode.ConfigurationTarget.Global);
+  }
+});
+
 test('the agent browser opens a page, reads it, clicks and screenshots (when a browser is installed)', async () => {
   const musabai = await api();
   const which = async (c: string) => {

@@ -168,7 +168,8 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
         else if (event.type === 'model') agent.model = event.name;
         else if (event.type === 'text') out.append(event.text);
       },
-      // It works on an isolated copy, so ordinary commands run without asking; risky ones still ask.
+      // It works on an isolated copy, so ordinary commands run without asking; risky ones still ask (working alone,
+      // they are skipped and listed in its log instead of showing a prompt).
       policy: () => ({ ...base, mode: 'auto' }),
       approve: async (request) => {
         if (request.kind === 'command' && evaluateCommand(request.command, { ...base, mode: 'auto' }).decision === 'allow') return 'allow';

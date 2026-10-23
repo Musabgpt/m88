@@ -1,7 +1,7 @@
 import { stats, unifiedDiff } from '../diff';
 import { EditError, applyEdit, applyEdits, checkPlaceholders } from '../edit';
 import { isInside, realInside, realPathOf, relPath, resolvePath } from '../util';
-import { type Tool, type ToolContext, type ToolResult, ToolError, bool, str } from './types';
+import { type Tool, type ToolContext, type ToolResult, ToolError, bool, declined, str } from './types';
 
 /** Asks before a change outside the project, including through a symlink inside it that points outside. */
 async function guardOutside(ctx: ToolContext, abs: string): Promise<void> {
@@ -9,7 +9,7 @@ async function guardOutside(ctx: ToolContext, abs: string): Promise<void> {
   const real = await realPathOf(abs);
   const shown = real === abs ? abs : `${abs} → ${real}`;
   const answer = await ctx.approve({ kind: 'write_outside', path: shown }, `write:${real}`);
-  if (answer === 'deny') throw new ToolError(`The user did not allow changing ${shown} (outside the project).`);
+  if (answer === 'deny') throw new ToolError(declined(ctx, `changing ${shown} (outside the project)`));
 }
 
 /** Writes through the host and records the change for checkpoints and review. */
@@ -190,7 +190,7 @@ export const deleteFile: Tool = {
     if (info.type !== 'file') throw new ToolError(`${rel} is not a file; only files can be deleted with this tool.`);
     if (!isInside(ctx.root, abs) || !(await realInside(ctx.root, abs))) {
       const answer = await ctx.approve({ kind: 'delete', path: abs }, `delete:${abs}`);
-      if (answer === 'deny') throw new ToolError(`The user did not allow deleting ${abs}.`);
+      if (answer === 'deny') throw new ToolError(declined(ctx, `deleting ${abs}`));
     }
     const before = await ctx.host.readText(abs).catch(() => undefined);
     if (before === undefined) throw new ToolError(`${rel} is binary; delete it with run_terminal_cmd if really needed.`);

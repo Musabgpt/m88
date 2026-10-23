@@ -1,5 +1,5 @@
 import type { PageState } from '../browser';
-import { type Tool, ToolError, bool, str } from './types';
+import { type Tool, ToolError, bool, declined, str } from './types';
 
 const ACTIONS = ['open', 'screenshot', 'read', 'click', 'type', 'press', 'close'] as const;
 type BrowserAction = (typeof ACTIONS)[number];
@@ -43,7 +43,7 @@ export const browserTool: Tool = {
     if (!SAFE.has(action)) {
       const detail = [args.url, args.target, args.selector, args.text, args.key].filter((v) => v !== undefined && v !== '').map(String).join(' · ').slice(0, 300);
       const answer = await ctx.approve({ kind: 'browser', action, detail }, `browser:${action}`);
-      if (answer === 'deny') return { ok: false, content: `The user declined browser ${action}.`, summary: `Skipped browser ${action}` };
+      if (answer === 'deny') return { ok: false, content: declined(ctx, `browser ${action}`), summary: `Skipped browser ${action}` };
     }
 
     try {

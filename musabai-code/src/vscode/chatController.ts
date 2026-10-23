@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { AgentSession } from '../core/agent/agent';
-import type { EditorState } from '../core/agent/prompts';
+import { CONTINUE_PROMPT, type EditorState } from '../core/agent/prompts';
 import { CheckpointStore } from '../core/checkpoints';
 import { type ApprovalRequest, type ApprovalResult, NodeHost } from '../core/host';
 import { type Mention, resolveMentions } from '../core/mentions';
@@ -27,7 +27,7 @@ import {
   reduceChat,
 } from '../webview/shared/protocol';
 import { ChatStore, type StoredChat } from './chatStore';
-import { chatModel, disabledTools, get, language, modes, policy, set } from './config';
+import { chatModel, disabledTools, get, language, modes, policy, runModeChoice, set } from './config';
 import { t } from './l10n';
 import { problemsText, searchMentions } from './mentionSearch';
 import type { ReviewController } from './review';
@@ -44,8 +44,6 @@ interface LiveChat {
 }
 
 const ALWAYS_KEY = 'musabai.alwaysAllowed';
-// When a turn runs out of its step budget, the agent is told to carry on instead of stopping for the user to click.
-const CONTINUE_PROMPT = 'Continue working toward the goal. Keep going until the task is fully done and verified; do not stop to ask whether to continue.';
 
 function view(chat: StoredChat): ChatView {
   return { id: chat.id, title: chat.title, messages: chat.messages };
@@ -214,7 +212,7 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
       workspaceName: vscode.workspace.name ?? '',
       hasWorkspace: Boolean(this.services.root),
       trusted: vscode.workspace.isTrusted,
-      runMode: policy().mode,
+      runMode: runModeChoice(policy()),
       version: String(this.context.extension.packageJSON.version ?? ''),
       indexStatus: this.services.index ? `${this.services.index.status.files} files indexed` : undefined,
     };
@@ -689,9 +687,9 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
         break;
       case 'setRunMode':
         await set('agent.runMode', message.mode);
-        // In Restricted Mode every command asks, whatever the run mode. If the user picked a more
-        // autonomous mode, open the trust dialog so their choice takes effect (granting trust fires
-        // onDidGrantWorkspaceTrust, which refreshes the pill). Dangerous commands still always ask.
+        // In Restricted Mode every command asks (or, working alone, is skipped), whatever the run mode. If the user
+        // picked a more autonomous mode, open the trust dialog so their choice takes effect (granting trust fires
+        // onDidGrantWorkspaceTrust, which refreshes the pill). Dangerous commands still never run without the user.
         if (message.mode !== 'ask' && this.services.root && !vscode.workspace.isTrusted) {
           await vscode.commands.executeCommand('workbench.trust.manage');
         }

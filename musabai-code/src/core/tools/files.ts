@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { isInside, realInside, realPathOf, relPath, resolvePath } from '../util';
-import { type Tool, type ToolContext, ToolError, bool, num, str } from './types';
+import { type Tool, type ToolContext, ToolError, bool, declined, num, str } from './types';
 
 const MAX_READ_LINES = 600;
 const MAX_LINE_CHARS = 2000;
@@ -14,7 +14,7 @@ async function guardRead(ctx: ToolContext, abs: string): Promise<void> {
   const real = await realPathOf(abs);
   const shown = real === abs ? abs : `${abs} → ${real}`;
   const answer = await ctx.approve({ kind: 'read_outside', path: shown }, `read:${real}`);
-  if (answer === 'deny') throw new ToolError(`The user did not allow reading ${shown} (outside the project).`);
+  if (answer === 'deny') throw new ToolError(declined(ctx, `reading ${shown} (outside the project)`));
 }
 
 export const readFile: Tool = {

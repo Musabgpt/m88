@@ -50,6 +50,11 @@ const AR: Record<string, string> = {
   'asks before every command': 'يسأل قبل كل أمر',
   'read-only and allow-listed run; the rest ask': 'القراءة والمسموح يشتغلوا، والباقي يسأل',
   'runs commands without asking (risky ones still ask)': 'ينفّذ الأوامر بدون سؤال (الخطيرة تبقى تسأل)',
+  'Work alone': 'اشتغل لحالك',
+  'never waits for you: runs what Auto-run runs, skips what needs your approval and lists it at the end':
+    'لا ينتظرك أبدًا: يشغّل ما يشغّله التشغيل التلقائي، ويتخطّى ما يحتاج موافقتك ويعطيك قائمة به بالنهاية',
+  'Restricted Mode: this folder is not trusted, so the agent skips every command while it works alone.':
+    'الوضع المقيّد: هذا المجلد غير موثوق، لذلك يتخطّى الوكيل كل أمر وهو يشتغل لحاله.',
   'Agent': 'وكيل',
   'Plan': 'تخطيط',
   'Ask': 'سؤال',

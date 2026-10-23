@@ -122,10 +122,13 @@ export interface ViewState {
   hasWorkspace: boolean;
   /** False in Restricted Mode: every agent command then asks. */
   trusted: boolean;
-  runMode: 'ask' | 'allowlist' | 'auto';
+  runMode: RunModeChoice;
   version: string;
   indexStatus?: string;
 }
+
+/** "unattended" works alone: Auto-run's rules, and whatever would ask is skipped instead of waiting for the user. */
+export type RunModeChoice = 'ask' | 'allowlist' | 'auto' | 'unattended';
 
 export interface MentionItem {
   chip: MentionChip;
@@ -153,7 +156,7 @@ export type ViewMessage =
   | { type: 'selectChat'; id: string }
   | { type: 'deleteChat'; id: string }
   | { type: 'setMode'; mode: string }
-  | { type: 'setRunMode'; mode: 'ask' | 'allowlist' | 'auto' }
+  | { type: 'setRunMode'; mode: RunModeChoice }
   | { type: 'setModel'; model: string }
   | { type: 'mentionQuery'; query: string }
   | { type: 'approval'; id: string; answer: 'allow' | 'deny' | 'always' }

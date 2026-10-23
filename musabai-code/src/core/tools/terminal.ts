@@ -1,7 +1,7 @@
 import { stripAnsi } from '../host';
 import { alwaysAllowKey, evaluateCommand } from '../policy';
 import { resolvePath, truncateMiddle } from '../util';
-import { type Tool, ToolError, bool, num, str } from './types';
+import { type Tool, ToolError, bool, declined, num, str } from './types';
 
 const MODEL_OUTPUT_CHARS = 12_000;
 const UI_OUTPUT_CHARS = 60_000;
@@ -40,7 +40,7 @@ export const runTerminalCmd: Tool = {
       if (answer === 'deny') {
         return {
           ok: false,
-          content: `The user declined to run: ${command}\nDo not retry it unchanged. Ask the user how to proceed or take another approach.`,
+          content: declined(ctx, `running \`${command}\` (${verdict.reason})`),
           summary: `Skipped ${command}`,
           meta: { command, skipped: true },
         };

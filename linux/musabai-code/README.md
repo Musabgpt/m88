@@ -81,9 +81,13 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
 
 - وضع تشغيل الأوامر: **اسأل دائمًا** أو **القائمة المسموحة** (الافتراضي) أو **تلقائي**. الأوامر الخطرة (sudo وrm -rf وforce-push و`curl | sh`…) تطلب الموافقة دائمًا.
   في القائمة المسموحة يسأل الوكيل أيضًا عن أي أمر فيه `$(…)` أو إعادة توجيه تكتب ملفًا (`>`)، و«سماح دائمًا» لأوامر مثل `rm` و`bash` و`node` يخص الأمر نفسه فقط.
+- وضع **اشتغل لحالك** (في زر وضع التشغيل): أعطه المهمة واتركه. يشغّل ما يشغّله الوضع التلقائي ولا ينتظرك أبدًا،
+  وكل ما يحتاج موافقتك (أمر خطر، تعديل خارج المشروع، نشر على GitHub…) يتخطّاه بدل أن يسألك، ويكمل بطريقة أخرى،
+  ثم يعطيك في النهاية قائمة بما تخطّاه لتقرّره أنت. ما سمحت به مسبقًا بـ«سماح دائمًا» يبقى مسموحًا.
+  في الطرفية: `musabai-agent --unattended "المهمة"`.
 - قراءة ملف خارج المشروع (أو عبر رابط رمزي يقود خارجه)، وجلب صفحات الويب والبحث (خارج وضع التشغيل التلقائي)، والنشر على GitHub (طلب دمج أو تعليق) تطلب موافقتك.
 - ملاحظات الذاكرة (`.musabai/memory.md`) تظهر في شريط التغييرات مثل أي تعديل، وتقدر ترفضها أو تستعيد نقطة قبلها.
-- في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
+- في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر (وفي وضع «اشتغل لحالك» يتخطّاها)، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
   تُظهر المحادثة تنبيهًا مع زر **Trust this folder**؛ اضغطه ثم **Trust** إذا كان المشروع لك، فيعمل الوكيل عاديًا.
 - خوادم MCP التي يضعها المشروع لا تبدأ إلا بعد موافقتك.
 - إعدادات الأوامر والنماذج على مستوى المستخدم فقط، فلا يستطيع مشروع مُنزَّل تغييرها من `.vscode/settings.json`.
@@ -185,11 +189,15 @@ Every action that changes something asks first. Turn the feature off in MusabAI 
   Risky commands (sudo, `rm -rf`, force-push, `curl | sh`…) always ask. In *Allow-list* mode a command with `$(…)` or
   a redirection that writes a file (`>`) asks too, and *Always allow* for programs such as `rm`, `bash` or `node`
   covers only that exact command.
+- **Work alone** (the fourth run mode): give it the task and walk away. It runs what *Auto-run* runs and never waits
+  for you. Whatever needs your approval (a risky command, a change outside the project, publishing on GitHub…) is
+  skipped instead of asked, the agent carries on another way, and it ends with a list of what it skipped for you to
+  decide. What you allowed earlier with *Always allow* stays allowed. In the terminal: `musabai-agent --unattended "task"`.
 - Reading a file outside the project (or through a symbolic link that leads out of it), fetching web pages and web
   searches (outside *Auto-run*), and publishing on GitHub (a pull request or a comment) ask first.
 - Project memory (`.musabai/memory.md`) shows up in the changes bar like any edit: reject it, or restore a checkpoint.
 - **Restricted Mode** (an untrusted folder):
-  - the agent asks before every command;
+  - the agent asks before every command (working alone, it skips them);
   - the project's MCP servers stay off;
   - background agents do not run.
 

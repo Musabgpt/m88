@@ -76,6 +76,7 @@ function fakeCtx(answer: ApprovalResult) {
   const ctx = {
     host: { browser: () => session },
     visionModel: true,
+    policy: { mode: 'ask', allow: [], deny: [] },
     approve: async (request: ApprovalRequest) => (calls.push(request), answer),
   } as unknown as ToolContext;
   return { ctx, calls };

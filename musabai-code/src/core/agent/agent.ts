@@ -65,6 +65,32 @@ function shortId(): string {
   return out;
 }
 
+/** One line naming an action that needed approval, for the list of what was skipped while working alone. */
+function describeRequest(request: ApprovalRequest): string {
+  const line = (() => {
+    switch (request.kind) {
+      case 'command':
+        return `run \`${request.command}\``;
+      case 'write_outside':
+        return `change ${request.path}`;
+      case 'read_outside':
+        return `read ${request.path}`;
+      case 'delete':
+        return `delete ${request.path}`;
+      case 'laptop':
+      case 'browser':
+        return `${request.kind} ${request.action} ${request.detail}`.trim();
+      case 'web':
+        return `${request.action === 'search' ? 'search the web for' : 'fetch'} ${request.detail}`;
+      case 'github':
+        return `GitHub ${request.action.replace(/_/g, ' ')}: ${request.detail}`;
+      case 'mcp':
+        return `MCP ${request.server}/${request.tool}`;
+    }
+  })();
+  return line.replace(/\s+/g, ' ').slice(0, 160);
+}
+
 export function publicError(error: unknown): string {
   if (error instanceof ProviderUnavailable) {
     const wait = error.retryAfterMs ? ` Try again in about ${Math.ceil(error.retryAfterMs / 1000)} s.` : '';
@@ -91,11 +117,18 @@ export class AgentSession {
   private readonly turnStarts: { turnId: string; index: number }[] = [];
   private readonly allowed = new Set<string>();
   private rules: Rule[] = [];
+  /** What was skipped in this run because it needed approval while the agent worked alone. */
+  private skipped: string[] = [];
 
   constructor(private readonly deps: AgentDeps) {}
 
   private async approve(request: ApprovalRequest, key?: string): Promise<ApprovalResult> {
     if (key && this.allowed.has(key)) return 'allow';
+    // Working alone nobody is there to ask: the action is skipped, never allowed for the user, and listed at the end.
+    if (this.deps.policy().unattended) {
+      this.skipped.push(describeRequest(request));
+      return 'deny';
+    }
     const answer = await this.deps.approve(request, key);
     if (answer === 'always' && key) this.allowed.add(key);
     return answer;
@@ -160,8 +193,14 @@ export class AgentSession {
     let rulesText = '';
     let rulesWarned = false;
 
+    this.skipped = [];
     const finish = (reason: TurnResult['reason'], error?: string): TurnResult => {
       this.dropImages();
+      if (this.skipped.length) {
+        const unique = [...new Set(this.skipped)];
+        emit({ type: 'status', message: `Skipped while working alone (needs your approval): ${unique.slice(0, 12).join('; ')}${unique.length > 12 ? `; and ${unique.length - 12} more` : ''}` });
+        this.skipped = [];
+      }
       emit({ type: 'done', reason, error });
       return { reason, error, text: finalText, modelId };
     };
@@ -184,7 +223,7 @@ export class AgentSession {
         }
       }
       const env = await this.deps.environment();
-      const system = systemPrompt({ ...env, mode: input.mode, rulesText, toolNames: tools.map((t) => t.name) });
+      const system = systemPrompt({ ...env, mode: input.mode, rulesText, toolNames: tools.map((t) => t.name), unattended: this.deps.policy().unattended });
       const current = await pool.resolve(input.modelId);
       const messages: ChatMessage[] = [{ role: 'system', content: system }, ...project(this.history, specs, { local: current?.source === 'local' })];
 

@@ -4,6 +4,11 @@ export interface CommandPolicy {
   mode: RunMode;
   allow: string[];
   deny: string[];
+  /**
+   * Working alone: nothing waits for the user. Whatever would ask (a risky command, a change outside the project,
+   * publishing…) is skipped at once and listed for the user, never allowed on their behalf.
+   */
+  unattended?: boolean;
 }
 
 export interface Verdict {

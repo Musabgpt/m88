@@ -140,6 +140,16 @@ export function bool(args: Record<string, unknown>, key: string, fallback = fals
   return fallback;
 }
 
+/**
+ * What the model reads when an action was not approved: the user said no, or (working alone) nobody was there to
+ * ask, so the action was skipped and stays for the user.
+ */
+export function declined(ctx: Pick<ToolContext, 'policy'>, what: string): string {
+  return ctx.policy.unattended
+    ? `Skipped ${what}: it needs the user's approval, and the user is away (you are working alone). Do not retry it; take another way, or leave it for the user and list it in your final summary.`
+    : `The user did not allow ${what}. Do not retry it unchanged; take another approach or ask the user how to proceed.`;
+}
+
 export function contentText(content: string | ContentPart[] | null): string {
   if (typeof content === 'string') return content;
   if (!content) return '';
