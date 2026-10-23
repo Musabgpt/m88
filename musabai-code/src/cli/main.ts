@@ -17,6 +17,7 @@ import { parseTextMentions, resolveMentions } from '../core/mentions';
 import { commitMessage, pullRequestText, reviewDiff, reviewMarkdown } from '../core/oneshot';
 import type { CommandPolicy, RunMode } from '../core/policy';
 import { ProviderPool } from '../core/providers/pool';
+import { SudoPassword } from '../core/sudo';
 import { BUILTIN_MODES } from '../core/tools';
 import type { AgentEvent, ModeDefinition } from '../core/tools/types';
 import { newId, relPath } from '../core/util';
@@ -202,12 +203,16 @@ class Session {
         return (await this.ask(`${yellow('?')} Start the project's MCP server "${config.name}" (${detail})? [y/N] `)).toLowerCase().startsWith('y');
       },
     });
+    const sudo = options.skipPermissions
+      ? new SudoPassword((retry) => this.askHidden(`${yellow('?')} ${retry ? 'Wrong password, try again' : 'sudo password (asked once, kept in memory for this run)'}: `))
+      : undefined;
     const policy = (): CommandPolicy => ({
       mode: this.runMode,
       allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'],
       deny: config.denyList ?? [],
       skipPermissions: options.skipPermissions,
       audit: (command) => process.stderr.write(`${yellow('[ran without asking]')} ${command}\n`),
+      sudo,
     });
     if (options.skipPermissions) {
       process.stderr.write(red('⚠ --dangerously-skip-permissions: every command runs without asking, sudo and risky ones included, until this run ends.\n'));
@@ -239,6 +244,27 @@ class Session {
   private line(text: string): void {
     if (!this.atLineStart) this.out('\n');
     this.out(`${text}\n`);
+  }
+
+  /** Reads a line without echoing it; undefined without a terminal or when left empty. */
+  askHidden(question: string): Promise<string | undefined> {
+    if (!process.stdin.isTTY) return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      const rl = this.rl ?? readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+      const internal = rl as unknown as { _writeToOutput: (s: string) => void };
+      const original = internal._writeToOutput;
+      let muted = false;
+      internal._writeToOutput = (s) => {
+        if (!muted) original.call(rl, s);
+        else if (s.includes('\n')) original.call(rl, '\n');
+      };
+      rl.question(question, (answer) => {
+        internal._writeToOutput = original;
+        if (!this.rl) rl.close();
+        resolve(answer || undefined);
+      });
+      muted = true;
+    });
   }
 
   ask(question: string): Promise<string> {

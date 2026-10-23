@@ -1,5 +1,6 @@
 import { stripAnsi } from '../host';
 import { allowPrefix, evaluateCommand } from '../policy';
+import { USES_SUDO, redact } from '../sudo';
 import { resolvePath, truncateMiddle } from '../util';
 import { type Tool, ToolError, bool, num, str } from './types';
 
@@ -51,15 +52,27 @@ export const runTerminalCmd: Tool = {
       ctx.emit({ type: 'status', message: `Ran without asking (skip-permissions is on): ${command}` });
     }
     const timeoutMs = num(args, 'timeout_seconds', 300, 5, 1800) * 1000;
-    const result = await ctx.host.exec(command, {
-      cwd,
-      background,
-      timeoutMs,
-      signal: ctx.signal,
-      label: str(args, 'explanation', false) || undefined,
-      onOutput: (chunk) => ctx.emit({ type: 'tool_output', callId: ctx.callId, chunk }),
-    });
-    const clean = stripAnsi(result.output).replace(/\n{3,}/g, '\n\n');
+    const askpass = verdict.skipped && ctx.policy.sudo && USES_SUDO.test(command) ? await ctx.policy.sudo.prepare() : undefined;
+    const secret = ctx.policy.sudo?.secret;
+    let result;
+    try {
+      result = await ctx.host.exec(command, {
+        cwd,
+        background,
+        timeoutMs,
+        signal: ctx.signal,
+        env: askpass?.env,
+        label: str(args, 'explanation', false) || undefined,
+        onOutput: (chunk) => ctx.emit({ type: 'tool_output', callId: ctx.callId, chunk: redact(chunk, secret) }),
+      });
+    } finally {
+      // A background command may still be starting sudo; give it a moment before the helper goes away.
+      if (askpass) {
+        if (background) setTimeout(() => void askpass.cleanup(), 30_000).unref();
+        else await askpass.cleanup();
+      }
+    }
+    const clean = redact(stripAnsi(result.output), secret).replace(/\n{3,}/g, '\n\n');
     const seconds = (result.durationMs / 1000).toFixed(1);
     if (result.backgroundId) {
       const state = result.exitCode === null ? 'is running' : `exited with code ${result.exitCode}`;

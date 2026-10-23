@@ -1,5 +1,6 @@
 import path from 'node:path';
 import * as vscode from 'vscode';
+import { SudoPassword } from '../core/sudo';
 import type { MentionChip } from '../webview/shared/protocol';
 import { BackgroundAgents } from './background';
 import { ChatController } from './chatController';
@@ -136,7 +137,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<MusabA
       confirm,
     );
     if (choice !== confirm) return;
-    setSkipPermissions(true, (command, reason) => skipLog.appendLine(`[${new Date().toLocaleString()}] ${command}${reason.includes(':') ? `   (${reason.split(': ').slice(1).join(': ')})` : ''}`));
+    const sudo = new SudoPassword((retry) =>
+      Promise.resolve(
+        vscode.window.showInputBox({
+          title: t('sudo password'),
+          prompt: retry ? t('Wrong password. Try again.') : t('A command needs sudo. Type your password once; MusabAI keeps it in memory until skip permissions is turned off.'),
+          password: true,
+          ignoreFocusOut: true,
+        }),
+      ),
+    );
+    setSkipPermissions(true, (command, reason) => skipLog.appendLine(`[${new Date().toLocaleString()}] ${command}${reason.includes(':') ? `   (${reason.split(': ').slice(1).join(': ')})` : ''}`), sudo);
     skipLog.show(true);
   });
   register('musabai.agent.disableSkipPermissions', () => {

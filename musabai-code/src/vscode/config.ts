@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { type CustomModelConfig, customSpec } from '../core/providers/catalog';
 import type { CommandPolicy, RunMode } from '../core/policy';
+import type { SudoPassword } from '../core/sudo';
 import { BUILTIN_MODES, type CustomModeConfig, customModes } from '../core/tools';
 import type { ModeDefinition } from '../core/tools/types';
 import type { ModelSpec } from '../core/types';
@@ -36,6 +37,7 @@ export function configuredPolicy(): CommandPolicy {
 
 let skipPermissions = false;
 let skipAudit: ((command: string, reason: string) => void) | undefined;
+let skipSudo: SudoPassword | undefined;
 const skipChanged = new vscode.EventEmitter<boolean>();
 export const onDidChangeSkipPermissions = skipChanged.event;
 
@@ -44,9 +46,12 @@ export function skipPermissionsOn(): boolean {
   return skipPermissions;
 }
 
-export function setSkipPermissions(on: boolean, audit?: (command: string, reason: string) => void): void {
+/** Turning it off also forgets the sudo password. */
+export function setSkipPermissions(on: boolean, audit?: (command: string, reason: string) => void, sudo?: SudoPassword): void {
   skipPermissions = on;
   skipAudit = on ? audit : undefined;
+  skipSudo?.forget();
+  skipSudo = on ? sudo : undefined;
   skipChanged.fire(on);
 }
 
@@ -57,7 +62,7 @@ export function setSkipPermissions(on: boolean, audit?: (command: string, reason
 export function policy(): CommandPolicy {
   const configured = configuredPolicy();
   if (!vscode.workspace.isTrusted) return { ...configured, mode: 'ask' };
-  return skipPermissions ? { ...configured, skipPermissions: true, audit: skipAudit } : configured;
+  return skipPermissions ? { ...configured, skipPermissions: true, audit: skipAudit, sudo: skipSudo } : configured;
 }
 
 export function modes(): ModeDefinition[] {

@@ -1,3 +1,5 @@
+import type { SudoPassword } from './sudo';
+
 export type RunMode = 'ask' | 'allowlist' | 'auto';
 
 export interface CommandPolicy {
@@ -11,6 +13,8 @@ export interface CommandPolicy {
   skipPermissions?: boolean;
   /** Called for each command that ran without asking only because skipPermissions is on, so the user can see it. */
   audit?: (command: string, reason: string) => void;
+  /** With skipPermissions, supplies the sudo password the user typed once this session. */
+  sudo?: SudoPassword;
 }
 
 export interface Verdict {
