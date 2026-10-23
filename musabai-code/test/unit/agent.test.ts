@@ -153,6 +153,22 @@ describe('agent loop', () => {
     assert.equal(second.text, 'All done.');
   });
 
+  it('tells the host to wait and continue when every free model is rate limited', async () => {
+    const t = await setup([]);
+    const limited = await mockServer({
+      'POST /chat/completions': (_req, res) => {
+        res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '60' });
+        res.end(JSON.stringify({ error: { message: 'rate limited' } }));
+      },
+    });
+    servers.push(limited);
+    const pool = new ProviderPool({ resolveKey: async () => undefined, env: {}, kiloBase: limited.url, discoverKilo: false, discoverLocal: false, sleep: async () => undefined });
+    const session = new AgentSession({ pool, host: t.host, emit: () => undefined, policy: () => ({ mode: 'ask', allow: [], deny: [] }), approve: async () => 'allow', environment: environmentProvider(t.dir, 'terminal'), rules: rulesProvider(t.dir, () => []) });
+    const result = await session.run({ turnId: 'r1', text: 'hello', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'error');
+    assert.ok(result.retryAfterMs && result.retryAfterMs >= 15_000, `retryAfterMs=${result.retryAfterMs}`);
+  });
+
   it('stops a running command when the user cancels', async () => {
     const t = await setup([toolCallChunks([{ id: 'c', name: 'run_terminal_cmd', args: { command: 'sleep 20' } }]), textChunks('never')], {
       policy: { mode: 'auto', allow: [], deny: [] },

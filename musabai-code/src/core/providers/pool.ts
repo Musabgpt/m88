@@ -63,10 +63,13 @@ export interface PoolResult extends Completion {
 
 export class ProviderUnavailable extends ProviderError {
   retryAfterMs?: number;
-  constructor(message: string, retryAfterMs?: number) {
+  /** Busy or rate limited rather than missing: the same request can work after a wait. */
+  temporary: boolean;
+  constructor(message: string, retryAfterMs?: number, temporary = false) {
     super(message, 503);
     this.name = 'ProviderUnavailable';
     this.retryAfterMs = retryAfterMs;
+    this.temporary = temporary;
   }
 }
 
@@ -313,6 +316,7 @@ export class ProviderPool {
     throw new ProviderUnavailable(
       `Free AI providers are temporarily unavailable (${errors.join(' | ').slice(0, 900)})`,
       this.nextRetryMs(all.filter((s) => supports(s, required))),
+      true,
     );
   }
 

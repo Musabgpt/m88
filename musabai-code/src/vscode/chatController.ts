@@ -462,6 +462,9 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
     this.postChats();
     // Carry the task across the per-turn step budget instead of stopping to ask the user to type "continue".
     const maxContinues = get('agent.autoContinue', true) ? Math.max(0, get('agent.maxContinues', 40)) : 0;
+    // When every free model is busy, wait for one and pick the task up again (about an hour at most).
+    const maxBusyWaits = get('agent.autoContinue', true) ? 40 : 0;
+    let busyWaits = 0;
     try {
       if (this.services.mcp) await Promise.race([this.services.mcp.startAll(), new Promise((r) => setTimeout(r, 8000))]);
       const resolved = await resolveMentions(await this.prepareMentions(chips), { host: this.services.host ?? new NodeHost({ root: os.homedir() }), index: this.services.index }, text);
@@ -481,7 +484,23 @@ export class ChatController implements vscode.WebviewViewProvider, vscode.Dispos
           mentionedRules: attempt === 0 ? resolved.rules : [],
           signal: controller.signal,
         });
-        if (result.reason !== 'max_steps' || attempt >= maxContinues || controller.signal.aborted) break;
+        if (controller.signal.aborted) break;
+        if (result.reason === 'error' && result.retryAfterMs && busyWaits < maxBusyWaits) {
+          busyWaits++;
+          const waitMs = Math.min(result.retryAfterMs, 120_000);
+          const note: UiMessage = { id: newId('m'), role: 'assistant', turnId, parts: [], status: 'streaming', mode: mode.id, createdAt: Date.now() };
+          this.apply(live, { type: 'assistant', message: note });
+          live.assistantId = note.id;
+          this.apply(live, { type: 'agent', messageId: note.id, event: { type: 'status', message: `All free models are busy; continuing by itself in ${Math.ceil(waitMs / 1000)} s (press Stop to cancel)` } });
+          const waited = await new Promise<boolean>((resolve) => {
+            const timer = setTimeout(() => resolve(true), waitMs);
+            controller.signal.addEventListener('abort', () => { clearTimeout(timer); resolve(false); }, { once: true });
+          });
+          this.apply(live, { type: 'agent', messageId: note.id, event: { type: 'done', reason: waited ? 'completed' : 'cancelled' } });
+          if (!waited) break;
+          continue;
+        }
+        if (result.reason !== 'max_steps' || attempt >= maxContinues) break;
         // It only hit this step's budget, not a dead end: mark the step done (not "stopped at the limit") and keep going.
         this.apply(live, { type: 'agent', messageId: assistant.id, event: { type: 'done', reason: 'completed' } });
       }

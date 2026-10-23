@@ -48,6 +48,8 @@ export interface TurnInput {
 export interface TurnResult {
   reason: 'completed' | 'max_steps' | 'cancelled' | 'error';
   error?: string;
+  /** Set when the turn stopped only because the free providers were busy: wait this long and continue. */
+  retryAfterMs?: number;
   text: string;
   modelId?: string;
 }
@@ -152,10 +154,10 @@ export class AgentSession {
     let finalText = '';
     let modelId: string | undefined;
 
-    const finish = (reason: TurnResult['reason'], error?: string): TurnResult => {
+    const finish = (reason: TurnResult['reason'], error?: string, retryAfterMs?: number): TurnResult => {
       this.dropImages();
       emit({ type: 'done', reason, error });
-      return { reason, error, text: finalText, modelId };
+      return { reason, error, retryAfterMs, text: finalText, modelId };
     };
 
     for (let step = 1; step <= maxSteps; step++) {
@@ -192,7 +194,8 @@ export class AgentSession {
         );
       } catch (error) {
         if (isCancelled(error) || error instanceof CancelledError || signal?.aborted) return finish('cancelled');
-        return finish('error', publicError(error));
+        const busy = error instanceof ProviderUnavailable && error.temporary ? Math.max(15_000, error.retryAfterMs ?? 30_000) : undefined;
+        return finish('error', publicError(error), busy);
       }
       modelId = completion.spec.id;
       emit({ type: 'model', modelId: completion.spec.id, name: completion.spec.name, fallbackFrom: completion.fallbackFrom });
