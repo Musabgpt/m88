@@ -51,7 +51,8 @@ if [ -n "$DEB" ]; then
 fi
 
 say "Installing build tools and the tools MusabAI uses (git, ripgrep, xdotool, xclip…)"
-$SUDO apt-get update -qq
+# A broken third-party repository (a missing signing key, say) must not stop the install: warn and use what apt has.
+$SUDO apt-get update -qq || say "apt-get update reported errors (often a third-party repository with a missing key); continuing with the package lists apt already has."
 $SUDO apt-get install -y --no-install-recommends ca-certificates curl git python3 librsvg2-bin dpkg-dev \
 	ripgrep xdotool xclip wmctrl libnotify-bin
 # A browser for the agent to test web pages (best effort: native on Linux Mint; skip quietly if the name differs).
