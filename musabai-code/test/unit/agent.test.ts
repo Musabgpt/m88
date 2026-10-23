@@ -202,6 +202,64 @@ describe('agent loop', () => {
   });
 });
 
+describe('carrying on instead of stopping early', () => {
+  const statuses = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'status' }> => e.type === 'status').map((e) => e.message);
+  const cutOff = (events: unknown[]) => [...events, { choices: [{ index: 0, delta: {}, finish_reason: 'length' }] }];
+
+  it('does what it announced when a reply stops at "I will write the file:"', async () => {
+    const t = await setup([
+      textChunks('I will write the whole file now:'),
+      toolCallChunks([{ id: 'w', name: 'write_file', args: { path: 'hello.py', content: 'print("hello")\n' } }]),
+      textChunks('Done.'),
+    ]);
+    const result = await t.session.run({ turnId: 'n1', text: 'rewrite hello.py', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Done.');
+    assert.equal(await readFile(path.join(t.dir, 'hello.py'), 'utf8'), 'print("hello")\n');
+    assert.ok(statuses(t.events).includes('Carrying on with what it announced'));
+    const nudge = t.server.requests[1].body.messages.at(-1);
+    assert.equal(nudge.role, 'user');
+    assert.match(nudge.content, /ended your reply without doing it/);
+  });
+
+  it('carries on after a reply cut off by the output limit, writing the file in parts', async () => {
+    const t = await setup([
+      cutOff([{ choices: [{ index: 0, delta: { content: 'Here is the new file:\n```python\nprint(' } }] }]),
+      toolCallChunks([{ id: 'w1', name: 'write_file', args: { path: 'big.py', content: 'a = 1\n' } }]),
+      toolCallChunks([{ id: 'w2', name: 'write_file', args: { path: 'big.py', content: 'b = 2\n', append: true } }]),
+      textChunks('Wrote big.py in two parts.'),
+    ]);
+    const result = await t.session.run({ turnId: 'n2', text: 'write big.py', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(await readFile(path.join(t.dir, 'big.py'), 'utf8'), 'a = 1\nb = 2\n');
+    assert.ok(statuses(t.events).includes('The reply reached the output limit; carrying on in smaller steps'));
+    assert.match(t.server.requests[1].body.messages.at(-1).content, /cut off by the output limit.*append: true/s);
+  });
+
+  it('moves to another free model when one spends its whole output on thinking', async () => {
+    const t = await setup([cutOff([{ choices: [{ index: 0, delta: { reasoning_content: 'Let me think about every detail first…' } }] }])], {
+      backup: [textChunks('Answer from the backup model.')],
+    });
+    const result = await t.session.run({ turnId: 'n3', text: 'fix it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Answer from the backup model.');
+    assert.equal(t.server.requests.length, 1);
+    assert.equal(t.backup!.requests.length, 1);
+    assert.ok(statuses(t.events).some((m) => /ran out of output space before answering; trying another free model/.test(m)));
+  });
+
+  it('stops carrying on after a few tries, and never in a mode that cannot act', async () => {
+    const stubborn = await setup(Array.from({ length: 6 }, () => textChunks('Let me do it:')));
+    const result = await stubborn.session.run({ turnId: 'n4', text: 'do it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(stubborn.server.requests.length, 4, 'one reply and three nudges, then it stops');
+
+    const asking = await setup([textChunks('The steps are:')]);
+    await asking.session.run({ turnId: 'n5', text: 'how?', mode: plan, modelId: 'kilo-auto/free' });
+    assert.equal(asking.server.requests.length, 1);
+  });
+});
+
 describe('working alone', () => {
   const ends = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'tool_end' }> => e.type === 'tool_end');
   const statuses = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'status' }> => e.type === 'status').map((e) => e.message);

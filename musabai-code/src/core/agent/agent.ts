@@ -58,6 +58,16 @@ export interface TurnResult {
 
 const RESULT_LIMIT = 30_000;
 
+// How many times one request carries on after a cut-off reply or one that stopped at an announcement.
+const MAX_NUDGES = 3;
+const CUT_OFF_NUDGE =
+  'Your last reply was cut off by the output limit before it was complete. Continue from where it stopped, and keep your ' +
+  'thinking short. If you were writing a file, write it in parts: write_file with the first part (at most about 150 lines), ' +
+  'then write_file with append: true for each next part.';
+const ANNOUNCED_NUDGE =
+  'You said what you would do but ended your reply without doing it. Do it now with the tools, and keep your thinking short. ' +
+  'Write a long file in parts: write_file with the first part, then write_file with append: true for each next part.';
+
 function shortId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let out = '';
@@ -184,8 +194,11 @@ export class AgentSession {
     const specs = toolSpecs(tools);
     const excluded = new Set<string>();
     const maxSteps = this.deps.maxSteps ?? 60;
+    // Only a mode that can change things is expected to act on what it announces.
+    const canAct = tools.some((t) => !t.readOnly);
     let invalidStreak = 0;
     let retries = 0;
+    let nudges = 0;
     let finalText = '';
     let modelId: string | undefined;
     // Rules are read again only when the files in play change or a tool may have changed files (rule files included).
@@ -269,7 +282,8 @@ export class AgentSession {
             if (missing.length) problem = `Missing required arguments: ${missing.join(', ')}.`;
           } catch (error) {
             problem = truncated
-              ? 'Your output was cut off by the length limit, so these arguments are incomplete. Make smaller edits (several edit_file calls) instead of one huge one.'
+              ? 'Your output was cut off by the length limit, so these arguments are incomplete. Make smaller edits (several edit_file calls), ' +
+                'and write a long file in parts (write_file, then write_file with append: true for each next part) instead of one huge call.'
               : `Arguments are not valid JSON (${(error as Error).message}).`;
           }
         }
@@ -297,7 +311,23 @@ export class AgentSession {
       if (completion.content) finalText = completion.content;
 
       if (!calls.length) {
-        if (!completion.content.trim() && truncated) return finish('error', 'The model stopped at its output limit without an answer. Try again or pick another model.');
+        const text = completion.content.trim();
+        // A reply cut off by the output limit, or one that announces the work ("I'll write the file:") and stops there,
+        // is not the end of the task: carry on (a few times) instead of leaving the user to type "continue".
+        const announced = !truncated && canAct && /[:：]$/.test(text);
+        if ((truncated || announced) && nudges < MAX_NUDGES) {
+          nudges++;
+          if (truncated && !text) {
+            // It spent the whole output budget thinking: another free model gets the next try.
+            excluded.add(completion.spec.id);
+            emit({ type: 'status', message: `${completion.spec.name} ran out of output space before answering; trying another free model` });
+          } else {
+            emit({ type: 'status', message: truncated ? 'The reply reached the output limit; carrying on in smaller steps' : 'Carrying on with what it announced' });
+          }
+          this.history.push({ role: 'user', content: truncated ? CUT_OFF_NUDGE : ANNOUNCED_NUDGE });
+          continue;
+        }
+        if (!text && truncated) return finish('error', 'The model stopped at its output limit without an answer. Try again or pick another model.');
         return finish('completed');
       }
 
