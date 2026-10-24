@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { findBrowser } from '../../src/core/browser';
@@ -25,7 +25,7 @@ test('activates with Cursor-style commands, keybindings, chat view and theme', a
   const musabai = await api();
   assert.ok(musabai.services.root, 'a workspace folder is open');
   const commands = await vscode.commands.getCommands(true);
-  for (const id of ['musabai.chat.open', 'musabai.inlineEdit', 'musabai.terminal.generateCommand', 'musabai.scm.generateCommitMessage', 'musabai.github.review', 'musabai.background.new', 'musabai.openSettings', 'musabai.import']) {
+  for (const id of ['musabai.chat.open', 'musabai.inlineEdit', 'musabai.terminal.generateCommand', 'musabai.scm.generateCommitMessage', 'musabai.github.review', 'musabai.background.new', 'musabai.openSettings', 'musabai.import', 'musabai.phone.start']) {
     assert.ok(commands.includes(id), `${id} is registered`);
   }
   const pkg = vscode.extensions.getExtension('musabai.musabai-code')!.packageJSON;
@@ -108,6 +108,52 @@ test('a background agent works on its own git worktree', async () => {
   await assert.rejects(stat(agent.worktree));
 });
 
+test("a background agent's notes go to the project memory, and Apply still brings its changes in", async () => {
+  const musabai = await api();
+  // Project memory is untracked: the agent's worktree (made from HEAD) does not have it.
+  const memory = path.join(ws, '.musabai', 'memory.md');
+  await mkdir(path.dirname(memory), { recursive: true });
+  await writeFile(memory, '- Old note\n');
+  const before = await readFile(hello, 'utf8');
+  // The committed hello.py (an earlier test leaves its Ctrl+K edit), so the agent's patch applies cleanly.
+  await writeFile(hello, 'print("hi")\n');
+  await vscode.commands.executeCommand('musabai.background.new', 'remember the port, then make hello.py greet the world');
+  const agent = await waitFor('the background agent', () => musabai.background.list().find((a) => a.status !== 'running' && a.files !== undefined && a.prompt.startsWith('remember')), 60_000);
+  assert.equal(agent.status, 'done', agent.error);
+  assert.deepEqual(agent.files, ['hello.py'], 'the memory file is not one of its changes');
+  assert.equal(await readFile(memory, 'utf8'), '- Old note\n- The dev server runs on port 8000\n', 'the note landed in the project memory');
+  await assert.rejects(stat(path.join(agent.worktree, '.musabai', 'memory.md')));
+  assert.ok((await musabai.services.changes!.summary()).some((c) => c.rel === '.musabai/memory.md'), 'the note waits for review like any change');
+  await vscode.commands.executeCommand('musabai.background.apply', agent.id);
+  assert.equal(await readFile(hello, 'utf8'), 'print("Hello, world! مرحبا بالعالم")\n', 'Apply worked although the project has a memory file');
+  await musabai.background.discard(agent.id, false);
+  await musabai.services.changes!.rejectAll();
+  await writeFile(hello, before);
+  await rm(path.dirname(memory), { recursive: true, force: true });
+});
+
+test('working alone, the agent never waits: a risky command is skipped and listed, and the rest runs', async () => {
+  const musabai = await api();
+  const config = vscode.workspace.getConfiguration('musabai');
+  await config.update('agent.runMode', 'unattended', vscode.ConfigurationTarget.Global);
+  try {
+    // An approval nobody answers would hold this turn until the test times out: working alone nothing waits.
+    await musabai.chat.sendFromCommand('push the branch while I sleep');
+    const { chat } = await musabai.chat.snapshot();
+    const parts = chat.messages.filter((m) => m.role === 'assistant').flatMap((m) => m.parts ?? []);
+    const tools = parts.filter((p) => p.kind === 'tool') as Extract<(typeof parts)[number], { kind: 'tool' }>[];
+    assert.ok(!tools.some((p) => p.approval), 'no approval card was shown');
+    const push = tools.find((p) => p.name === 'run_terminal_cmd' && p.summary?.includes('git push'));
+    assert.equal(push?.status, 'failed');
+    assert.match(push?.summary ?? '', /^Skipped git push --force/);
+    assert.equal(tools.find((p) => p.name === 'run_terminal_cmd' && p.summary?.includes('python3'))?.status, 'done', 'the ordinary command ran');
+    const list = parts.find((p) => p.kind === 'status' && p.text.startsWith('Skipped while working alone')) as { text: string } | undefined;
+    assert.match(list?.text ?? '', /git push --force origin HEAD/, 'the user gets the list of what was skipped');
+  } finally {
+    await config.update('agent.runMode', 'auto', vscode.ConfigurationTarget.Global);
+  }
+});
+
 test('the agent browser opens a page, reads it, clicks and screenshots (when a browser is installed)', async () => {
   const musabai = await api();
   const which = async (c: string) => {
@@ -132,9 +178,10 @@ test('the agent browser opens a page, reads it, clicks and screenshots (when a b
     try {
       opened = await browser.open(url);
     } catch (error) {
-      // A browser that can't launch in this environment (e.g. a locked-down CI sandbox) is not a test failure.
-      console.log(`    (could not launch a browser here, skipping: ${(error as Error).message})`);
       await browser.close().catch(() => undefined);
+      // An installed browser that fails to start is a regression. Only a sandbox known to block it may opt out.
+      if (!process.env.MUSABAI_ALLOW_BROWSER_SKIP) throw error;
+      console.log(`    (MUSABAI_ALLOW_BROWSER_SKIP: the browser could not start here, skipping: ${(error as Error).message})`);
       return;
     }
     assert.equal(opened.title, 'Agent Browser Test');

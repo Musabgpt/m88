@@ -7,6 +7,8 @@ import { CheckpointStore } from '../../src/core/checkpoints';
 import { acceptHunk, hunks, revertHunk, splitLines, stats, unifiedDiff } from '../../src/core/diff';
 import { EditError, applyEdit, applyEdits, checkPlaceholders } from '../../src/core/edit';
 import { NodeHost } from '../../src/core/host';
+import { writeFileTool } from '../../src/core/tools/edit';
+import type { ToolContext } from '../../src/core/tools/types';
 import { tempDir } from './helpers';
 
 describe('applyEdit', () => {
@@ -136,6 +138,45 @@ describe('review and checkpoints', () => {
       assert.equal(await readFile(a, 'utf8'), 'v0');
       assert.equal(await host.stat(b), undefined);
       assert.deepEqual(store.turnIds(), []);
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe('write_file in parts', () => {
+  it('writes a long file part by part with append, each part on its own line, as one change to review', async () => {
+    const { dir, cleanup } = await tempDir();
+    try {
+      const host = new NodeHost({ root: dir });
+      const changes = new ChangeTracker(host);
+      const ctx = {
+        host,
+        root: dir,
+        turnId: 't1',
+        callId: 'c1',
+        touched: new Set<string>(),
+        emit: () => undefined,
+        changes,
+        checkpoints: new CheckpointStore(),
+        policy: { mode: 'auto', allow: [], deny: [] },
+        approve: async () => 'allow',
+      } as unknown as ToolContext;
+      const file = path.join(dir, 'src', 'db.ts');
+      assert.match((await writeFileTool.execute({ path: 'src/db.ts', content: 'line 1\nline 2' }, ctx)).content, /^Created src\/db\.ts \(2 lines\)/);
+      const second = await writeFileTool.execute({ path: 'src/db.ts', content: 'line 3\nline 4\n', append: true }, ctx);
+      assert.match(second.content, /^Added 2 lines to src\/db\.ts \(now 4 lines\)/);
+      assert.equal(await readFile(file, 'utf8'), 'line 1\nline 2\nline 3\nline 4\n', 'the part starts on a new line');
+      await writeFileTool.execute({ path: 'src/db.ts', content: 'line 5\n', append: true }, ctx);
+      assert.equal(await readFile(file, 'utf8'), 'line 1\nline 2\nline 3\nline 4\nline 5\n');
+      // The parts review as one new file, and rejecting it removes the whole file.
+      assert.deepEqual((await changes.summary()).map((c) => [c.rel, c.added, c.created]), [['src/db.ts', 5, true]]);
+      await changes.reject(file);
+      assert.equal(await host.stat(file), undefined);
+      // Appending to a file that does not exist yet creates it.
+      await writeFileTool.execute({ path: 'notes.txt', content: 'first\n', append: true }, ctx);
+      assert.equal(await readFile(path.join(dir, 'notes.txt'), 'utf8'), 'first\n');
+      await assert.rejects(writeFileTool.execute({ path: 'src/db.ts', content: '// ... existing code ...\n', append: true }, ctx), /placeholder/);
     } finally {
       await cleanup();
     }

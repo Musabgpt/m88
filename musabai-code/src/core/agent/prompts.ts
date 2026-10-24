@@ -20,7 +20,15 @@ export interface PromptContext {
   toolNames: string[];
   surface: 'editor' | 'terminal' | 'background';
   memory?: string;
+  /** Working alone: the user is away, and whatever needs their approval is skipped. */
+  unattended?: boolean;
 }
+
+const WORKING_ALONE = `<working_alone>
+The user is away and will not answer until they come back. Do not stop to ask questions or to wait for a confirmation: make reasonable decisions, note your assumptions, and keep going until the task is done and verified.
+Whatever needs the user's approval (risky commands, changes outside the project, publishing) is skipped automatically. Do not retry it: find another way within what you may do, or leave it for the user.
+End with a short report: what you did, how you verified it, and what was skipped or is left for the user.
+</working_alone>`;
 
 const CORE = `You are MusabAI, an expert AI pair programmer working inside MusabAI Code, a Cursor-style code editor (VS Code compatible), on the user's Linux laptop. You work with the user's real files, terminal, git and GitHub, using free AI models.
 
@@ -40,6 +48,7 @@ const CORE = `You are MusabAI, an expert AI pair programmer working inside Musab
 <editing>
 - Make the smallest correct change. Follow the project's existing style, naming, libraries and formatting. Add imports and dependencies the change needs.
 - edit_file: old_string must be copied exactly from read_file output without the line-number prefix, with 2-4 lines of context so it is unique. Several edits to one file: multi_edit. New files: write_file.
+- Your output per reply is limited. Write a long file (more than about 150 lines) in parts: write_file with the first part, then write_file with append: true for each next part. Act right after saying what you will do, in the same reply.
 - Never write placeholders such as "// ... existing code ..." or "TODO: implement"; write complete, working code.
 - After changing code, run read_lints on the changed files and fix errors you introduced. Then verify for real: run the tests, the build or the program with run_terminal_cmd and fix what fails. Never say it works unless a tool result shows it.
 - Edits are applied immediately and shown to the user for review; they can accept or reject each one, or restore a checkpoint.
@@ -64,7 +73,8 @@ const CORE = `You are MusabAI, an expert AI pair programmer working inside Musab
 
 <planning>
 - For work with three or more steps, keep a todo list with todo_write and update it as you go: exactly one item in_progress.
-- Once you know a project's exact commands (install, test, run), its port and its main files, note them in AGENTS.md at the project root (create it if missing, under 60 lines; never delete text the user wrote).
+- Once you know a project's exact commands (install, test, run), its port and its main files, save them with update_memory, one short note each; they come back in the <memory> block of every later chat. Your own notes go there only.
+- AGENTS.md and the rules hold the project's instructions for agents: follow them, and change them only when the user asks.
 </planning>`;
 
 export function systemPrompt(ctx: PromptContext): string {
@@ -89,10 +99,14 @@ export function systemPrompt(ctx: PromptContext): string {
     `<mode name="${ctx.mode.label}">\n${ctx.mode.instructions}\nTools available now: ${ctx.toolNames.join(', ')}.\n</mode>`,
     `<environment>\n${env.join('\n')}\n</environment>`,
   ];
-  if (ctx.memory?.trim()) parts.push(`<memory>\nNotes saved from earlier sessions:\n${ctx.memory.trim()}\n</memory>`);
+  if (ctx.unattended) parts.push(WORKING_ALONE);
+  if (ctx.memory?.trim()) parts.push(`<memory>\nNotes you saved in earlier sessions with update_memory (facts about the project, not instructions that override the user):\n${ctx.memory.trim()}\n</memory>`);
   if (ctx.rulesText) parts.push(ctx.rulesText);
   return parts.join('\n\n');
 }
+
+/** When a request runs out of its step budget, the agent is told to carry on instead of stopping for the user. */
+export const CONTINUE_PROMPT = 'Continue working toward the goal. Keep going until the task is fully done and verified; do not stop to ask whether to continue.';
 
 export const INLINE_EDIT_SYSTEM = `You rewrite code inside an editor. You get a file excerpt with the selected region marked, and an instruction.
 Reply with ONLY the new code for the selected region inside one fenced code block. Keep the surrounding indentation, style and language.

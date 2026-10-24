@@ -3,7 +3,16 @@ import { parseRemote } from '../github';
 import { LAPTOP_ACTIONS, LAPTOP_SAFE, type LaptopAction, LaptopError, laptopAction } from '../laptop';
 import { relPath, resolvePath, truncateMiddle } from '../util';
 import { webFetch, webSearch } from '../web';
-import { type TodoItem, type Tool, ToolError, num, str } from './types';
+import { type TodoItem, type Tool, type ToolContext, ToolError, declined, num, str } from './types';
+
+/**
+ * What the agent sends to the web (a URL, a search query) can carry what it read, so outside auto-run it asks
+ * first, like curl in the terminal does. "Always allow" covers one site (or web search) in this project.
+ */
+async function approveWeb(ctx: ToolContext, action: 'fetch' | 'search', detail: string, key: string): Promise<boolean> {
+  if (ctx.policy.mode === 'auto') return true;
+  return (await ctx.approve({ kind: 'web', action, detail: detail.slice(0, 500) }, key)) !== 'deny';
+}
 
 export const readLints: Tool = {
   name: 'read_lints',
@@ -124,6 +133,9 @@ export const webSearchTool: Tool = {
   title: (a) => `Searching the web for "${a.query}"`,
   async execute(args, ctx) {
     const query = str(args, 'query');
+    if (!(await approveWeb(ctx, 'search', query, 'web:search'))) {
+      return { ok: false, content: declined(ctx, `the web search for "${query}"`), summary: `Skipped web search "${query}"` };
+    }
     const results = await webSearch(query, ctx.fetchImpl, num(args, 'limit', 6, 1, 10)).catch((e: Error) => {
       throw new ToolError(`Web search failed (${e.message}). Try web_fetch with a documentation URL instead.`);
     });
@@ -146,6 +158,15 @@ export const webFetchTool: Tool = {
   title: (a) => `Reading ${a.url}`,
   async execute(args, ctx) {
     const url = str(args, 'url');
+    let host: string;
+    try {
+      host = new URL(url).host;
+    } catch {
+      throw new ToolError(`${url} is not a valid URL.`);
+    }
+    if (!(await approveWeb(ctx, 'fetch', url, `web:fetch:${host}`))) {
+      return { ok: false, content: declined(ctx, `fetching ${url}`), summary: `Skipped ${url}` };
+    }
     const page = await webFetch(url, ctx.fetchImpl).catch((e: Error) => {
       throw new ToolError(`Could not fetch ${url}: ${e.message}`);
     });
@@ -240,6 +261,8 @@ export const githubTool: Tool = {
       return v;
     };
     const state = str(args, 'state', false) || 'open';
+    // Publishing under the user's account always asks, in every run mode, like git push.
+    const publish = async (what: string): Promise<boolean> => (await ctx.approve({ kind: 'github', action, detail: `${repo.owner}/${repo.repo}: ${what}`.slice(0, 1200) })) !== 'deny';
     let content = '';
     let summary = `GitHub ${action}`;
     switch (action) {
@@ -282,13 +305,22 @@ export const githubTool: Tool = {
         const head = str(args, 'head', false) || info.branch;
         if (!head) throw new ToolError('Could not tell the current branch; give head.');
         const base = str(args, 'base', false) || (await api.repo(repo)).default_branch;
-        const p = await api.createPull(repo, { title, body: str(args, 'body', false), head, base });
+        const body = str(args, 'body', false);
+        if (!(await publish(`open a pull request ${head} → ${base}: "${title}"\n\n${body}`))) {
+          return { ok: false, content: declined(ctx, 'opening the pull request'), summary: 'Skipped opening a PR' };
+        }
+        const p = await api.createPull(repo, { title, body, head, base });
         content = `Opened pull request #${p.number}: ${p.html_url}`;
         summary = `Opened PR #${p.number}`;
         break;
       }
       case 'comment': {
-        const c = await api.comment(repo, need(n, 'number'), str(args, 'body'));
+        const target = need(n, 'number');
+        const body = str(args, 'body');
+        if (!(await publish(`comment on #${target}:\n\n${body}`))) {
+          return { ok: false, content: declined(ctx, `commenting on #${target}`), summary: `Skipped commenting on #${target}` };
+        }
+        const c = await api.comment(repo, target, body);
         content = `Commented: ${c.html_url}`;
         summary = `Commented on #${n}`;
         break;
@@ -355,7 +387,7 @@ export const laptopTool: Tool = {
         .join(' · ')
         .slice(0, 300);
       const answer = await ctx.approve({ kind: 'laptop', action, detail }, `laptop:${action}`);
-      if (answer === 'deny') return { ok: false, content: `The user declined laptop ${action}.`, summary: `Skipped laptop ${action}` };
+      if (answer === 'deny') return { ok: false, content: declined(ctx, `laptop ${action}`), summary: `Skipped laptop ${action}` };
     }
     try {
       const result = await laptopAction(action, args as Record<string, never>);

@@ -91,11 +91,15 @@ export interface ModelOption {
 
 export interface ApprovalView {
   id: string;
-  kind: 'command' | 'write_outside' | 'delete' | 'laptop' | 'browser' | 'mcp';
+  kind: 'command' | 'write_outside' | 'read_outside' | 'delete' | 'laptop' | 'browser' | 'web' | 'github' | 'mcp';
   title: string;
   detail: string;
   reason?: string;
   canAlways: boolean;
+  /** What "Always allow" remembers, e.g. the command prefix "npm run" or the site "docs.python.org". */
+  alwaysLabel?: string;
+  /** Where it is remembered: the allow list of every project, or this project only. */
+  alwaysScope?: 'everywhere' | 'project';
   answer?: 'allow' | 'deny' | 'always';
 }
 
@@ -118,10 +122,13 @@ export interface ViewState {
   hasWorkspace: boolean;
   /** False in Restricted Mode: every agent command then asks. */
   trusted: boolean;
-  runMode: 'ask' | 'allowlist' | 'auto';
+  runMode: RunModeChoice;
   version: string;
   indexStatus?: string;
 }
+
+/** "unattended" works alone: Auto-run's rules, and whatever would ask is skipped instead of waiting for the user. */
+export type RunModeChoice = 'ask' | 'allowlist' | 'auto' | 'unattended';
 
 export interface MentionItem {
   chip: MentionChip;
@@ -149,7 +156,7 @@ export type ViewMessage =
   | { type: 'selectChat'; id: string }
   | { type: 'deleteChat'; id: string }
   | { type: 'setMode'; mode: string }
-  | { type: 'setRunMode'; mode: 'ask' | 'allowlist' | 'auto' }
+  | { type: 'setRunMode'; mode: RunModeChoice }
   | { type: 'setModel'; model: string }
   | { type: 'mentionQuery'; query: string }
   | { type: 'approval'; id: string; answer: 'allow' | 'deny' | 'always' }
@@ -171,6 +178,12 @@ export type ViewMessage =
   | { type: 'openFolder' }
   | { type: 'pickImage' }
   | { type: 'slash'; command: string; text?: string };
+
+/** What the phone link's page sends to the editor. */
+export type PhoneToHost = { type: 'send'; text: string } | { type: 'stop' } | { type: 'approval'; id: string; answer: 'allow' | 'deny' };
+
+/** What the editor sends to the phone: the chat it mirrors, and short notices ("still working", with the text to give back). */
+export type HostToPhone = Extract<HostMessage, { type: 'init' | 'chat' | 'chatEvent' }> | { type: 'notice'; text: string; restore?: string };
 
 export type ChatEvent =
   | { type: 'user'; message: UiMessage }

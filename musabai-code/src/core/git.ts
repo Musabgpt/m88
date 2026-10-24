@@ -1,8 +1,19 @@
 import { runProcess } from './host';
 
-export async function git(root: string, args: string[], timeoutMs = 30_000) {
-  const out = await runProcess('git', ['-c', 'core.quotepath=off', '-c', 'color.ui=false', ...args], root, timeoutMs);
+export async function git(root: string, args: string[], timeoutMs = 30_000, env?: Record<string, string>) {
+  const out = await runProcess('git', ['-c', 'core.quotepath=off', '-c', 'color.ui=false', ...args], root, timeoutMs, env);
   return { code: out.code, stdout: out.stdout, stderr: out.stderr };
+}
+
+/**
+ * Git options that answer GitHub's credential prompt with a token: the token itself stays in the environment
+ * ($MUSABAI_GH_TOKEN) and never appears in the command line, the process list or the remote URL.
+ */
+export const GITHUB_TOKEN_HELPER = ['-c', 'credential.helper=', '-c', 'credential.helper=!f() { echo username=x-access-token; echo "password=$MUSABAI_GH_TOKEN"; }; f'];
+
+/** git push with a GitHub token (or the user's own credential setup when there is none). */
+export async function pushWithToken(root: string, token: string | undefined, args: string[], timeoutMs = 300_000) {
+  return git(root, [...(token ? GITHUB_TOKEN_HELPER : []), 'push', ...args], timeoutMs, { GIT_TERMINAL_PROMPT: '0', ...(token ? { MUSABAI_GH_TOKEN: token } : {}) });
 }
 
 export interface GitInfo {

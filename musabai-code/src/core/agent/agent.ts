@@ -31,6 +31,10 @@ export interface AgentDeps {
   disabledTools?: () => string[];
   maxSteps?: number;
   maxOutputTokens?: number;
+  /** Where update_memory keeps the project notes; default the host root (a background agent uses the main checkout). */
+  memoryRoot?: string;
+  /** Where memory changes are offered for review when that is not `changes` (a background agent's notes land in the main checkout). */
+  memoryChanges?: ChangeTracker;
 }
 
 export interface TurnInput {
@@ -54,11 +58,47 @@ export interface TurnResult {
 
 const RESULT_LIMIT = 30_000;
 
+// How many times one request carries on after a cut-off reply or one that stopped at an announcement.
+const MAX_NUDGES = 3;
+const CUT_OFF_NUDGE =
+  'Your last reply was cut off by the output limit before it was complete. Continue from where it stopped, and keep your ' +
+  'thinking short. If you were writing a file, write it in parts: write_file with the first part (at most about 150 lines), ' +
+  'then write_file with append: true for each next part.';
+const ANNOUNCED_NUDGE =
+  'You said what you would do but ended your reply without doing it. Do it now with the tools, and keep your thinking short. ' +
+  'Write a long file in parts: write_file with the first part, then write_file with append: true for each next part.';
+
 function shortId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let out = '';
   for (let i = 0; i < 9; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
+}
+
+/** One line naming an action that needed approval, for the list of what was skipped while working alone. */
+function describeRequest(request: ApprovalRequest): string {
+  const line = (() => {
+    switch (request.kind) {
+      case 'command':
+        return `run \`${request.command}\``;
+      case 'write_outside':
+        return `change ${request.path}`;
+      case 'read_outside':
+        return `read ${request.path}`;
+      case 'delete':
+        return `delete ${request.path}`;
+      case 'laptop':
+      case 'browser':
+        return `${request.kind} ${request.action} ${request.detail}`.trim();
+      case 'web':
+        return `${request.action === 'search' ? 'search the web for' : 'fetch'} ${request.detail}`;
+      case 'github':
+        return `GitHub ${request.action.replace(/_/g, ' ')}: ${request.detail}`;
+      case 'mcp':
+        return `MCP ${request.server}/${request.tool}`;
+    }
+  })();
+  return line.replace(/\s+/g, ' ').slice(0, 160);
 }
 
 export function publicError(error: unknown): string {
@@ -87,11 +127,18 @@ export class AgentSession {
   private readonly turnStarts: { turnId: string; index: number }[] = [];
   private readonly allowed = new Set<string>();
   private rules: Rule[] = [];
+  /** What was skipped in this run because it needed approval while the agent worked alone. */
+  private skipped: string[] = [];
 
   constructor(private readonly deps: AgentDeps) {}
 
   private async approve(request: ApprovalRequest, key?: string): Promise<ApprovalResult> {
     if (key && this.allowed.has(key)) return 'allow';
+    // Working alone nobody is there to ask: the action is skipped, never allowed for the user, and listed at the end.
+    if (this.deps.policy().unattended) {
+      this.skipped.push(describeRequest(request));
+      return 'deny';
+    }
     const answer = await this.deps.approve(request, key);
     if (answer === 'always' && key) this.allowed.add(key);
     return answer;
@@ -147,13 +194,26 @@ export class AgentSession {
     const specs = toolSpecs(tools);
     const excluded = new Set<string>();
     const maxSteps = this.deps.maxSteps ?? 60;
+    // Only a mode that can change things is expected to act on what it announces.
+    const canAct = tools.some((t) => !t.readOnly);
     let invalidStreak = 0;
     let retries = 0;
+    let nudges = 0;
     let finalText = '';
     let modelId: string | undefined;
+    // Rules are read again only when the files in play change or a tool may have changed files (rule files included).
+    let rulesKey: string | undefined;
+    let rulesText = '';
+    let rulesWarned = false;
 
+    this.skipped = [];
     const finish = (reason: TurnResult['reason'], error?: string): TurnResult => {
       this.dropImages();
+      if (this.skipped.length) {
+        const unique = [...new Set(this.skipped)];
+        emit({ type: 'status', message: `Skipped while working alone (needs your approval): ${unique.slice(0, 12).join('; ')}${unique.length > 12 ? `; and ${unique.length - 12} more` : ''}` });
+        this.skipped = [];
+      }
       emit({ type: 'done', reason, error });
       return { reason, error, text: finalText, modelId };
     };
@@ -162,10 +222,21 @@ export class AgentSession {
       if (signal?.aborted) return finish('cancelled');
       emit({ type: 'step', step });
       const referenced = [...(input.referencedFiles ?? []), ...this.touched];
-      const { rules, text: rulesText } = await this.deps.rules(referenced, input.mentionedRules ?? []);
-      this.rules = rules;
+      const key = referenced.join('\0');
+      if (key !== rulesKey) {
+        rulesKey = key;
+        try {
+          const loaded = await this.deps.rules(referenced, input.mentionedRules ?? []);
+          this.rules = loaded.rules;
+          rulesText = loaded.text;
+        } catch (error) {
+          // A broken rule file must not stop the agent: work without the rules and say so once.
+          if (!rulesWarned) emit({ type: 'status', message: `Project rules could not be loaded: ${error instanceof Error ? error.message : String(error)}` });
+          rulesWarned = true;
+        }
+      }
       const env = await this.deps.environment();
-      const system = systemPrompt({ ...env, mode: input.mode, rulesText, toolNames: tools.map((t) => t.name) });
+      const system = systemPrompt({ ...env, mode: input.mode, rulesText, toolNames: tools.map((t) => t.name), unattended: this.deps.policy().unattended });
       const current = await pool.resolve(input.modelId);
       const messages: ChatMessage[] = [{ role: 'system', content: system }, ...project(this.history, specs, { local: current?.source === 'local' })];
 
@@ -211,7 +282,8 @@ export class AgentSession {
             if (missing.length) problem = `Missing required arguments: ${missing.join(', ')}.`;
           } catch (error) {
             problem = truncated
-              ? 'Your output was cut off by the length limit, so these arguments are incomplete. Make smaller edits (several edit_file calls) instead of one huge one.'
+              ? 'Your output was cut off by the length limit, so these arguments are incomplete. Make smaller edits (several edit_file calls), ' +
+                'and write a long file in parts (write_file, then write_file with append: true for each next part) instead of one huge call.'
               : `Arguments are not valid JSON (${(error as Error).message}).`;
           }
         }
@@ -239,7 +311,23 @@ export class AgentSession {
       if (completion.content) finalText = completion.content;
 
       if (!calls.length) {
-        if (!completion.content.trim() && truncated) return finish('error', 'The model stopped at its output limit without an answer. Try again or pick another model.');
+        const text = completion.content.trim();
+        // A reply cut off by the output limit, or one that announces the work ("I'll write the file:") and stops there,
+        // is not the end of the task: carry on (a few times) instead of leaving the user to type "continue".
+        const announced = !truncated && canAct && /[:：]$/.test(text);
+        if ((truncated || announced) && nudges < MAX_NUDGES) {
+          nudges++;
+          if (truncated && !text) {
+            // It spent the whole output budget thinking: another free model gets the next try.
+            excluded.add(completion.spec.id);
+            emit({ type: 'status', message: `${completion.spec.name} ran out of output space before answering; trying another free model` });
+          } else {
+            emit({ type: 'status', message: truncated ? 'The reply reached the output limit; carrying on in smaller steps' : 'Carrying on with what it announced' });
+          }
+          this.history.push({ role: 'user', content: truncated ? CUT_OFF_NUDGE : ANNOUNCED_NUDGE });
+          continue;
+        }
+        if (!text && truncated) return finish('error', 'The model stopped at its output limit without an answer. Try again or pick another model.');
         return finish('completed');
       }
 
@@ -282,7 +370,10 @@ export class AgentSession {
           fetchImpl: this.deps.fetchImpl,
           touched: this.touched,
           visionModel: completion.spec.capabilities.includes('vision'),
+          memoryRoot: this.deps.memoryRoot,
+          memoryChanges: this.deps.memoryChanges,
         };
+        if (!tool.readOnly) rulesKey = undefined;
         let result: ToolResult;
         try {
           result = await tool.execute(args, ctx);

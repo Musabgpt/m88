@@ -143,6 +143,10 @@ export class CodebaseIndex {
     this.refreshStatus();
   }
 
+  has(file: string): boolean {
+    return this.mtimes.has(file.split(path.sep).join('/'));
+  }
+
   private refreshStatus(): void {
     this.status = { ...this.status, files: this.mtimes.size, chunks: this.docs.length };
   }

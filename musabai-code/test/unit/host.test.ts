@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { NodeHost, stripAnsi } from '../../src/core/host';
+import { NodeHost, ripgrepCandidates, stripAnsi, which } from '../../src/core/host';
 import { parseTextMentions, resolveMentions } from '../../src/core/mentions';
 import { tempDir } from './helpers';
 
@@ -51,6 +51,49 @@ describe('NodeHost', () => {
         assert.equal(js.length, 2);
       }
       await assert.rejects(new NodeHost({ root: dir }).grep({ pattern: '(' }), /Invalid regex/);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('greps with comma-separated and brace includes, with ripgrep and without it', async () => {
+    const { dir, cleanup } = await project();
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir });
+      await writeFile(path.join(dir, '.gitignore'), 'ignored.txt\nnode_modules/\n');
+      for (const host of [new NodeHost({ root: dir }), new NodeHost({ root: dir, rgPath: '/nonexistent/rg' })]) {
+        for (const include of ['*.js,*.py', '*.{js,py}', 'src/**/*.{js,py}']) {
+          const hits = await host.grep({ pattern: 'answer|TODO', include });
+          assert.deepEqual([...new Set(hits.map((h) => h.path))].sort(), ['src/main.js', 'src/util.py'], include);
+        }
+        assert.deepEqual((await host.grep({ pattern: 'answer|TODO', include: '*.{js,py}', exclude: '*.py' })).map((h) => h.path), ['src/main.js', 'src/main.js']);
+      }
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('finds a program by absolute path and the editor ripgrep where the packages install it', async () => {
+    assert.equal(await which(process.execPath), process.execPath);
+    assert.equal(await which('/nonexistent/chrome'), undefined);
+    const candidates = ripgrepCandidates(['/usr/share/musabai-code/resources/app']);
+    assert.ok(candidates.includes('/usr/share/musabai-code/resources/app/node_modules/@vscode/ripgrep/bin/rg'));
+    assert.ok(candidates.some((c) => c.includes('node_modules.asar.unpacked')));
+  });
+
+  it('keeps only the newest finished background commands', async () => {
+    const { dir, cleanup } = await project();
+    try {
+      const host = new NodeHost({ root: dir });
+      const ids: string[] = [];
+      for (let i = 0; i < 14; i++) ids.push((await host.exec(`echo done ${i}`, { background: true })).backgroundId!);
+      const running = (await host.exec('sleep 30', { background: true })).backgroundId!;
+      const kept = host.processes();
+      assert.ok(kept.length <= 11, `kept ${kept.length}`);
+      assert.ok(kept.some((p) => p.id === running), 'a running command is never dropped');
+      assert.equal(host.processOutput(ids[0]), undefined, 'the oldest finished one is gone');
+      assert.match(host.processOutput(ids[13])!.output, /done 13/, 'the newest finished one keeps its output');
+      await host.killProcess(running);
     } finally {
       await cleanup();
     }

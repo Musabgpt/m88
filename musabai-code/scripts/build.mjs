@@ -18,7 +18,8 @@ const common = {
   legalComments: 'none',
   logLevel: 'warning',
 };
-const node = { ...common, platform: 'node', format: 'cjs', target: 'node20' };
+// ESM entry points first: a UMD "main" (jsonc-parser's) loads its own modules with a require esbuild cannot follow.
+const node = { ...common, platform: 'node', format: 'cjs', target: 'node20', mainFields: ['module', 'main'] };
 const web = { ...common, platform: 'browser', format: 'iife', target: 'chrome120' };
 
 const builds = [
@@ -28,6 +29,8 @@ const builds = [
   { ...web, entryPoints: ['src/webview/chat/chat.css'], outfile: 'dist/webview/chat.css' },
   { ...web, entryPoints: ['src/webview/settings/main.ts'], outfile: 'dist/webview/settings.js' },
   { ...web, entryPoints: ['src/webview/settings/settings.css'], outfile: 'dist/webview/settings.css' },
+  // The phone link's page script (served by the extension to the phone's browser), sharing the chat reducer.
+  { ...web, entryPoints: ['src/webview/phone/main.ts'], outfile: 'dist/webview/phone.js', target: ['chrome100', 'safari15', 'firefox100'] },
 ];
 
 if (tests) {

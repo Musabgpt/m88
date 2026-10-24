@@ -2,9 +2,22 @@ name: MusabAI Linux desktop
 
 on:
   push:
-    branches: [main, feat/newai-cloud-linux-desktop]
+    branches: [main]
+    # A change only to MusabAI Code (the editor, with its own workflow) or to the other workflows skips this long build.
+    paths-ignore:
+      - musabai-code/**
+      - linux/musabai-code/**
+      - .github/workflows/musabai-code.yml
+      - .github/workflows/musabai-code-release.yml
+      - .github/workflows/android.yml
   pull_request:
     branches: [main]
+    paths-ignore:
+      - musabai-code/**
+      - linux/musabai-code/**
+      - .github/workflows/musabai-code.yml
+      - .github/workflows/musabai-code-release.yml
+      - .github/workflows/android.yml
   workflow_dispatch:
 
 permissions:
@@ -158,16 +171,23 @@ jobs:
             --out "$RUNNER_TEMP/musabai-dist"
 
       - name: Build AppImage with pinned appimagetool
+        env:
+          # Tagged releases, not "continuous": a continuous asset is replaced by every upstream build, and its pinned
+          # SHA-256 then fails. To update, bump a tag and its checksum together.
+          APPIMAGETOOL_VERSION: "1.9.1"
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          APPIMAGE_RUNTIME_VERSION: "20251108"
+          APPIMAGE_RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
         run: |
           set -euo pipefail
           appimagetool="$RUNNER_TEMP/appimagetool-x86_64.AppImage"
           appimage_runtime="$RUNNER_TEMP/runtime-x86_64"
-          curl -fsSL --retry 3 -o "$appimagetool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          echo '95cbe7cce9717fce90c484e34052ee7c7f1d7635b33c12525b4776826a7d29b6  '"$appimagetool" | sha256sum --check
-          curl -fsSL --retry 3 -o "$appimage_runtime" https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
-          echo '617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46  '"$appimage_runtime" | sha256sum --check
+          curl -fsSL --retry 3 -o "$appimagetool" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage"
+          echo "$APPIMAGETOOL_SHA256  $appimagetool" | sha256sum --check
+          curl -fsSL --retry 3 -o "$appimage_runtime" "https://github.com/AppImage/type2-runtime/releases/download/$APPIMAGE_RUNTIME_VERSION/runtime-x86_64"
+          echo "$APPIMAGE_RUNTIME_SHA256  $appimage_runtime" | sha256sum --check
           chmod +x "$appimagetool"
-          APPIMAGE_EXTRACT_AND_RUN=1 APPIMAGETOOL_RUNTIME_FILE="$appimage_runtime" ARCH=x86_64 "$appimagetool" --no-appstream \
+          APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$appimagetool" --no-appstream --runtime-file "$appimage_runtime" \
             "$RUNNER_TEMP/musabai-dist/MusabAI.AppDir" \
             "$RUNNER_TEMP/musabai-dist/MusabAI-0.1.0-linux-x86_64.AppImage"
 

@@ -1,12 +1,15 @@
 import { stats, unifiedDiff } from '../diff';
 import { EditError, applyEdit, applyEdits, checkPlaceholders } from '../edit';
-import { isInside, relPath, resolvePath } from '../util';
-import { type Tool, type ToolContext, type ToolResult, ToolError, bool, str } from './types';
+import { isInside, realInside, realPathOf, relPath, resolvePath } from '../util';
+import { type Tool, type ToolContext, type ToolResult, ToolError, bool, declined, str } from './types';
 
+/** Asks before a change outside the project, including through a symlink inside it that points outside. */
 async function guardOutside(ctx: ToolContext, abs: string): Promise<void> {
-  if (isInside(ctx.root, abs)) return;
-  const answer = await ctx.approve({ kind: 'write_outside', path: abs }, `write:${abs}`);
-  if (answer === 'deny') throw new ToolError(`The user did not allow changing ${abs} (outside the project).`);
+  if (isInside(ctx.root, abs) && (await realInside(ctx.root, abs))) return;
+  const real = await realPathOf(abs);
+  const shown = real === abs ? abs : `${abs} → ${real}`;
+  const answer = await ctx.approve({ kind: 'write_outside', path: shown }, `write:${real}`);
+  if (answer === 'deny') throw new ToolError(declined(ctx, `changing ${shown} (outside the project)`));
 }
 
 /** Writes through the host and records the change for checkpoints and review. */
@@ -21,6 +24,11 @@ export async function commitWrite(ctx: ToolContext, abs: string, before: string 
   const rel = relPath(ctx.root, abs);
   ctx.emit({ type: 'file_changed', path: abs, rel, ...s, created: before === undefined, deleted: after === null });
   return { path: abs, rel, ...s, created: before === undefined, deleted: after === null };
+}
+
+/** Lines of text, not counting the empty one after a final newline. */
+function lineCount(text: string): number {
+  return text ? text.split('\n').length - (text.endsWith('\n') ? 1 : 0) : 0;
 }
 
 function preview(rel: string, before: string, after: string): string {
@@ -133,32 +141,41 @@ export const writeFileTool: Tool = {
   readOnly: false,
   description:
     'Create a new file, or replace a whole file, with the complete content. For changes to an existing file prefer edit_file. ' +
-    'Parent directories are created as needed.',
+    'Write a long file (more than about 150 lines) in parts: the first part with write_file, then each next part with ' +
+    'append: true, so no reply runs out of output space. Parent directories are created as needed.',
   parameters: {
     type: 'object',
     properties: {
       path: { type: 'string', description: 'File path, relative to the workspace root.' },
-      content: { type: 'string', description: 'The complete file content.' },
+      content: { type: 'string', description: 'The complete file content, or with append the next part of it.' },
+      append: { type: 'boolean', description: 'Add content to the end of the file (created if missing) instead of replacing it. Default false.' },
     },
     required: ['path', 'content'],
   },
-  title: (a) => `Writing ${a.path}`,
+  title: (a) => `${a.append ? 'Adding to' : 'Writing'} ${a.path}`,
   async execute(args, ctx) {
     const abs = resolvePath(ctx.root, str(args, 'path'));
     const rel = relPath(ctx.root, abs);
     await guardOutside(ctx, abs);
-    const content = typeof args.content === 'string' ? args.content : args.content === undefined ? '' : JSON.stringify(args.content, null, 2);
+    const part = typeof args.content === 'string' ? args.content : args.content === undefined ? '' : JSON.stringify(args.content, null, 2);
+    const append = bool(args, 'append');
     const info = await ctx.host.stat(abs);
     if (info?.type === 'dir') throw new ToolError(`${rel} is a directory.`);
     const before = info ? await ctx.host.readText(abs) : undefined;
     try {
-      checkPlaceholders(content, before ?? '');
+      checkPlaceholders(part, before ?? '');
     } catch (error) {
       throw new ToolError(`${rel}: ${(error as Error).message}`);
     }
+    // A part starts on its own line, even when the one before it did not end with a newline.
+    const joint = append && before && !before.endsWith('\n') ? '\n' : '';
+    const content = append ? `${before ?? ''}${joint}${part}` : part;
     if (before === content) return { ok: true, content: `${rel} already has this content.`, summary: `${rel} unchanged` };
     const meta = await commitWrite(ctx, abs, before, content);
-    const lines = content.split('\n').length;
+    const lines = lineCount(content);
+    if (append && before !== undefined) {
+      return { ok: true, content: `Added ${lineCount(part)} lines to ${rel} (now ${lines} lines).`, summary: `Added to ${rel} (+${meta!.added} −${meta!.removed})`, meta };
+    }
     return {
       ok: true,
       content: `${before === undefined ? 'Created' : 'Rewrote'} ${rel} (${lines} lines).`,
@@ -185,9 +202,9 @@ export const deleteFile: Tool = {
     const info = await ctx.host.stat(abs);
     if (!info) return { ok: true, content: `${rel} does not exist.`, summary: `${rel} already gone` };
     if (info.type !== 'file') throw new ToolError(`${rel} is not a file; only files can be deleted with this tool.`);
-    if (!isInside(ctx.root, abs)) {
+    if (!isInside(ctx.root, abs) || !(await realInside(ctx.root, abs))) {
       const answer = await ctx.approve({ kind: 'delete', path: abs }, `delete:${abs}`);
-      if (answer === 'deny') throw new ToolError(`The user did not allow deleting ${abs}.`);
+      if (answer === 'deny') throw new ToolError(declined(ctx, `deleting ${abs}`));
     }
     const before = await ctx.host.readText(abs).catch(() => undefined);
     if (before === undefined) throw new ToolError(`${rel} is binary; delete it with run_terminal_cmd if really needed.`);

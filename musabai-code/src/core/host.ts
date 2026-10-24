@@ -1,17 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import { access, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { BrowserSession } from './browser';
-import { isInside, isProbablyBinary, matchesGlob, newId, relPath } from './util';
+import { isInside, isProbablyBinary, matchesGlob, newId, relPath, splitGlobList } from './util';
 
 export type ApprovalRequest =
   | { kind: 'command'; command: string; cwd: string; reason: string; background?: boolean }
   | { kind: 'write_outside'; path: string }
+  | { kind: 'read_outside'; path: string }
   | { kind: 'delete'; path: string }
   | { kind: 'laptop'; action: string; detail: string }
   | { kind: 'browser'; action: string; detail: string }
+  | { kind: 'web'; action: 'fetch' | 'search'; detail: string }
+  | { kind: 'github'; action: string; detail: string }
   | { kind: 'mcp'; server: string; tool: string; args: string };
 
 export type ApprovalResult = 'allow' | 'deny' | 'always';
@@ -77,6 +81,16 @@ export interface BackgroundProcess {
   startedAt: number;
   exitCode: number | null | undefined;
   output: string;
+  endedAt?: number;
+}
+
+export interface ListFilesOptions {
+  /** One glob, several, or a comma-separated list ("*.ts,*.{js,jsx}"). */
+  glob?: string | string[];
+  under?: string;
+  limit?: number;
+  /** Skip the short-lived file-list cache (a file was just created outside the agent). */
+  fresh?: boolean;
 }
 
 export interface AgentHost {
@@ -86,7 +100,7 @@ export interface AgentHost {
   deletePath(abs: string): Promise<void>;
   stat(abs: string): Promise<{ type: 'file' | 'dir' | 'other'; size: number; mtimeMs: number } | undefined>;
   readDir(abs: string): Promise<{ name: string; type: 'file' | 'dir' | 'other' }[]>;
-  listFiles(options?: { glob?: string; under?: string; limit?: number }): Promise<string[]>;
+  listFiles(options?: ListFilesOptions): Promise<string[]>;
   grep(options: GrepOptions): Promise<GrepMatch[]>;
   exec(command: string, options?: ExecOptions): Promise<ExecResult>;
   processes(): BackgroundProcess[];
@@ -113,9 +127,10 @@ export function stripAnsi(text: string): string {
   return text.replace(ANSI_RE, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
+/** Like the shell's `which`: finds a command on PATH; a path (anything with a slash) is checked as it is. */
 export async function which(command: string): Promise<string | undefined> {
-  for (const dir of (process.env.PATH || '').split(path.delimiter).filter(Boolean)) {
-    const candidate = path.join(dir, command);
+  const candidates = command.includes('/') ? [path.resolve(command)] : (process.env.PATH || '').split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, command));
+  for (const candidate of candidates) {
     try {
       await access(candidate, fsConstants.X_OK);
       return candidate;
@@ -126,16 +141,34 @@ export async function which(command: string): Promise<string | undefined> {
   return undefined;
 }
 
-const RG_BUNDLED = [
-  '/opt/musabai-code/resources/app/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/linux-x64/rg',
-  '/opt/musabai-code/resources/app/node_modules/@vscode/ripgrep/bin/rg',
-  '/usr/share/codium/resources/app/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/linux-x64/rg',
-  '/usr/share/code/resources/app/node_modules/@vscode/ripgrep/bin/rg',
-];
+/** Where an editor's ripgrep lives inside its resources/app folder (the layout differs between VS Code builds). */
+export function ripgrepCandidates(appRoots: string[]): string[] {
+  const platform = `${process.platform}-${process.arch}`;
+  return [...new Set(appRoots)].flatMap((app) => [
+    path.join(app, 'node_modules', '@vscode', 'ripgrep', 'bin', 'rg'),
+    path.join(app, 'node_modules.asar.unpacked', '@vscode', 'ripgrep', 'bin', 'rg'),
+    path.join(app, 'node_modules.asar.unpacked', '@vscode', 'ripgrep-universal', 'bin', platform, 'rg'),
+    path.join(app, 'node_modules', '@vscode', 'ripgrep-universal', 'bin', platform, 'rg'),
+  ]);
+}
 
-function run(command: string, args: string[], cwd: string, timeoutMs = 30_000, maxBytes = 20_000_000): Promise<{ code: number | null; stdout: string; stderr: string }> {
+/**
+ * The editors whose bundled ripgrep the agent can use when rg is not installed: the one it runs in (the extension
+ * sits in <app>/resources/app/extensions/<id>/dist, and musabai-agent runs on the editor's own runtime), then
+ * the install folders of the .deb (/usr/share), the per-user tarball (~/.local/share) and other VS Code builds.
+ */
+function editorAppRoots(): string[] {
+  const data = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  return [
+    path.resolve(__dirname, '..', '..', '..'),
+    path.join(path.dirname(process.execPath), 'resources', 'app'),
+    ...['/usr/share/musabai-code', path.join(data, 'musabai-code'), '/opt/musabai-code', '/usr/share/codium', '/usr/share/code'].map((dir) => path.join(dir, 'resources', 'app')),
+  ];
+}
+
+function run(command: string, args: string[], cwd: string, timeoutMs = 30_000, maxBytes = 20_000_000, env: Record<string, string> = {}): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_PAGER: 'cat', PAGER: 'cat' } });
+    const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_PAGER: 'cat', PAGER: 'cat', ...env } });
     let stdout = '';
     let stderr = '';
     let size = 0;
@@ -157,14 +190,17 @@ function run(command: string, args: string[], cwd: string, timeoutMs = 30_000, m
   });
 }
 
-export function runProcess(command: string, args: string[], cwd: string, timeoutMs?: number) {
-  return run(command, args, cwd, timeoutMs);
+export function runProcess(command: string, args: string[], cwd: string, timeoutMs?: number, env?: Record<string, string>) {
+  return run(command, args, cwd, timeoutMs, undefined, env);
 }
 
 interface Running {
   info: BackgroundProcess;
   child: ChildProcess;
 }
+
+const KEEP_FINISHED = 10;
+const FINISHED_OUTPUT = 64_000;
 
 export interface NodeHostOptions {
   root: string;
@@ -234,7 +270,7 @@ export class NodeHost implements AgentHost {
     }
     this.rg = (await which('rg')) ?? null;
     if (!this.rg) {
-      for (const candidate of RG_BUNDLED) {
+      for (const candidate of ripgrepCandidates(editorAppRoots())) {
         try {
           await access(candidate, fsConstants.X_OK);
           this.rg = candidate;
@@ -257,8 +293,8 @@ export class NodeHost implements AgentHost {
     return this.gitRepo;
   }
 
-  private async allFiles(): Promise<string[]> {
-    if (this.fileCache && Date.now() - this.fileCache.at < 2000) return this.fileCache.files;
+  private async allFiles(fresh = false): Promise<string[]> {
+    if (!fresh && this.fileCache && Date.now() - this.fileCache.at < 2000) return this.fileCache.files;
     let files: string[] | undefined;
     const git = await run('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], this.root, 20_000);
     if (git.code === 0) files = git.stdout.split('\0').filter(Boolean);
@@ -292,13 +328,14 @@ export class NodeHost implements AgentHost {
     return files;
   }
 
-  async listFiles(options: { glob?: string; under?: string; limit?: number } = {}): Promise<string[]> {
+  async listFiles(options: ListFilesOptions = {}): Promise<string[]> {
     const limit = options.limit ?? 5000;
     const under = options.under ? relPath(this.root, path.resolve(this.root, options.under)).replace(/^\.$/, '') : '';
+    const globs = typeof options.glob === 'string' ? splitGlobList(options.glob) : options.glob ?? [];
     const out: string[] = [];
-    for (const file of await this.allFiles()) {
+    for (const file of await this.allFiles(options.fresh)) {
       if (under && !(file === under || file.startsWith(`${under}/`))) continue;
-      if (options.glob && !matchesGlob(file, options.glob)) continue;
+      if (globs.length && !matchesGlob(file, globs)) continue;
       out.push(file);
       if (out.length >= limit) break;
     }
@@ -317,8 +354,9 @@ export class NodeHost implements AgentHost {
       if (!options.caseSensitive) args.push('-i');
       if (options.fixedStrings) args.push('-F');
       if (options.context) args.push('-C', String(Math.min(options.context, 5)));
-      if (options.include) for (const g of options.include.split(',')) args.push('-g', g.trim());
-      if (options.exclude) for (const g of options.exclude.split(',')) args.push('-g', `!${g.trim()}`);
+      // rg expands {a,b} itself, so only the commas between globs separate them.
+      for (const g of splitGlobList(options.include ?? '')) args.push('-g', g);
+      for (const g of splitGlobList(options.exclude ?? '')) args.push('-g', `!${g}`);
       args.push('-e', options.pattern, '--', target);
       const out = await run(rg, args, this.root, 30_000);
       if (out.code === 0 || out.code === 1) {
@@ -354,9 +392,10 @@ export class NodeHost implements AgentHost {
     }
     const under = relPath(this.root, target);
     const files = await this.listFiles({ under: under === '.' ? undefined : under, glob: options.include, limit: 20_000 });
+    const excluded = splitGlobList(options.exclude ?? '');
     const matches: GrepMatch[] = [];
     for (const file of files) {
-      if (options.exclude && matchesGlob(file, options.exclude.split(','))) continue;
+      if (excluded.length && matchesGlob(file, excluded)) continue;
       const abs = path.join(this.root, file);
       const info = await this.stat(abs);
       if (!info || info.size > 2_000_000) continue;
@@ -427,10 +466,12 @@ export class NodeHost implements AgentHost {
       this.running.set(info.id, { info, child });
       child.on('close', (code) => {
         info.exitCode = code;
+        this.finished(info);
       });
       child.on('error', (error) => {
         append(`\n${String(error)}\n`);
         info.exitCode = -1;
+        this.finished(info);
       });
       return new Promise((resolve) => {
         // Give a server a moment to print its first lines (a port, or an immediate error).
@@ -471,6 +512,17 @@ export class NodeHost implements AgentHost {
       });
       child.on('close', (code) => done(code));
     });
+  }
+
+  /**
+   * A background command ended: its last output stays readable with terminal_output, but only the newest few
+   * finished commands are kept (with a shorter tail), so a long session does not pile up their output.
+   */
+  private finished(info: BackgroundProcess): void {
+    info.endedAt ??= Date.now();
+    if (info.output.length > FINISHED_OUTPUT) info.output = info.output.slice(-FINISHED_OUTPUT);
+    const done = [...this.running.values()].filter((r) => r.info.endedAt !== undefined).sort((a, b) => b.info.endedAt! - a.info.endedAt!);
+    for (const old of done.slice(KEEP_FINISHED)) this.running.delete(old.info.id);
   }
 
   processes(): BackgroundProcess[] {

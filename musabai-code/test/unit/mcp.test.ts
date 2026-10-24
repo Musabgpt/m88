@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { after, describe, it } from 'node:test';
 import { McpClient } from '../../src/core/mcp/client';
@@ -36,6 +36,28 @@ rl.on('line', (line) => {
 
 const servers: MockServer[] = [];
 after(async () => Promise.all(servers.map((s) => s.close())));
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** A config dir with the fake server, which writes each of its pids to `pids` (to see processes start and end). */
+async function fakeServerConfig(dir: string, source: 'global' | 'project') {
+  const script = path.join(dir, 'server.js');
+  const pids = path.join(dir, 'pids');
+  await writeFile(script, `require('fs').appendFileSync(${JSON.stringify(pids)}, process.pid + '\\n');\n${FAKE_SERVER}`);
+  const file = source === 'global' ? path.join(dir, '.config', 'musabai', 'mcp.json') : path.join(dir, '.cursor', 'mcp.json');
+  await mkdir(path.dirname(file), { recursive: true });
+  // Comments and a trailing comma, as VS Code allows in mcp.json.
+  await writeFile(file, `{\n  /* my servers */\n  "mcpServers": {\n    // the fake one\n    "fake": { "command": ${JSON.stringify(process.execPath)}, "args": [${JSON.stringify(script)}], },\n  },\n}\n`);
+  const started = async () => (await readFile(pids, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(Number);
+  return { started };
+}
 
 describe('MCP', () => {
   it('parses Cursor and VS Code config formats with interpolation', () => {
@@ -138,6 +160,94 @@ describe('MCP', () => {
       const ask = toolsForMode(BUILTIN_MODES.find((m) => m.id === 'ask')!, refs).map((t) => t.name);
       assert.ok(ask.includes('mcp_fake_echo') && !ask.includes('mcp_fake_roots'));
       assert.equal((await manager.call('fake', 'echo', { text: 'x' })).text, 'echo: x ');
+      await manager.stopAll();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('restarts a running server: the new one works and the old process is gone', async () => {
+    const { dir, cleanup } = await tempDir();
+    const savedXdg = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = path.join(dir, '.config');
+    try {
+      const { started } = await fakeServerConfig(dir, 'global');
+      const manager = new McpManager({ root: dir, home: dir });
+      await manager.startAll();
+      assert.equal(manager.status()[0].state, 'ready');
+      const [first] = await started();
+      await manager.restart('fake');
+      // The old process closing after the restart must not mark the new connection closed.
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(manager.status()[0].state, 'ready');
+      assert.equal((await manager.call('fake', 'echo', { text: 'again' })).text, 'echo: again ');
+      const pids = await started();
+      assert.equal(pids.length, 2);
+      assert.equal(alive(first), false, 'the old server was stopped');
+      await manager.stopAll();
+    } finally {
+      if (savedXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = savedXdg;
+      await cleanup();
+    }
+  });
+
+  it('asks for trust again on restart, so a restart never starts a project server the user did not trust', async () => {
+    const { dir, cleanup } = await tempDir();
+    try {
+      const { started } = await fakeServerConfig(dir, 'project');
+      let asked = 0;
+      const manager = new McpManager({ root: dir, home: dir, trustProjectServer: async () => (asked++, false) });
+      await manager.startAll();
+      await manager.restart('fake');
+      assert.equal(asked, 2);
+      assert.equal(manager.status()[0].state, 'not_trusted');
+      assert.deepEqual(await started(), [], 'the command never ran');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('asks once, and starts one process, when two starts race for the same project server', async () => {
+    const { dir, cleanup } = await tempDir();
+    try {
+      const { started } = await fakeServerConfig(dir, 'project');
+      let asked = 0;
+      let answer: (ok: boolean) => void = () => undefined;
+      const manager = new McpManager({ root: dir, home: dir, trustProjectServer: () => (asked++, new Promise<boolean>((resolve) => (answer = resolve))) });
+      await manager.reload();
+      // The startup timer and the first chat both start the servers before the user has answered.
+      const both = Promise.all([manager.startAll(), manager.startAll()]);
+      answer(true);
+      await both;
+      assert.equal(asked, 1, 'one question, not two');
+      assert.equal(manager.status()[0].state, 'ready');
+      assert.equal((await started()).length, 1);
+      await manager.stopAll();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('stops the process of a server that is turned off, not only hides its tools', async () => {
+    const { dir, cleanup } = await tempDir();
+    try {
+      const { started } = await fakeServerConfig(dir, 'project');
+      const disabled: string[] = [];
+      const manager = new McpManager({ root: dir, home: dir, trustProjectServer: async () => true, disabled: () => disabled });
+      await manager.startAll();
+      const [pid] = await started();
+      assert.equal(alive(pid), true);
+      disabled.push('fake');
+      await manager.startAll();
+      assert.equal(manager.status()[0].state, 'disabled');
+      assert.deepEqual(manager.tools(), []);
+      assert.equal(alive(pid), false);
+      disabled.length = 0;
+      await manager.startAll();
+      assert.equal(manager.status()[0].state, 'ready');
+      await manager.stop('fake');
+      assert.equal(manager.status()[0].state, 'stopped');
       await manager.stopAll();
     } finally {
       await cleanup();

@@ -2,12 +2,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 import { AgentSession } from '../core/agent/agent';
+import { CONTINUE_PROMPT } from '../core/agent/prompts';
 import { ChangeTracker } from '../core/changes';
 import { CheckpointStore } from '../core/checkpoints';
 import { AUTO_MODEL_ID, type CustomModelConfig, PROVIDER_KEYS, customSpec } from '../core/providers/catalog';
 import { configDir, credentialsPath, keyResolver, readCredentials, writeCredential } from '../core/credentials';
 import { unifiedDiff } from '../core/diff';
-import { git, gitInfo, branchChanges, commitDiff } from '../core/git';
+import { git, gitInfo, branchChanges, commitDiff, pushWithToken } from '../core/git';
 import { GitHubApi, envOrGhToken, parseRemote } from '../core/github';
 import { type ApprovalRequest, type ApprovalResult, NodeHost } from '../core/host';
 import { CodebaseIndex } from '../core/index/indexer';
@@ -20,9 +21,9 @@ import { ProviderPool } from '../core/providers/pool';
 import { BUILTIN_MODES } from '../core/tools';
 import type { AgentEvent, ModeDefinition } from '../core/tools/types';
 import { newId, relPath } from '../core/util';
+import { readMemory } from '../core/memory';
+import { VERSION } from '../core/version';
 import { environmentProvider, rulesProvider } from '../core/workspace';
-
-const VERSION = '0.1.0';
 const color = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code: string) => (text: string) => (color ? `\x1b[${code}m${text}\x1b[0m` : text);
 const dim = c('2');
@@ -33,12 +34,17 @@ const red = c('31');
 const yellow = c('33');
 const magenta = c('35');
 
+/** How many times a request working alone carries on past its step budget (the editor's agent.maxContinues default). */
+const MAX_CONTINUES = 40;
+
 interface Options {
   prompt?: string;
   print: boolean;
   mode: string;
   model: string;
   yes: boolean;
+  /** Work alone: never wait for an answer; whatever needs approval is skipped and listed. */
+  unattended: boolean;
   cwd: string;
   format: 'text' | 'json' | 'stream-json';
   maxSteps: number;
@@ -69,6 +75,7 @@ ${bold('Options')}
       --base-url <url>   use any OpenAI-compatible server (Ollama, llama.cpp, LM Studio…) with --model
       --mode <mode>      agent | plan | ask | manual (default: agent)
   -y, --yes              run commands without asking (risky ones are still refused in --print mode)
+      --unattended       work alone: like --yes, and never wait for an answer (what needs approval is skipped and listed)
   -C, --cwd <dir>        project folder (default: current directory)
       --max-steps <n>    tool steps per request (default 60)
       --thinking         show the model's reasoning
@@ -79,7 +86,7 @@ In a session: type a request; @path adds a file or folder, @git your uncommitted
 Commands: /mode /model /models /new /undo /diff /accept /reject /review /commit /rules /mcp /image <file> /help /exit`;
 
 function parse(argv: string[]): Options {
-  const o: Options = { print: false, mode: 'agent', model: process.env.MUSABAI_MODEL || 'kilo-auto/free', yes: false, cwd: process.cwd(), format: 'text', maxSteps: 60, showThinking: false, rest: [], flags: {} };
+  const o: Options = { print: false, mode: 'agent', model: process.env.MUSABAI_MODEL || 'kilo-auto/free', yes: false, unattended: false, cwd: process.cwd(), format: 'text', maxSteps: 60, showThinking: false, rest: [], flags: {} };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -88,6 +95,7 @@ function parse(argv: string[]): Options {
     else if (a === '-m' || a === '--model') o.model = next();
     else if (a === '--mode') o.mode = next();
     else if (a === '-y' || a === '--yes' || a === '--auto') o.yes = true;
+    else if (a === '--unattended') o.unattended = true;
     else if (a === '-C' || a === '--cwd') o.cwd = path.resolve(next());
     else if (a === '--output-format') o.format = next() as Options['format'];
     else if (a === '--max-steps') o.maxSteps = Number(next()) || 60;
@@ -111,7 +119,7 @@ function parse(argv: string[]): Options {
 interface CliConfig {
   model?: string;
   customModels?: CustomModelConfig[];
-  runMode?: RunMode;
+  runMode?: RunMode | 'unattended';
   allowList?: string[];
   denyList?: string[];
   rules?: string[];
@@ -175,6 +183,8 @@ class Session {
   mode: ModeDefinition;
   model: string;
   runMode: RunMode;
+  /** Working alone: nothing waits for an answer; what needs approval is skipped and listed. */
+  unattended: boolean;
   private rl?: readline.Interface;
   private controller?: AbortController;
   private lastTurn?: string;
@@ -186,26 +196,34 @@ class Session {
     this.pool = pool;
     this.mode = BUILTIN_MODES.find((m) => m.id === options.mode) ?? BUILTIN_MODES[0];
     this.model = options.model;
-    this.runMode = options.yes ? 'auto' : config.runMode ?? (options.print ? 'allowlist' : 'ask');
+    this.unattended = options.unattended || config.runMode === 'unattended';
+    this.runMode = options.yes || this.unattended ? 'auto' : (config.runMode as RunMode | undefined) ?? (options.print ? 'allowlist' : 'ask');
     this.host = new NodeHost({ root: options.cwd, approve: (r) => this.approve(r) });
     this.changes = new ChangeTracker(this.host);
     this.index = new CodebaseIndex(this.host);
     this.mcp = new McpManager({
       root: options.cwd,
       trustProjectServer: async (config) => {
+        // Working alone nobody answers the trust question: the project's servers stay off.
+        if (this.unattended) return false;
         if (options.print) return options.yes;
         const detail = config.url ?? `${config.command} ${(config.args ?? []).join(' ')}`;
         return (await this.ask(`${yellow('?')} Start the project's MCP server "${config.name}" (${detail})? [y/N] `)).toLowerCase().startsWith('y');
       },
     });
-    const policy = (): CommandPolicy => ({ mode: this.runMode, allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'], deny: config.denyList ?? [] });
+    const policy = (): CommandPolicy => ({
+      mode: this.runMode,
+      allow: config.allowList ?? ['npm test', 'npm run test', 'npm run lint', 'npm run build', 'pytest', 'python3 -m pytest', 'cargo test', 'go test', 'make test'],
+      deny: config.denyList ?? [],
+      ...(this.unattended ? { unattended: true } : {}),
+    });
     this.agent = new AgentSession({
       pool: this.pool,
       host: this.host,
       emit: (e) => this.render(e),
       policy,
       approve: (r) => this.approve(r),
-      environment: environmentProvider(options.cwd, 'terminal'),
+      environment: environmentProvider(options.cwd, 'terminal', undefined, () => readMemory(options.cwd)),
       rules: rulesProvider(options.cwd, () => [...(config.rules ?? []), ...(process.env.MUSABAI_RULES ? [process.env.MUSABAI_RULES] : [])]),
       changes: this.changes,
       checkpoints: this.checkpoints,
@@ -247,12 +265,16 @@ class Session {
     const what =
       request.kind === 'command' ? `Run ${bold(request.command)}${request.reason ? dim(` — ${request.reason}`) : ''}` :
       request.kind === 'write_outside' ? `Change ${bold(request.path)} (outside the project)` :
+      request.kind === 'read_outside' ? `Read ${bold(request.path)} (outside the project)` :
       request.kind === 'delete' ? `Delete ${bold(request.path)}` :
       request.kind === 'laptop' ? `Laptop ${bold(request.action)} ${request.detail}` :
-      request.kind === 'browser' ? `Browser ${bold(request.action)} ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
+      request.kind === 'browser' ? `Browser ${bold(request.action)} ${request.detail}` :
+      request.kind === 'web' ? `${request.action === 'search' ? 'Search the web for' : 'Fetch'} ${bold(request.detail)}` :
+      request.kind === 'github' ? `Publish on GitHub (${bold(request.action)}): ${request.detail}` : `MCP ${bold(`${request.server}/${request.tool}`)} ${dim(request.args)}`;
     if (!this.atLineStart) this.out('\n');
-    const answer = (await this.ask(`${yellow('?')} ${what}  ${dim('[y]es / [n]o / [a]lways')} `)).toLowerCase();
-    return answer.startsWith('a') ? 'always' : answer.startsWith('y') || answer === '' ? 'allow' : 'deny';
+    // Like the MCP trust question, a bare Enter is "no": approving needs a deliberate y (or a).
+    const answer = (await this.ask(`${yellow('?')} ${what}  ${dim('[y]es / [N]o / [a]lways')} `)).toLowerCase();
+    return answer.startsWith('a') ? 'always' : answer.startsWith('y') ? 'allow' : 'deny';
   }
 
   private render(e: AgentEvent): void {
@@ -303,7 +325,7 @@ class Session {
       case 'done':
         if (e.reason === 'error') this.line(red(`✗ ${e.error}`));
         else if (e.reason === 'cancelled') this.line(yellow('■ stopped'));
-        else if (e.reason === 'max_steps') this.line(yellow('■ step limit reached — say "continue"'));
+        else if (e.reason === 'max_steps') this.line(this.unattended ? dim('· step budget used up, carrying on') : yellow('■ step limit reached — say "continue"'));
         else if (!this.atLineStart) this.out('\n');
         break;
       default:
@@ -321,7 +343,8 @@ class Session {
     const images = [...this.images, ...resolved.images];
     this.images = [];
     try {
-      return await this.agent.run({
+      const signal = this.controller.signal;
+      let result = await this.agent.run({
         turnId,
         text,
         mode: this.mode,
@@ -330,8 +353,14 @@ class Session {
         context: resolved.context,
         referencedFiles: resolved.files,
         mentionedRules: resolved.rules,
-        signal: this.controller.signal,
+        signal,
       });
+      // Working alone, a request carries on past the per-request step budget (like the editor) instead of waiting.
+      for (let attempt = 0; this.unattended && result.reason === 'max_steps' && attempt < MAX_CONTINUES && !signal.aborted; attempt++) {
+        result = await this.agent.run({ turnId, text: CONTINUE_PROMPT, mode: this.mode, modelId: this.model, signal });
+      }
+      if (this.unattended && result.reason === 'max_steps') this.line(yellow('■ step limit reached — say "continue"'));
+      return result;
     } finally {
       this.controller = undefined;
       const pending = await this.changes.summary();
@@ -433,6 +462,8 @@ class Session {
       }
       case 'yolo':
         this.runMode = this.runMode === 'auto' ? 'ask' : 'auto';
+        // Back at the keyboard: approvals are asked again instead of skipped.
+        this.unattended = false;
         this.line(`commands run ${this.runMode === 'auto' ? 'without asking (risky ones still ask)' : 'only after you approve them'}`);
         break;
       default:
@@ -569,10 +600,9 @@ async function pullRequest(o: Options, pool: ProviderPool): Promise<number> {
   const meta = await api.repo(ref);
   const base = typeof o.flags.base === 'string' ? o.flags.base : meta.default_branch;
   if (!info.branch || info.branch === base) throw new Error(`create a branch first (you are on ${base}): git checkout -b my-change`);
-  const host = new NodeHost({ root });
   const token = await envOrGhToken(root);
-  const push = await host.exec(`git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$MUSABAI_GH_TOKEN"; }; f' push -u origin HEAD`, { env: { MUSABAI_GH_TOKEN: token ?? '' } });
-  if (push.exitCode !== 0) throw new Error(`git push failed:\n${push.output}`);
+  const push = await pushWithToken(root, token, ['-u', 'origin', 'HEAD']);
+  if (push.code !== 0) throw new Error(`git push failed:\n${push.stderr || push.stdout}`);
   const text = await pullRequestText(pool, o.model, root, base);
   const pr = await api.createPull(ref, { title: text.title, body: text.body, head: info.branch, base, draft: Boolean(o.flags.draft) });
   process.stdout.write(`${green('opened')} #${pr.number} ${pr.title}\n${pr.html_url}\n`);

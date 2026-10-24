@@ -1,16 +1,28 @@
 import path from 'node:path';
-import { relPath, resolvePath } from '../util';
-import { type Tool, ToolError, bool, num, str } from './types';
+import { isInside, realInside, realPathOf, relPath, resolvePath } from '../util';
+import { type Tool, type ToolContext, ToolError, bool, declined, num, str } from './types';
 
 const MAX_READ_LINES = 600;
 const MAX_LINE_CHARS = 2000;
+
+/**
+ * Reading outside the project (or through a symlink that leads out of it) needs the user's approval: other files of
+ * the laptop hold keys and tokens, and whatever the agent reads goes to the model provider.
+ */
+async function guardRead(ctx: ToolContext, abs: string): Promise<void> {
+  if (isInside(ctx.root, abs) && (await realInside(ctx.root, abs))) return;
+  const real = await realPathOf(abs);
+  const shown = real === abs ? abs : `${abs} → ${real}`;
+  const answer = await ctx.approve({ kind: 'read_outside', path: shown }, `read:${real}`);
+  if (answer === 'deny') throw new ToolError(declined(ctx, `reading ${shown} (outside the project)`));
+}
 
 export const readFile: Tool = {
   name: 'read_file',
   category: 'files',
   readOnly: true,
   description:
-    'Read a text file of the project (or an absolute path). Returns numbered lines like "  42| code"; the numbers are not part of the file. ' +
+    'Read a text file of the project (or an absolute path; files outside the project need the user\'s approval). Returns numbered lines like "  42| code"; the numbers are not part of the file. ' +
     'Reads up to 600 lines per call: use offset and limit to page through large files. Read a file before you edit it.',
   parameters: {
     type: 'object',
@@ -27,6 +39,7 @@ export const readFile: Tool = {
     const rel = relPath(ctx.root, abs);
     const info = await ctx.host.stat(abs);
     if (!info) throw new ToolError(`${rel} does not exist. Use file_search to find the right path.`);
+    await guardRead(ctx, abs);
     if (info.type === 'dir') throw new ToolError(`${rel} is a directory. Use list_dir.`);
     if (info.size > 5_000_000) throw new ToolError(`${rel} is ${(info.size / 1e6).toFixed(1)} MB: too large to read. Use grep_search in it.`);
     const text = await ctx.host.readText(abs);
@@ -73,6 +86,7 @@ export const listDir: Tool = {
     const depth = num(args, 'depth', 2, 1, 4);
     const info = await ctx.host.stat(abs);
     if (!info || info.type !== 'dir') throw new ToolError(`${rel} is not a directory.`);
+    await guardRead(ctx, abs);
     const skip = new Set(['.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', 'out', '.next', 'target', '.gradle', '.cache', 'coverage']);
     const lines: string[] = [];
     let count = 0;
@@ -161,9 +175,11 @@ export const grepSearch: Tool = {
   title: (a) => `Grepping for ${a.query}`,
   async execute(args, ctx) {
     const query = str(args, 'query');
+    const where = str(args, 'path', false);
+    if (where) await guardRead(ctx, resolvePath(ctx.root, where));
     const matches = await ctx.host.grep({
       pattern: query,
-      path: str(args, 'path', false) || undefined,
+      path: where ? resolvePath(ctx.root, where) : undefined,
       include: str(args, 'include', false) || undefined,
       exclude: str(args, 'exclude', false) || undefined,
       caseSensitive: bool(args, 'case_sensitive'),

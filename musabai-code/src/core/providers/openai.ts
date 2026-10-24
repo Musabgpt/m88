@@ -153,7 +153,9 @@ export async function chatCompletion(
   const fetchImpl = options.fetchImpl ?? fetch;
   const local = spec.source === 'local';
   const firstEventTimeoutMs = options.firstEventTimeoutMs ?? (local ? 600_000 : 120_000);
-  const idleTimeoutMs = options.idleTimeoutMs ?? (local ? 300_000 : 90_000);
+  // Some servers send a long tool call (a whole file) in one piece when it is done, and stay silent while the model
+  // writes it: that silence is not a dead stream, so a remote model gets three minutes between chunks.
+  const idleTimeoutMs = options.idleTimeoutMs ?? (local ? 300_000 : 180_000);
   if (request.signal?.aborted) throw new CancelledError();
   if (spec.provider === 'aihorde' && request.tools?.length) {
     const error = new ProviderError('AI Horde fallback does not support tool calls', 404);

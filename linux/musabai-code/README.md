@@ -7,7 +7,16 @@
 
 ## التثبيت على Linux Mint 22 (أو Ubuntu 24.04) — x86_64
 
-**الطريقة الأسهل: أمر واحد يبني كل شيء ويثبّته، وهو نفسه للتحديث:**
+**الطريقة الأسهل: أمر واحد ينزّل آخر إصدار ويتحقق منه ويثبّته، وهو نفسه للتحديث:**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-release.sh | bash
+```
+
+ينزّل حزمة `.deb` من صفحة الإصدارات على GitHub، ويتحقق منها بملف `SHA256SUMS`، ويثبّتها مع الأدوات التي يستعملها الوكيل
+(git وripgrep وxdotool وxclip وChromium). لإصدار معيّن: `… | bash -s -- v0.2.1`.
+
+**أو ابنِ كل شيء من المصدر بأمر واحد:**
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
@@ -29,7 +38,7 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
 بعد التثبيت: افتح **MusabAI Code** من القائمة، أو من الطرفية `musabai-code ~/مشروعي`.
 
 تستخدم VS Code أو VSCodium (الإصدار 1.105 أو أحدث) وتريد MusabAI داخله؟ ثبّت ملف الإضافة من نفس ملفات GitHub Actions:
-`code --install-extension musabai-code-0.1.0.vsix`.
+`code --install-extension musabai-code-*.vsix`.
 
 ## أول تشغيل
 
@@ -80,7 +89,14 @@ sudo apt install --reinstall ./musabai-code_*_amd64.deb
 ## الأمان
 
 - وضع تشغيل الأوامر: **اسأل دائمًا** أو **القائمة المسموحة** (الافتراضي) أو **تلقائي**. الأوامر الخطرة (sudo وrm -rf وforce-push و`curl | sh`…) تطلب الموافقة دائمًا.
-- في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
+  في القائمة المسموحة يسأل الوكيل أيضًا عن أي أمر فيه `$(…)` أو إعادة توجيه تكتب ملفًا (`>`)، و«سماح دائمًا» لأوامر مثل `rm` و`bash` و`node` يخص الأمر نفسه فقط.
+- وضع **اشتغل لحالك** (في زر وضع التشغيل): أعطه المهمة واتركه. يشغّل ما يشغّله الوضع التلقائي ولا ينتظرك أبدًا،
+  وكل ما يحتاج موافقتك (أمر خطر، تعديل خارج المشروع، نشر على GitHub…) يتخطّاه بدل أن يسألك، ويكمل بطريقة أخرى،
+  ثم يعطيك في النهاية قائمة بما تخطّاه لتقرّره أنت. ما سمحت به مسبقًا بـ«سماح دائمًا» يبقى مسموحًا.
+  في الطرفية: `musabai-agent --unattended "المهمة"`.
+- قراءة ملف خارج المشروع (أو عبر رابط رمزي يقود خارجه)، وجلب صفحات الويب والبحث (خارج وضع التشغيل التلقائي)، والنشر على GitHub (طلب دمج أو تعليق) تطلب موافقتك.
+- ملاحظات الذاكرة (`.musabai/memory.md`) تظهر في شريط التغييرات مثل أي تعديل، وتقدر ترفضها أو تستعيد نقطة قبلها.
+- في المجلدات غير الموثوقة (Restricted Mode) يسأل الوكيل قبل كل أمر (وفي وضع «اشتغل لحالك» يتخطّاها)، ولا تعمل خوادم MCP الخاصة بالمشروع، ولا تعمل الوكلاء في الخلفية.
   تُظهر المحادثة تنبيهًا مع زر **Trust this folder**؛ اضغطه ثم **Trust** إذا كان المشروع لك، فيعمل الوكيل عاديًا.
 - خوادم MCP التي يضعها المشروع لا تبدأ إلا بعد موافقتك.
 - إعدادات الأوامر والنماذج على مستوى المستخدم فقط، فلا يستطيع مشروع مُنزَّل تغييرها من `.vscode/settings.json`.
@@ -100,7 +116,16 @@ same layout, workflow and shortcuts, but runs on **free models and free provider
 
 ## Install on Linux Mint 22 / Ubuntu 24.04 (x86_64)
 
-One command builds everything and installs it. Run the same command again to update:
+One command downloads the latest release, checks it and installs it. Run the same command again to update:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-release.sh | bash
+```
+
+It downloads the `.deb` from the GitHub Releases page, verifies it against the release's `SHA256SUMS` and installs it
+with the tools the agent uses (git, ripgrep, xdotool, xclip, Chromium). For a given version: `… | bash -s -- v0.2.1`.
+
+Or build everything from source with one command:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Musabgpt/m88/main/linux/musabai-code/install-mint.sh | bash
@@ -118,7 +143,7 @@ assembles MusabAI Code and installs the `.deb`. From a checkout, run `./linux/mu
 Then open **MusabAI Code** from the menu, or run `musabai-code ~/your-project`.
 
 To use MusabAI inside an existing VS Code or VSCodium (1.105 or newer), install the extension from the same
-artifact: `code --install-extension musabai-code-0.1.0.vsix`.
+artifact: `code --install-extension musabai-code-*.vsix`.
 
 ## First run
 
@@ -179,9 +204,18 @@ Every action that changes something asks first. Turn the feature off in MusabAI 
 ## Safety
 
 - **Run mode** decides when commands need your approval: *Ask every time*, *Allow-list* (the default) or *Auto-run*.
-  Risky commands (sudo, `rm -rf`, force-push, `curl | sh`…) always ask.
+  Risky commands (sudo, `rm -rf`, force-push, `curl | sh`…) always ask. In *Allow-list* mode a command with `$(…)` or
+  a redirection that writes a file (`>`) asks too, and *Always allow* for programs such as `rm`, `bash` or `node`
+  covers only that exact command.
+- **Work alone** (the fourth run mode): give it the task and walk away. It runs what *Auto-run* runs and never waits
+  for you. Whatever needs your approval (a risky command, a change outside the project, publishing on GitHub…) is
+  skipped instead of asked, the agent carries on another way, and it ends with a list of what it skipped for you to
+  decide. What you allowed earlier with *Always allow* stays allowed. In the terminal: `musabai-agent --unattended "task"`.
+- Reading a file outside the project (or through a symbolic link that leads out of it), fetching web pages and web
+  searches (outside *Auto-run*), and publishing on GitHub (a pull request or a comment) ask first.
+- Project memory (`.musabai/memory.md`) shows up in the changes bar like any edit: reject it, or restore a checkpoint.
 - **Restricted Mode** (an untrusted folder):
-  - the agent asks before every command;
+  - the agent asks before every command (working alone, it skips them);
   - the project's MCP servers stay off;
   - background agents do not run.
 

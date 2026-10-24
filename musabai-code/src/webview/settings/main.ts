@@ -160,8 +160,9 @@ function render(): void {
           { value: 'ask', label: 'Ask me every time' },
           { value: 'allowlist', label: 'Run read-only and allow-listed commands; ask for the rest (recommended)' },
           { value: 'auto', label: 'Auto-run everything except risky commands (YOLO)' },
+          { value: 'unattended', label: 'Work alone: never wait for me; skip what needs my approval and list it at the end' },
         ], (v) => set('agent.runMode', v))),
-      h('p', { class: 'hint' }, 'Risky commands (sudo, rm -rf, force-push, pipes into a shell…) always ask, in every mode.'),
+      h('p', { class: 'hint' }, 'Risky commands (sudo, rm -rf, force-push, pipes into a shell…) always ask, in every mode; working alone, they are skipped instead.'),
       h('div', { class: 'field' }, h('label', null, 'Allow list (command prefixes, one per line)'), linesEditor(s.agent.allowList, 'agent.allowList', 'npm test\npytest')),
       h('div', { class: 'field' }, h('label', null, 'Deny list (always ask)'), linesEditor(s.agent.denyList, 'agent.denyList', 'docker\nkubectl')),
       h('div', { class: 'field' }, h('label', null, 'Maximum steps per request'), (() => {

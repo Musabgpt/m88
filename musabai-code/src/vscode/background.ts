@@ -5,12 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { AgentSession } from '../core/agent/agent';
-import { git, gitInfo } from '../core/git';
+import { git, gitInfo, pushWithToken } from '../core/git';
 import { parseRemote } from '../core/github';
 import { NodeHost } from '../core/host';
 import { pullRequestText } from '../core/oneshot';
 import { evaluateCommand } from '../core/policy';
 import { newId, slug } from '../core/util';
+import { MEMORY_FILE, readMemory } from '../core/memory';
 import { environmentProvider, rulesProvider } from '../core/workspace';
 import { chatModel, configuredPolicy, disabledTools, get, modes } from './config';
 import { t } from './l10n';
@@ -51,7 +52,9 @@ function spawnGit(args: string[], cwd: string, options: { input?: string; env?: 
   });
 }
 
-const TOKEN_HELPER = ['-c', 'credential.helper=', '-c', 'credential.helper=!f() { echo username=x-access-token; echo "password=$MUSABAI_GH_TOKEN"; }; f'];
+// Project memory belongs to the main checkout (the agent reads and saves it there), so the worktree's copy — untracked
+// in the main checkout — never goes into Apply, a pull request or the list of changed files.
+const OUTSIDE_MEMORY = ['--', '.', `:(exclude)${MEMORY_FILE.split(path.sep).join('/')}`];
 
 export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.TextDocumentContentProvider, vscode.Disposable {
   private agents: BgAgent[];
@@ -150,7 +153,7 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
     this.controllers.set(agent.id, controller);
     const out = this.log(agent);
     out.appendLine(`Task: ${agent.prompt}\nWorktree: ${agent.worktree} (branch ${agent.branch})\n`);
-    const host = new NodeHost({ root: agent.worktree, rgPath: undefined });
+    const host = new NodeHost({ root: agent.worktree, rgPath: this.services.rgPath });
     const base = configuredPolicy();
     const session = new AgentSession({
       pool: this.services.pool,
@@ -165,7 +168,8 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
         else if (event.type === 'model') agent.model = event.name;
         else if (event.type === 'text') out.append(event.text);
       },
-      // It works on an isolated copy, so ordinary commands run without asking; risky ones still ask.
+      // It works on an isolated copy, so ordinary commands run without asking; risky ones still ask (working alone,
+      // they are skipped and listed in its log instead of showing a prompt).
       policy: () => ({ ...base, mode: 'auto' }),
       approve: async (request) => {
         if (request.kind === 'command' && evaluateCommand(request.command, { ...base, mode: 'auto' }).decision === 'allow') return 'allow';
@@ -173,11 +177,13 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
         const choice = await vscode.window.showWarningMessage(`Background agent "${agent.title}" asks: ${request.kind} — ${detail.slice(0, 200)}`, t('Allow'), t('Deny'));
         return choice === t('Allow') ? 'allow' : 'deny';
       },
-      environment: environmentProvider(agent.worktree, 'background'),
+      environment: environmentProvider(agent.worktree, 'background', undefined, () => readMemory(agent.repoRoot)),
       rules: rulesProvider(agent.worktree, () => get<string[]>('rules.user', [])),
       github: async () => this.services.github(false),
       disabledTools: () => [...disabledTools(), '#laptop'],
       maxSteps: get('agent.maxSteps', 60) * 2,
+      memoryRoot: agent.repoRoot,
+      memoryChanges: this.services.changes,
     });
     try {
       const result = await session.run({
@@ -211,8 +217,8 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
   }
 
   private async changedFiles(agent: BgAgent): Promise<string[]> {
-    await git(agent.worktree, ['add', '-A', '--intent-to-add']);
-    const out = await git(agent.worktree, ['diff', '--name-only', agent.baseCommit]);
+    await git(agent.worktree, ['add', '-A', '--intent-to-add', ...OUTSIDE_MEMORY]);
+    const out = await git(agent.worktree, ['diff', '--name-only', agent.baseCommit, ...OUTSIDE_MEMORY]);
     return out.stdout.split('\n').filter(Boolean);
   }
 
@@ -248,8 +254,8 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
   async apply(id: string | { agent?: BgAgent }): Promise<void> {
     const agent = this.find(id);
     if (!agent) return;
-    await git(agent.worktree, ['add', '-A', '--intent-to-add']);
-    const patch = await git(agent.worktree, ['diff', '--binary', agent.baseCommit]);
+    await git(agent.worktree, ['add', '-A', '--intent-to-add', ...OUTSIDE_MEMORY]);
+    const patch = await git(agent.worktree, ['diff', '--binary', agent.baseCommit, ...OUTSIDE_MEMORY]);
     if (!patch.stdout.trim()) return void vscode.window.showInformationMessage('MusabAI: the background agent made no changes.');
     const applied = await spawnGit(['apply', '--3way', '--whitespace=nowarn', '-'], agent.repoRoot, { input: patch.stdout });
     if (applied.code === 0) void vscode.window.showInformationMessage(`MusabAI: applied ${agent.files?.length ?? 0} changed files to your workspace.`);
@@ -264,11 +270,11 @@ export class BackgroundAgents implements vscode.TreeDataProvider<Item>, vscode.T
     if (!ref) return void vscode.window.showWarningMessage('MusabAI: no GitHub "origin" remote.');
     try {
       const pr = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'MusabAI: committing, pushing and opening the pull request…' }, async () => {
-        await git(agent.worktree, ['add', '-A']);
+        await git(agent.worktree, ['add', '-A', ...OUTSIDE_MEMORY]);
         await git(agent.worktree, ['commit', '-m', agent.title, '-m', `Made by a MusabAI background agent.\n\nTask: ${agent.prompt}`]);
         const token = await this.services.githubToken(true);
-        const pushed = await spawnGit([...TOKEN_HELPER, 'push', '-u', 'origin', agent.branch], agent.worktree, { env: { MUSABAI_GH_TOKEN: token ?? '' } });
-        if (pushed.code !== 0) throw new Error('git push failed (sign in to GitHub from the Accounts menu)');
+        const pushed = await pushWithToken(agent.worktree, token, ['-u', 'origin', agent.branch]);
+        if (pushed.code !== 0) throw new Error(`git push failed (sign in to GitHub from the Accounts menu): ${pushed.stderr.trim().split('\n').slice(-2).join(' ')}`);
         const api = this.services.github(true);
         const meta = await api.repo(ref);
         const text = await pullRequestText(this.services.pool, chatModel(), agent.worktree, meta.default_branch);

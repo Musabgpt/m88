@@ -24,17 +24,30 @@ export function chatModel(): string {
   return get('model', 'kilo-auto/free');
 }
 
+/** The run-mode setting: a command policy, or "unattended" (work alone: Auto-run's rules, and never wait for the user). */
+export type RunModeChoice = RunMode | 'unattended';
+
 /** The command policy as the user configured it. */
 export function configuredPolicy(): CommandPolicy {
-  const mode = get<RunMode>('agent.runMode', 'allowlist');
+  const mode = get<RunModeChoice>('agent.runMode', 'allowlist');
+  const unattended = mode === 'unattended';
   return {
-    mode: ['ask', 'allowlist', 'auto'].includes(mode) ? mode : 'allowlist',
+    mode: unattended ? 'auto' : ['ask', 'allowlist', 'auto'].includes(mode) ? (mode as RunMode) : 'allowlist',
     allow: get<string[]>('agent.allowList', []),
     deny: get<string[]>('agent.denyList', []),
+    ...(unattended ? { unattended } : {}),
   };
 }
 
-/** The policy the agent runs with: in Restricted Mode (an untrusted folder) every command waits for the user. */
+/** The run mode as the chat's pill shows it. */
+export function runModeChoice(p: CommandPolicy): RunModeChoice {
+  return p.unattended ? 'unattended' : p.mode;
+}
+
+/**
+ * The policy the agent runs with: in Restricted Mode (an untrusted folder) every command waits for the user, or,
+ * when the agent works alone, every command is skipped.
+ */
 export function policy(): CommandPolicy {
   const configured = configuredPolicy();
   return vscode.workspace.isTrusted ? configured : { ...configured, mode: 'ask' };

@@ -20,7 +20,7 @@ after(async () => {
   await Promise.all(cleanups.map((c) => c()));
 });
 
-async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][]; maxSteps?: number } = {}) {
+async function setup(script: unknown[][], options: { policy?: CommandPolicy; backup?: unknown[][]; maxSteps?: number; rules?: AgentDeps['rules'] } = {}) {
   const server = await mockServer({ 'POST /chat/completions': script.map((events) => (_req, res) => sse(res, events)) });
   servers.push(server);
   let backup: MockServer | undefined;
@@ -59,7 +59,7 @@ async function setup(script: unknown[][], options: { policy?: CommandPolicy; bac
       return 'allow';
     },
     environment: environmentProvider(dir, 'terminal'),
-    rules: rulesProvider(dir, () => []),
+    rules: options.rules ?? rulesProvider(dir, () => []),
     changes,
     checkpoints,
     maxSteps: options.maxSteps,
@@ -153,6 +153,39 @@ describe('agent loop', () => {
     assert.equal(second.text, 'All done.');
   });
 
+  it('keeps working when the project rules cannot be loaded, and says so once', async () => {
+    let loads = 0;
+    const t = await setup([toolCallChunks([{ id: 'c', name: 'read_file', args: { path: 'hello.py' } }]), textChunks('Read it.')], {
+      rules: async () => {
+        loads++;
+        throw new SyntaxError('Invalid regular expression: Unterminated group');
+      },
+    });
+    const result = await t.session.run({ turnId: 'r1', text: 'look', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Read it.');
+    assert.equal(loads, 2, 'tried again once the files in play changed');
+    assert.equal(t.events.filter((e) => e.type === 'status' && /Project rules could not be loaded/.test(e.message)).length, 1);
+  });
+
+  it('reads the rules again only when the files in play change or a tool may have changed files', async () => {
+    let loads = 0;
+    const t = await setup(
+      [
+        toolCallChunks([{ id: 'a', name: 'list_dir', args: {} }]),
+        toolCallChunks([{ id: 'b', name: 'list_dir', args: { depth: 1 } }]),
+        toolCallChunks([{ id: 'c', name: 'edit_file', args: { path: 'hello.py', old_string: 'print("hi")', new_string: 'print("x")' } }]),
+        textChunks('Done.'),
+      ],
+      { rules: async () => (loads++, { rules: [], text: '' }) },
+    );
+    const result = await t.session.run({ turnId: 'k1', text: 'go', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    // Step 1 loads; steps 2 and 3 follow read-only listings and reuse them; step 4 follows the edit and loads again.
+    assert.equal(loads, 2);
+    assert.equal(t.server.requests.length, 4);
+  });
+
   it('stops a running command when the user cancels', async () => {
     const t = await setup([toolCallChunks([{ id: 'c', name: 'run_terminal_cmd', args: { command: 'sleep 20' } }]), textChunks('never')], {
       policy: { mode: 'auto', allow: [], deny: [] },
@@ -166,5 +199,130 @@ describe('agent loop', () => {
     assert.equal(t.approvals.length, 0);
     const last = t.session.history.at(-1)!;
     assert.equal(last.role, 'tool');
+  });
+});
+
+describe('carrying on instead of stopping early', () => {
+  const statuses = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'status' }> => e.type === 'status').map((e) => e.message);
+  const cutOff = (events: unknown[]) => [...events, { choices: [{ index: 0, delta: {}, finish_reason: 'length' }] }];
+
+  it('does what it announced when a reply stops at "I will write the file:"', async () => {
+    const t = await setup([
+      textChunks('I will write the whole file now:'),
+      toolCallChunks([{ id: 'w', name: 'write_file', args: { path: 'hello.py', content: 'print("hello")\n' } }]),
+      textChunks('Done.'),
+    ]);
+    const result = await t.session.run({ turnId: 'n1', text: 'rewrite hello.py', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Done.');
+    assert.equal(await readFile(path.join(t.dir, 'hello.py'), 'utf8'), 'print("hello")\n');
+    assert.ok(statuses(t.events).includes('Carrying on with what it announced'));
+    const nudge = t.server.requests[1].body.messages.at(-1);
+    assert.equal(nudge.role, 'user');
+    assert.match(nudge.content, /ended your reply without doing it/);
+  });
+
+  it('carries on after a reply cut off by the output limit, writing the file in parts', async () => {
+    const t = await setup([
+      cutOff([{ choices: [{ index: 0, delta: { content: 'Here is the new file:\n```python\nprint(' } }] }]),
+      toolCallChunks([{ id: 'w1', name: 'write_file', args: { path: 'big.py', content: 'a = 1\n' } }]),
+      toolCallChunks([{ id: 'w2', name: 'write_file', args: { path: 'big.py', content: 'b = 2\n', append: true } }]),
+      textChunks('Wrote big.py in two parts.'),
+    ]);
+    const result = await t.session.run({ turnId: 'n2', text: 'write big.py', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(await readFile(path.join(t.dir, 'big.py'), 'utf8'), 'a = 1\nb = 2\n');
+    assert.ok(statuses(t.events).includes('The reply reached the output limit; carrying on in smaller steps'));
+    assert.match(t.server.requests[1].body.messages.at(-1).content, /cut off by the output limit.*append: true/s);
+  });
+
+  it('moves to another free model when one spends its whole output on thinking', async () => {
+    const t = await setup([cutOff([{ choices: [{ index: 0, delta: { reasoning_content: 'Let me think about every detail first…' } }] }])], {
+      backup: [textChunks('Answer from the backup model.')],
+    });
+    const result = await t.session.run({ turnId: 'n3', text: 'fix it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(result.text, 'Answer from the backup model.');
+    assert.equal(t.server.requests.length, 1);
+    assert.equal(t.backup!.requests.length, 1);
+    assert.ok(statuses(t.events).some((m) => /ran out of output space before answering; trying another free model/.test(m)));
+  });
+
+  it('stops carrying on after a few tries, and never in a mode that cannot act', async () => {
+    const stubborn = await setup(Array.from({ length: 6 }, () => textChunks('Let me do it:')));
+    const result = await stubborn.session.run({ turnId: 'n4', text: 'do it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(stubborn.server.requests.length, 4, 'one reply and three nudges, then it stops');
+
+    const asking = await setup([textChunks('The steps are:')]);
+    await asking.session.run({ turnId: 'n5', text: 'how?', mode: plan, modelId: 'kilo-auto/free' });
+    assert.equal(asking.server.requests.length, 1);
+  });
+});
+
+describe('working alone', () => {
+  const ends = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'tool_end' }> => e.type === 'tool_end');
+  const statuses = (events: AgentEvent[]) => events.filter((e): e is Extract<AgentEvent, { type: 'status' }> => e.type === 'status').map((e) => e.message);
+
+  it('never waits for the user: what needs approval is skipped, the rest runs, and the skips are listed', async () => {
+    const outside = await tempDir();
+    cleanups.push(outside.cleanup);
+    const target = path.join(outside.dir, 'outside.txt');
+    const t = await setup(
+      [
+        toolCallChunks([
+          { id: 'c1', name: 'run_terminal_cmd', args: { command: 'git push --force origin main' } },
+          { id: 'c2', name: 'run_terminal_cmd', args: { command: 'python3 hello.py' } },
+          { id: 'c3', name: 'write_file', args: { path: target, content: 'x\n' } },
+        ]),
+        textChunks('Done; the force-push is left for you.'),
+      ],
+      { policy: { mode: 'auto', allow: [], deny: [], unattended: true } },
+    );
+    const result = await t.session.run({ turnId: 'u1', text: 'ship it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(result.reason, 'completed');
+    assert.equal(t.approvals.length, 0, 'nothing waited for an answer');
+    assert.deepEqual(ends(t.events).map((e) => [e.name, e.ok]), [['run_terminal_cmd', false], ['run_terminal_cmd', true], ['write_file', false]]);
+    await assert.rejects(readFile(target), 'nothing was written outside the project');
+
+    const toolMsgs = t.server.requests[1].body.messages.filter((m: any) => m.role === 'tool');
+    assert.match(toolMsgs[0].content, /^Skipped running `git push --force origin main` \(force-pushes\): .*the user is away/);
+    assert.match(toolMsgs[1].content, /hi/);
+    assert.match(toolMsgs[2].content, /^Error: Skipped changing .*outside\.txt \(outside the project\): .*the user is away/);
+
+    const list = statuses(t.events).find((m) => m.startsWith('Skipped while working alone'));
+    assert.ok(list, 'the user gets the list of what was skipped');
+    assert.match(list!, /git push --force origin main/);
+    assert.match(list!, /outside\.txt/);
+    assert.match(t.server.requests[0].body.messages[0].content, /<working_alone>/);
+  });
+
+  it('keeps what the user allowed beforehand, and skips the rest even when every command would ask', async () => {
+    const t = await setup(
+      [
+        toolCallChunks([
+          { id: 'c1', name: 'run_terminal_cmd', args: { command: 'python3 hello.py' } },
+          { id: 'c2', name: 'run_terminal_cmd', args: { command: 'ls' } },
+        ]),
+        textChunks('ok'),
+      ],
+      // Restricted Mode: every command asks, so working alone every command is skipped unless allowed before.
+      { policy: { mode: 'ask', allow: [], deny: [], unattended: true } },
+    );
+    t.session.allow('cmd=python3 hello.py');
+    await t.session.run({ turnId: 'u2', text: 'run it', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(t.approvals.length, 0);
+    assert.deepEqual(ends(t.events).map((e) => [e.name, e.ok]), [['run_terminal_cmd', true], ['run_terminal_cmd', false]]);
+    assert.match(statuses(t.events).find((m) => m.startsWith('Skipped while working alone')) ?? '', /run `ls`/);
+  });
+
+  it('asks as before when the user is there', async () => {
+    const t = await setup([toolCallChunks([{ id: 'c1', name: 'run_terminal_cmd', args: { command: 'git push --dry-run nowhere' } }]), textChunks('ok')], {
+      policy: { mode: 'auto', allow: [], deny: [] },
+    });
+    await t.session.run({ turnId: 'u3', text: 'push', mode: agent, modelId: 'kilo-auto/free' });
+    assert.equal(t.approvals.length, 1);
+    assert.doesNotMatch(t.server.requests[0].body.messages[0].content, /<working_alone>/);
+    assert.ok(!statuses(t.events).some((m) => m.startsWith('Skipped while working alone')));
   });
 });

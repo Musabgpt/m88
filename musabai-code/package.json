@@ -2,7 +2,7 @@
   "name": "musabai-code",
   "displayName": "MusabAI Code",
   "description": "Free Cursor-style AI for VS Code: Agent, Plan and Ask chat, Ctrl+K inline edits, Tab autocomplete, terminal, GitHub and laptop tools — using free and local models.",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "publisher": "musabai",
   "icon": "media/icon.png",
   "private": true,
@@ -344,6 +344,17 @@
         "category": "MusabAI"
       },
       {
+        "command": "musabai.phone.start",
+        "title": "Link a Phone (QR)",
+        "category": "MusabAI",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "musabai.phone.stop",
+        "title": "Stop Phone Link",
+        "category": "MusabAI"
+      },
+      {
         "command": "musabai.fixDiagnostic",
         "title": "Fix with MusabAI",
         "category": "MusabAI"
@@ -578,16 +589,18 @@
           "type": "string",
           "scope": "application",
           "default": "allowlist",
-          "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask.",
+          "markdownDescription": "When the agent may run terminal commands without asking. Risky commands always ask — or, with `unattended` (work alone), are skipped and listed at the end instead of waiting for you.",
           "enum": [
             "ask",
             "allowlist",
-            "auto"
+            "auto",
+            "unattended"
           ],
           "enumDescriptions": [
             "Ask every time",
             "Run read-only and allow-listed commands, ask for the rest",
-            "Auto-run (YOLO) except risky commands"
+            "Auto-run (YOLO) except risky commands",
+            "Work alone: run what Auto-run runs and never wait for you; whatever needs your approval is skipped and listed at the end"
           ]
         },
         "musabai.agent.allowList": {
@@ -661,6 +674,12 @@
           "scope": "application",
           "default": true,
           "markdownDescription": "Let the agent use the laptop: apps, browser pages, notifications, clipboard, screenshots, windows, keyboard and mouse. Actions that change something ask first."
+        },
+        "musabai.phone.port": {
+          "type": "number",
+          "scope": "application",
+          "default": 0,
+          "markdownDescription": "Port for **Link a Phone**, the local server a phone on the same Wi-Fi uses to view the chat and send prompts. 0 picks a free port. Access is gated by a one-time token shown in the QR code."
         },
         "musabai.browser.enabled": {
           "type": "boolean",
@@ -925,7 +944,9 @@
     "diff": "9.0.0",
     "dompurify": "3.4.17",
     "highlight.js": "11.12.0",
+    "jsonc-parser": "3.3.1",
     "marked": "18.1.1",
+    "qrcode-generator": "^1.4.4",
     "ws": "^8.18.0"
   }
 }

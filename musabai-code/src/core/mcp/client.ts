@@ -1,5 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import type { JsonSchema } from '../types';
+import { VERSION } from '../version';
 
 export interface McpServerConfig {
   name: string;
@@ -90,13 +91,24 @@ class StdioTransport implements Transport {
     this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
+  /** Ends the server and waits until it has exited (SIGTERM, then SIGKILL, if it ignores the closed stdin). */
   async close(): Promise<void> {
-    if (!this.child) return;
-    this.child.stdin.end();
     const child = this.child;
-    setTimeout(() => {
-      if (child.exitCode === null) child.kill('SIGTERM');
-    }, 1500).unref();
+    this.child = undefined;
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    await new Promise<void>((resolve) => {
+      const term = setTimeout(() => child.kill('SIGTERM'), 1500);
+      const kill = setTimeout(() => {
+        child.kill('SIGKILL');
+        resolve();
+      }, 4000);
+      child.once('exit', () => {
+        clearTimeout(term);
+        clearTimeout(kill);
+        resolve();
+      });
+      child.stdin.end();
+    });
   }
 }
 
@@ -297,10 +309,19 @@ export class McpClient {
 
   private async connect(transport: Transport): Promise<void> {
     this.transport = transport;
-    await transport.start((m) => this.handle(m), (e) => this.onClose(e));
+    // Events of a transport that was already replaced (a restart, a stop) are ignored: the old process exiting
+    // later must not mark the new connection closed or fail its requests.
+    await transport.start(
+      (m) => {
+        if (this.transport === transport) this.handle(m);
+      },
+      (e) => {
+        if (this.transport === transport) this.onClose(e);
+      },
+    );
     const init = await this.request<{ protocolVersion?: string; serverInfo?: { name?: string; version?: string } }>(
       'initialize',
-      { protocolVersion: PROTOCOL_VERSION, capabilities: { roots: { listChanged: false } }, clientInfo: { name: 'musabai-code', version: this.options.clientVersion ?? '0.1.0' } },
+      { protocolVersion: PROTOCOL_VERSION, capabilities: { roots: { listChanged: false } }, clientInfo: { name: 'musabai-code', version: this.options.clientVersion ?? VERSION } },
       90_000,
     );
     this.serverInfo = init?.serverInfo;
@@ -373,9 +394,15 @@ export class McpClient {
   }
 
   async stop(): Promise<void> {
-    await this.transport?.close().catch(() => undefined);
+    const transport = this.transport;
     this.transport = undefined;
     this.state = 'stopped';
     this.tools = [];
+    for (const [, entry] of this.pending) {
+      clearTimeout(entry.timer);
+      entry.reject(new Error(`MCP server ${this.config.name} was stopped`));
+    }
+    this.pending.clear();
+    await transport?.close().catch(() => undefined);
   }
 }
