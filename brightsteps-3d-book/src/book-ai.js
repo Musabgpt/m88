@@ -90,7 +90,7 @@ async function aiOpenAI(spec,key,messages,o){
   if(r.status>=400)throw new AIError(spec.name+' HTTP '+r.status,r.status,r.body,r.headers['retry-after']||null);
   const text=aiParseCompletion(r.body);if(!text)throw new AIError('empty reply',502);return text}
 /* Claude, through the claude.ai page's own "sample" capability (no system role: the rules go in the first user turn) */
-async function aiClaude(messages,o){const s=window.Cap&&Cap.sample;if(!s)throw new AIError('Claude is not available here',404);
+async function aiClaude(messages,o){const s=typeof Cap!=='undefined'&&Cap.sample;if(!s)throw new AIError('Claude is not available here',404);
   const sys=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');const rest=messages.filter(m=>m.role!=='system');
   const turns=rest.map((m,i)=>({role:m.role==='assistant'?'assistant':'user',content:i===0&&sys?sys+'\n\n'+m.content:m.content}));
   try{const r=await s(turns,{modelTier:'quick',cache:false});return String(r.text||'').trim()}
@@ -103,7 +103,7 @@ const BookAI={cfg:null,last:null,claudeOff:false,kilo:{at:0,list:[]},
   conf(){return this.cfg||this.load()},
   enabled(){return !!this.conf().on},
   key(spec){const c=this.conf();if(spec.custom)return c.custom.key||'';if(!spec.secret)return '';return (c.keys[spec.secret]||'').trim()||spec.anon||''},
-  ready(spec){if(spec.kind==='sample')return !!(window.Cap&&Cap.sample)&&!this.claudeOff;const c=this.conf();
+  ready(spec){if(spec.kind==='sample')return !!(typeof Cap!=='undefined'&&Cap.sample)&&!this.claudeOff;const c=this.conf();
     if(spec.custom)return /^https:\/\//i.test(c.custom.base||'')&&!!c.custom.model;if(spec.secret&&!spec.anon&&!this.key(spec))return false;return true},
   available(spec){return AIHealth.available(spec.id)&&(!spec.gw||AIHealth.available('gateway:'+spec.gw))},
   /* C66 order: the chosen model first, then the free pool, Kilo's other zero-price routes, the user's own endpoint, AI Horde last */
