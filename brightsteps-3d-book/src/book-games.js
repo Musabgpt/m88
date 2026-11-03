@@ -80,19 +80,25 @@ const Games={
     PT.pageNo(x,pageNo(ctx.s,'R'),ps);return meta},
   /* ---------- the quiz page ---------- */
   qinit(Q){return {order:shuffle(Q.map((_,i)=>i)),opts:Q.map(q=>shuffle(q.o.map((_,j)=>j))),i:0,picked:null,score:0,res:[],done:false}},
-  paintQuiz(x,ctx){const {sp,ps}=ctx,wid=sp.w,w=WB[wid],ch=CH[w.d],Q=sp.c.quiz||[],PH=BK.PH;PT.base(x,ps);const {X0,X1}=PT.lay(ps),CW=X1-X0;const meta={hits:[]};const bd=BookData();
+  paintQuiz(x,ctx){const {sp,ps}=ctx,wid=sp.w,w=WB[wid],ch=CH[w.d],QX=GQX[wid],Q=(QX&&QX.qs)||sp.c.quiz||[],PH=BK.PH;PT.base(x,ps);const {X0,X1}=PT.lay(ps),CW=X1-X0;const meta={hits:[]};const bd=BookData();
     const s=GQ[wid]||(GQ[wid]=Games.qinit(Q));const n=Q.length;
     PT.fnt(x,48,800,FONT_D);PT.ltr(x);x.fillStyle=ch.ink;x.fillText('Quiz time!',X0,104);if(bd.quiz[wid])PT.icon(x,'🏆',X0+260,90,36);PT.ar(x,'اختبار قصير',X0,X1,98,{sz:20,col:ch.ink});
     for(let k=0;k<n;k++){const cx=X1-20-(n-1-k)*34,cy=150;x.fillStyle=s.res[k]===true?'#16866b':s.res[k]===false?'#c0336a':k===s.i&&!s.done?'#ffd166':'rgba(107,88,71,.2)';x.beginPath();x.arc(cx,cy,12,0,7);x.fill()}
     x.globalAlpha=.85;x.fillStyle=ch.ink;x.fillRect(X0,124,CW-n*34-10,3);x.globalAlpha=1;
     if(!n){PT.en(x,'Coming soon.',X0,260,CW);PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
+    const newQs=()=>{if(GQX[wid]&&GQX[wid].loading)return;GQX[wid]=Object.assign({},GQX[wid]||{},{loading:true});ctx.refresh();
+      QuizGen.fresh(wid,4).then(r=>{GQX[wid]={qs:r.qs,src:r.src,prov:r.provider?r.provider.name:''};GQ[wid]=Games.qinit(r.qs);ctx.refresh();const q0=r.qs[GQ[wid].order[0]];if(q0)Voice.say(q0.q,{auto:true})})
+        .catch(()=>{GQX[wid]=Object.assign({},GQX[wid],{loading:false});ctx.refresh()})};
+    const newBtn=(bx,by,bw,bh)=>{PT.box(x,bx,by,bw,bh,22,'#6648c2','#4a2f9e',2);PT.icon(x,'✨',bx+34,by+bh/2,28);const fs=PT.fitFont(x,'New questions',bw-80,27,800,FONT_D,18);PT.fnt(x,fs,800,FONT_D);PT.ltr(x);x.fillStyle='#ffffff';x.fillText('New questions',bx+60,by+bh/2+fs*.36);meta.hits.push({x:bx,y:by,w:bw,h:bh,fn:newQs})};
+    const srcLine=()=>{if(!QX||!QX.src)return;PT.fnt(x,19,700,FONT_R);PT.ltr(x,'right');x.fillStyle=PINK2;x.fillText(QX.src==='ai'?'✨ New questions by Bright'+(QX.prov?' · '+QX.prov:''):'✨ New questions from the book',X1,PH-118)};
+    if(QX&&QX.loading){PT.box(x,X0,220,CW,260,26,'#fff6e2',ch.ink,3,[12,9]);PT.icon(x,'✨',(X0+X1)/2,300,64);PT.fnt(x,34,800,FONT_D);PT.ltr(x,'center');x.fillStyle=PINK;x.fillText('Bright is thinking of new questions…',(X0+X1)/2,390);PT.ar(x,'يجهّز المساعد أسئلة جديدة…',X0,X1,440,{sz:20,align:'center'});PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
     const reset=()=>{GQ[wid]=Games.qinit(Q);ctx.refresh();const q0=Q[GQ[wid].order[0]];Voice.say(q0.q,{auto:true})};
     if(s.done){const pass=s.score>=Math.max(1,n-1);PT.fnt(x,128,800,FONT_D);PT.ltr(x,'center');x.fillStyle=pass?'#16866b':ch.ink;x.fillText(`${s.score} / ${n}`,(X0+X1)/2,420);
       for(let k=0;k<n;k++)PT.icon(x,k<s.score?'⭐':'☆',(X0+X1)/2+(k-(n-1)/2)*80,520,58);
       PT.fnt(x,36,800,FONT_D);x.fillStyle=PINK;PT.ltr(x,'center');x.fillText(pass?'Brilliant! You passed the quiz.':'Good try! Have another go.',(X0+X1)/2,640);PT.ar(x,pass?'ممتاز! نجحت في الاختبار.':'محاولة جميلة! جرّب مرة أخرى.',X0,X1-(CW-560)/2,690,{sz:22});
       if(pass)PT.icon(x,'🏆',(X0+X1)/2,820,120);
       const bw=320,bh=80,bx=(X0+X1)/2-bw/2,by=960;PT.box(x,bx,by,bw,bh,22,'#ffd166','#a3690b',3);PT.fnt(x,30,800,FONT_D);PT.ltr(x,'center');x.fillStyle='#3a2600';x.fillText('Try again ↺',bx+bw/2,by+52);meta.hits.push({x:bx,y:by,w:bw,h:bh,fn:reset});
-      PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
+      newBtn((X0+X1)/2-200,by+104,400,80);srcLine();PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
     const qi=s.order[s.i],q=Q[qi];
     PT.fnt(x,22,700,FONT_R);PT.ltr(x);x.fillStyle=PINK2;x.fillText(`Question ${s.i+1} of ${n}`,X0,178);
     PT.fnt(x,38,700,FONT_R);let qsz=38,ql=PT.wrap(x,q.q,CW-140);while(ql.length>3&&qsz>26){qsz-=2;PT.fnt(x,qsz,700,FONT_R);ql=PT.wrap(x,q.q,CW-140)}
@@ -106,5 +112,5 @@ const Games={
       const why=q.why||(ok?'':'The answer is: '+q.o[0]+'.');let yy=oy+84;if(!ok&&q.why){const r=PT.en(x,'The answer is: '+q.o[0]+'.',X0,yy,CW,{sz:25,wt:700,col:'#16866b'});yy=r.y}if(why){const r=PT.en(x,why,X0,yy,CW,{sz:25,lh:1.4,col:PINK});yy=r.y}
       const last=s.i>=n-1,bw=360,bh=78,bx=X1-bw,by=Math.min(PH-140,Math.max(yy+10,oy+150));PT.box(x,bx,by,bw,bh,22,ch.ink);PT.fnt(x,30,800,FONT_D);PT.ltr(x,'center');x.fillStyle='#fffaf0';x.fillText(last?'See my score →':'Next question →',bx+bw/2,by+50);
       meta.hits.push({x:bx,y:by,w:bw,h:bh,fn:()=>{s.i++;s.picked=null;if(s.i>=n){s.done=true;const pass=s.score>=Math.max(1,n-1);if(pass){ctx.burst((X0+X1)/2,420,{n:90});Snd.good();if(!bd.quiz[wid]){bd.quiz[wid]=1;Store.save();award(wid,'quiz',2,'Quiz passed!')}}}else Voice.say(Q[s.order[s.i]].q,{auto:true});ctx.refresh()}})}
-    PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
+    newBtn(X0,PH-168,330,70);srcLine();PT.pageNo(x,pageNo(ctx.s,'L'),ps);return meta}
 };

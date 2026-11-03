@@ -33,7 +33,7 @@ const PT={
   /* English paragraph (left to right) */
   en(x,s,X,y,max,o={}){const sz=o.sz||30,lh=o.lh||1.5;PT.fnt(x,sz,o.wt||400,o.fam||FONT_R);x.fillStyle=o.col||PINK;PT.ltr(x,o.al);const ls=PT.wrap(x,s,max);if(!o.dry)ls.forEach((l,i)=>x.fillText(l,X,y+i*sz*lh));return {y:y+ls.length*sz*lh,n:ls.length,h:ls.length*sz*lh}},
   /* short Arabic note (right to left, right-aligned inside [X0,X1]) */
-  ar(x,s,X0,X1,y,o={}){if(!s)return {y,n:0,h:0};const sz=o.sz||20,lh=o.lh||1.5;PT.fnt(x,sz,o.wt||400,FONT_B);x.fillStyle=o.col||PINK2;PT.rtl(x);const ls=PT.wrap(x,s,X1-X0);if(!o.dry)ls.forEach((l,i)=>x.fillText(l,X1,y+i*sz*lh));return {y:y+ls.length*sz*lh,n:ls.length,h:ls.length*sz*lh}},
+  ar(x,s,X0,X1,y,o={}){if(!s)return {y,n:0,h:0};const sz=o.sz||20,lh=o.lh||1.5;PT.fnt(x,sz,o.wt||400,FONT_B);x.fillStyle=o.col||PINK2;PT.rtl(x);const ls=PT.wrap(x,s,X1-X0);const ax=o.align==='center'?(X0+X1)/2:X1;if(o.align==='center')x.textAlign='center';if(!o.dry)ls.forEach((l,i)=>x.fillText(l,ax,y+i*sz*lh));return {y:y+ls.length*sz*lh,n:ls.length,h:ls.length*sz*lh}},
   rr(x,X,Y,W,H,R){G.rr(x,X,Y,W,H,R)},
   box(x,X,Y,W,H,R,fill,stroke,lw,dash){x.save();if(fill){x.fillStyle=fill;PT.rr(x,X,Y,W,H,R);x.fill()}if(stroke){x.strokeStyle=stroke;x.lineWidth=lw||3;if(dash)x.setLineDash(dash);PT.rr(x,X,Y,W,H,R);x.stroke()}x.restore()},
   noise:null,

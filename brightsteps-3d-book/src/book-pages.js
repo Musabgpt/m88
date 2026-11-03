@@ -55,11 +55,15 @@ function paintHowTo(x,ctx){
   const PW=BK.PW,PH=BK.PH,ps=ctx.ps;endpaper(x);const PX=ps==='L'?60:110;panel(x,PX,50,PW-170,PH-100);const X0=PX+50,X1=PX+PW-170-50,CW=X1-X0;
   bookplate(x,X0,X1,90);
   PT.fnt(x,48,800,FONT_D);PT.ltr(x);x.fillStyle=PINK;x.fillText('How to use this book',X0,318);PT.ar(x,'كيف تستعمل الكتاب',X0,X1,312,{sz:22});PT.squiggle(x,X0,X0+330,338,'#e5531a',4);
+  const items=BOOK_WEEK(),bh=78+items.length*48;
+  /* the steps shrink a little until they and "This week" fit on the page */
+  let sz=26;const steps=z=>BOOK_HOWTO.reduce((yy,[e,a])=>{const r=PT.en(x,e,X0+60,yy,CW-60,{sz:z,lh:1.38,dry:true});return PT.ar(x,a,X0+60,X1,r.y+2,{sz:Math.round(z*.7),lh:1.3,dry:true}).y+14},392);
+  while(sz>20&&steps(sz)+4+bh>PH-62)sz--;
   let y=392;BOOK_HOWTO.forEach(([e,a],i)=>{x.fillStyle='#ffd166';x.beginPath();x.arc(X0+22,y-10,22,0,7);x.fill();PT.fnt(x,26,800,FONT_D);x.fillStyle='#3a2600';PT.ltr(x,'center');x.fillText(String(i+1),X0+22,y-1);
-    const r=PT.en(x,e,X0+60,y,CW-60,{sz:26,lh:1.4});const r2=PT.ar(x,a,X0+60,X1,r.y+2,{sz:18,lh:1.35});y=r2.y+16});
-  y+=4;const items=BOOK_WEEK();const bh=82+items.length*52;PT.box(x,X0,y,CW,bh,20,'#fff5df','#e5a93b',3,[10,8]);
+    const r=PT.en(x,e,X0+60,y,CW-60,{sz,lh:1.38});const r2=PT.ar(x,a,X0+60,X1,r.y+2,{sz:Math.round(sz*.7),lh:1.3});y=r2.y+14});
+  y+=4;PT.box(x,X0,y,CW,bh,20,'#fff5df','#e5a93b',3,[10,8]);
   PT.fnt(x,32,800,FONT_D);PT.ltr(x);x.fillStyle='#a3690b';x.fillText('This week',X0+24,y+50);PT.fnt(x,22,400,FONT_R);x.fillStyle=PINK2;PT.ltr(x,'right');x.fillText(enDate(today()),X1-24,y+48);
-  items.forEach(([ic,t,v],i)=>{const yy=y+100+i*52;PT.icon(x,ic,X0+40,yy-9,30);PT.fnt(x,24,400,FONT_R);PT.ltr(x);x.fillStyle=PINK;x.fillText(t,X0+72,yy);PT.fnt(x,25,800,FONT_D);x.fillStyle='#c04c17';PT.ltr(x,'right');x.fillText(v,X1-24,yy)});
+  items.forEach(([ic,t,v],i)=>{const yy=y+96+i*48;PT.icon(x,ic,X0+40,yy-9,30);PT.fnt(x,24,400,FONT_R);PT.ltr(x);x.fillStyle=PINK;x.fillText(t,X0+72,yy);PT.fnt(x,25,800,FONT_D);x.fillStyle='#c04c17';PT.ltr(x,'right');x.fillText(v,X1-24,yy)});
   return {};
 }
 const BOOK_WEEK=()=>{const pe=nextDow([2,5]),fri=nextDow([5]),ws=daysTo(KEY_DATES.workshop);return [['🏃','PE kit (Tuesday & Friday)',inDaysEn(pe.n)],['📁','Homework to school (Friday)',inDaysEn(fri.n)],['🧮',"Parents' maths workshop",inDaysEn(ws)],['📚','Bronze Reading Challenge',Math.min(booksCount(),5)+' / 5 books']]};
@@ -86,8 +90,9 @@ function paintLearn(x,ctx){
   PT.fnt(x,24,700,FONT_D);PT.ltr(x);x.fillStyle=ch.ink;x.fillText('Chapter '+ch.n+' · '+ch.enName,X0,92);PT.ar(x,ch.arName,X0,X1,90,{sz:18,col:ch.ink});
   x.globalAlpha=.85;x.fillStyle=ch.ink;x.fillRect(X0,106,CW,3);x.globalAlpha=1;
   x.fillStyle=ch.tint;x.beginPath();x.arc(X1-48,176,46,0,7);x.fill();PT.icon(x,w.icon,X1-48,176,54);
-  let y=192;PT.fnt(x,58,800,FONT_D);PT.ltr(x);x.fillStyle=PINK;const tl=PT.wrap(x,w.en,CW-120);tl.forEach((l,i)=>x.fillText(l,X0,y+i*64));y+=(tl.length-1)*64;
-  PT.squiggle(x,X0,X0+Math.min(330,CW-140),y+20,ch.ink,4);PT.ar(x,w.ar,X0,X1-104,y+56,{sz:24,col:ch.ink});const top=y+86;
+  {const ab={x:X1-160,y:236,w:160,h:58};PT.box(x,ab.x,ab.y,ab.w,ab.h,29,'#6648c2','#4a2f9e',2);PT.icon(x,'✨',ab.x+30,ab.y+29,30);PT.fnt(x,27,800,FONT_D);PT.ltr(x);x.fillStyle='#ffffff';x.fillText('Ask me',ab.x+54,ab.y+39);meta.hits.push({x:ab.x-8,y:ab.y-8,w:ab.w+16,h:ab.h+16,fn:()=>AskUI.open({sp})});meta.ask=ab}
+  let y=192;PT.fnt(x,58,800,FONT_D);PT.ltr(x);x.fillStyle=PINK;const tl=PT.wrap(x,w.en,CW-170);tl.forEach((l,i)=>x.fillText(l,X0,y+i*64));y+=(tl.length-1)*64;
+  PT.squiggle(x,X0,X0+Math.min(330,CW-140),y+20,ch.ink,4);PT.ar(x,w.ar,X0,X1-176,y+56,{sz:24,col:ch.ink});const top=y+86;
   let bot=PH-82;
   if(L.ar){PT.fnt(x,21,400);const al=PT.wrap(x,L.ar,CW-40);const hh=56+al.length*32;const hy=bot-hh;PT.box(x,X0,hy,CW,hh,16,ch.tint);
     PT.fnt(x,20,700,FONT_R);PT.ltr(x);x.fillStyle=ch.ink;x.fillText('For grown-ups',X0+18,hy+34);PT.ar(x,'للأهل',X0,X1-18,hy+34,{sz:20,wt:700,col:ch.ink});PT.ar(x,L.ar,X0+18,X1-18,hy+66,{sz:21,lh:1.5,col:PINK});bot=hy-18}
@@ -132,7 +137,7 @@ function paintParents(x,ctx){
   sec('Key dates','مواعيد مهمة');BOOK_PARENTS().slice(0,4).forEach(li);y+=8;
   sec('PE kit (Tuesday & Friday)','زي الرياضة');[['Plain T-shirt in your house colour','تيشيرت بلون البيت'],['Plain navy shorts or joggers, school jumper, trainers','شورت كحلي وكنزة المدرسة وحذاء رياضي']].forEach(li);y+=8;
   sec('Reading at home','القراءة في البيت');[['Practice Book: listen and celebrate. If a word is too hard, read it for them.','كتاب التدريب: استمع واحتفل، واقرأ الكلمة الصعبة له.'],['Sharing Book: read it to them or together, talk about the pictures.','كتاب المشاركة: اقرأه له أو معه.']].forEach(li);
-  const bw=520,bh=80,bx=X0,by=PH-170;PT.box(x,bx,by,bw,bh,22,'#6648c2');PT.fnt(x,28,800,FONT_D);PT.ltr(x);x.fillStyle='#fffaf0';x.fillText("Open the parents' page →",bx+28,by+51);PT.ar(x,'لوحة ولي الأمر',bx+bw+10,X1,by+50,{sz:20});meta.hits.push({x:bx,y:by,w:bw,h:bh,fn:()=>App.go('parent')});
+  const bw=(CW-20)/2,bh=96,by=PH-190;[[X0,'#6648c2','#fffaf0',"Parents' page →",'لوحة ولي الأمر',()=>App.go('parent')],[X0+bw+20,'#ffd166','#3a2600','✨ AI helper settings','إعدادات المساعد الذكي',()=>AISettings.gate()]].forEach(([bx,bg,fg,en,ar,fn])=>{PT.box(x,bx,by,bw,bh,22,bg,bg==='#ffd166'?'#a3690b':null,2);const fs=PT.fitFont(x,en,bw-36,27,800,FONT_D,18);PT.fnt(x,fs,800,FONT_D);PT.ltr(x,'center');x.fillStyle=fg;x.fillText(en,bx+bw/2,by+42);PT.ar(x,ar,bx+14,bx+bw-14,by+76,{sz:18,col:fg,align:'center'});meta.hits.push({x:bx,y:by,w:bw,h:bh,fn})});
   PT.pageNo(x,pageNo(ctx.s,'R'),ps);return meta;
 }
 function paintStamps(x,ctx){

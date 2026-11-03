@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Builds BrightSteps3D_Book.html: the original BrightSteps 3D page with the 3D book as its home view.
 
-Usage: python3 build.py [--artifact OUT]   (--artifact also writes a copy without the html/head/body wrapper)
+Usage: python3 build.py [--artifact OUT] [--apk DIR]
+  --artifact OUT  also writes a copy without the html/head/body wrapper (for a claude.ai page)
+  --apk DIR       also writes DIR/index.html plus DIR/vendor/ for the Android app: Three.js and the fonts
+                  are local files, so the book works with no internet (only the AI helper needs it)
 """
-import pathlib, re, sys
+import pathlib, re, shutil, sys
 ROOT = pathlib.Path(__file__).resolve().parent
 SRC = ROOT / 'src'
 html = (SRC / 'original.html').read_text(encoding='utf-8')
 css = (SRC / 'book.css').read_text(encoding='utf-8')
 js = '\n'.join((SRC / f).read_text(encoding='utf-8') for f in
-               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js'])
+               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js', 'book-ai.js', 'book-ai-ui.js'])
 
 def sub(old, new, count=1):
     global html
@@ -96,6 +99,26 @@ sub("if(document.readyState==='loading')document.addEventListener('DOMContentLoa
 out = ROOT / 'BrightSteps3D_Book.html'
 out.write_text(html, encoding='utf-8')
 print('wrote', out, len(html.encode('utf-8')), 'bytes')
+if '--apk' in sys.argv:
+    dst = pathlib.Path(sys.argv[sys.argv.index('--apk') + 1]).resolve()
+    dst.mkdir(parents=True, exist_ok=True)
+    page = html.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>',
+                        '<script src="vendor/three.min.js"></script>')
+    page = re.sub(r'<link rel="preconnect"[^>]*>\s*', '', page)
+    page = re.sub(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">',
+                  '<link rel="stylesheet" href="vendor/fonts/fonts.css">', page)
+    if 'cdnjs.cloudflare.com' in page or 'fonts.googleapis.com' in page:
+        sys.exit('apk build: a remote script or font is still referenced')
+    (dst / 'index.html').write_text(page, encoding='utf-8')
+    vend = ROOT / 'vendor'
+    if (dst / 'vendor').exists():
+        shutil.rmtree(dst / 'vendor')
+    (dst / 'vendor' / 'fonts').mkdir(parents=True)
+    shutil.copy2(vend / 'three.min.js', dst / 'vendor' / 'three.min.js')
+    for f in sorted((vend / 'fonts').iterdir()):
+        if f.suffix in ('.woff2', '.css'):
+            shutil.copy2(f, dst / 'vendor' / 'fonts' / f.name)
+    print('wrote', dst / 'index.html', 'and vendor/ for the Android app')
 if '--artifact' in sys.argv:
     dst = pathlib.Path(sys.argv[sys.argv.index('--artifact') + 1])
     head = re.search(r'<head>(.*?)</head>', html, re.S).group(1)
