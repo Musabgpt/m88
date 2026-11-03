@@ -1,25 +1,32 @@
-# BrightSteps 3D Book · كتاب BrightSteps ثلاثي الأبعاد
+# BrightSteps 3D Book
 
-كتيّب Year 2 · Autumn 2 صار **كتاباً حقيقياً ثلاثي الأبعاد**: غلاف تفتحه، وصفحات تنثني وأنت تقلّبها، ولكل درس صفحتان:
+The Year 2 · Autumn 2 home-learning booklet as a **real 3D book** for a child at a British primary school (Birmingham, UK).
+Everything is in English, the language of school. Arabic stays only as short notes for grown-ups.
 
-- **الصفحة اليمنى (تُقرأ أولاً):** الدرس، والكلمات المهمة بالإنجليزية، ولسان ورقي «توقّع ثم اكشف». ارفع اللسان لترى الجواب، فيطير ختم من علبة الحبر ويطبع «أحسنت» على الصفحة.
-- **الصفحة اليسرى:** نموذج مجسّم يقفز من الصفحة (pop-up) تسحبه وتضغطه: تمدّ الزنبرك، تدحرج السيارة على المنحدر، تشعل الغلاية، تطوي الأشكال على خط التناظر، تبدّل 10 آحاد بعصا، تبرمج الروبوت… أكمل التجربة فتحصل على ملصق.
-- زر **«ادخل العالم الكامل»** في كل صفحة يفتح العالم الأصلي بكل ألعابه وتحدياته، والرجوع يعيدك إلى الصفحة نفسها. الجزيرة القديمة ما زالت موجودة في `#island`.
+- Tap the cover and the book opens. It reads left to right like an English book. Drag a page corner, use the arrows or the arrow keys to turn.
+- Every topic (21 of them, in 6 chapters) has **two spreads**:
+  1. **Learn | Try it.** The left page teaches, with key words and a "Predict, then lift the flap" question. The right page has a 3D pop-up model to play with: stretch, drag, tap, build, roll.
+  2. **Practise | Quiz.** A practice game (sort, pick, put in order, fill the gap, match), the booklet's home learning as tick boxes, and a 4-question quiz with a trophy.
+- The controls sit **in the book, next to the thing they move.** The buttons are printed on the page, labels like "👆 Tap" and "✋ Drag" sit on the models, and a sticky note on the page says what just happened.
+- Stamps, stickers and trophies collect on the back pages. The last spread is the parents' corner (dates and tips).
+- On a phone the book shows one page at a time. The text button opens the page as plain text, with Arabic notes for parents.
+- The old 3D island is still there (`#island`) as an extra. Its worlds are English-first too: English tabs (Learn, Play, Quiz, Home learning), buttons, messages and quiz. The longer Arabic guides for grown-ups are folded away under «للأهل».
 
-The book reads right to left like an Arabic book: drag the left page's edge to the right (or use the arrows / arrow keys) to turn. On a phone it shows one page at a time; the text button opens the page as plain text.
-
-## الملفات · Files
+## Files
 
 | | |
 |---|---|
-| `BrightSteps3D_Book.html` | the finished single-file page (open it in a browser) |
-| `src/original.html` | the original BrightSteps 3D page, unchanged |
-| `src/book-engine.js` | the book: page-curl geometry, boards, flips, camera, flap, stamp, pop-up kit, overlay |
-| `src/book-pages.js` | the page printer: cover, contents, lesson pages, try-it pages, parents' corner, stamp collection |
-| `src/book-pops-*.js` | the lesson text and the pop-up model for each of the 21 worlds |
-| `src/book-app.js` | makes the book the home view |
-| `src/book.css` | styles for the book view |
-| `build.py` | injects the book into the original and writes `BrightSteps3D_Book.html` |
+| `BrightSteps3D_Book.html` | the finished single-file page (open it in a browser; needs internet for Three.js and the fonts) |
+| `src/original.html` | the original BrightSteps 3D page, unchanged (patched at build time) |
+| `src/book-core.js` | book sizes, chapters, spreads list, saved progress, page-drawing helpers |
+| `src/book-engine.js` | the 3D book: page-curl geometry, covers, flips, camera, flap, stamp, pop-up kit (on-page buttons, tags, sticky note), text overlay |
+| `src/book-pages.js` | page printer: cover, how-to, contents, learn pages, try-it pages, parents' corner, stamp collection, back cover |
+| `src/book-games.js` | practise games, home-learning ticks and the quiz page |
+| `src/book-world-a.js` … `-d.js` | the English content and pop-up model for each topic (English, Maths, Science, History · D&T, Computing · Music · PE, RE · PSHE · Values) |
+| `src/book-app.js` | makes the book the home view, top bar, page arrows, read-aloud |
+| `src/book-english.js` | English-first layer for the island and the extra 3D worlds |
+| `src/book.css` | styles |
+| `build.py` | injects everything into the original and writes `BrightSteps3D_Book.html` |
 
 ```sh
 python3 build.py                      # rebuild BrightSteps3D_Book.html
