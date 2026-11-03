@@ -1,0 +1,47 @@
+
+/* ---------- the 3D book (home) ----------
+   Layout: one full-height stage holds the book on a lamp-lit desk. The top bar names the spread,
+   round arrows at the sides turn pages (next is on the left: the book reads right to left),
+   and the chip bar under the book holds what the pop-up on this spread can do. */
+:root{--paper:#fbf4e2;--paper-ink:#2d2219;--paper-ink2:#6b5847;--desk:#0d0b14}
+.bookview{position:relative}
+.bookview .stage{height:calc(100vh - 59px - env(safe-area-inset-top,0px));height:calc(100dvh - 59px - env(safe-area-inset-top,0px));min-height:440px;
+  background:radial-gradient(90% 80% at 50% 45%,#2a1d16 0,#120e14 60%,var(--desk) 100%);touch-action:none}
+.bookview .stage>canvas.gl{touch-action:none}
+.bk-nav{position:absolute;top:50%;z-index:4;width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,209,102,.5);background:rgba(18,22,52,.84);
+  color:var(--gold);display:grid;place-items:center;transform:translateY(-50%);box-shadow:var(--shadow);transition:transform .15s,opacity .2s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.bk-nav:active{transform:translateY(-50%) scale(.92)}
+.bk-nav svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.bk-nav.next{left:max(10px,env(safe-area-inset-left,0px))}
+.bk-nav.prev{right:max(10px,env(safe-area-inset-right,0px))}
+.bk-nav[disabled]{opacity:.28;pointer-events:none}
+.bk-pg{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:6px 12px;background:rgba(7,11,31,.72);border:1px solid rgba(255,209,102,.35);color:var(--gold);
+  font-family:var(--f-display);font-weight:700;font-size:14px;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.bookview .wtitle{max-width:min(46vw,420px)}
+.bookview .wtitle b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-read{position:absolute;z-index:7;left:0;right:0;bottom:0;max-height:min(78%,640px);overflow:auto;overscroll-behavior:contain;
+  background:#fbf4e2;color:var(--paper-ink);border-radius:22px 22px 0 0;box-shadow:0 -18px 40px rgba(0,0,0,.45);
+  padding:18px var(--gutR) calc(22px + env(safe-area-inset-bottom,0px)) var(--gut);touch-action:pan-y}
+.bk-read .rd{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.bk-read h2{font-size:26px;color:var(--paper-ink)}
+.bk-read .en{color:inherit}
+.bk-read .sub{font-family:var(--f-read);font-size:19px;direction:ltr;text-align:right}
+.bk-read p,.bk-read li{font-size:16px;line-height:1.8;color:#3d3024}
+.bk-read ul{margin:0;padding-inline-start:20px}
+.bk-read .kw{display:flex;flex-wrap:wrap;gap:6px}
+.bk-read .kw span{border:1px solid #d8c8a6;background:#fff9ec;border-radius:10px;padding:4px 10px;font-size:14px;color:#3d3024}
+.bk-read .kw b{font-family:var(--f-read);direction:ltr;unicode-bidi:isolate;margin-inline-end:6px}
+.bk-read .box{border:2px dashed #d3bf96;border-radius:14px;padding:12px 14px;background:#fff8e8}
+.bk-read .box h4{font-size:16px;margin-bottom:4px;color:#7a4b12}
+.bk-read .ans{margin-top:8px;color:#1f5c4c;font-weight:600}
+.bk-read .btn{color:#2a1003}
+.bk-read .btn.ghost{color:var(--paper-ink);border-color:#cdb98f}
+.bk-read .x{align-self:flex-end;position:sticky;top:0;z-index:1;margin-bottom:-46px;min-width:42px}
+.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.bk-flat{display:flex;flex-direction:column;gap:14px}
+@media (max-width:520px){
+  .bk-nav{width:46px;height:46px;top:auto;bottom:calc(136px + env(safe-area-inset-bottom,0px));transform:none}
+  .bk-nav:active{transform:scale(.92)}
+  .bookview .wtitle{max-width:40vw}
+  .bookview .wtitle span{display:none}
+}
