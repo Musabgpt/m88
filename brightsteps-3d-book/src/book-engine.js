@@ -39,6 +39,7 @@ const Book={
     const blob=G.shadow(1,.55);blob.scale.set(W*1.5,H*1.25,1);blob.position.y=.003;BG.add(blob);
     /* a silk ribbon bookmark hanging out of the bottom of the open book */
     const ribbon=Book.ribbon();scene.add(ribbon);
+    Bright.attach({scene,st});
     /* page textures */
     const pages=new Map();const ANI=R.capabilities.getMaxAnisotropy?Math.min(8,R.capabilities.getMaxAnisotropy()):4;
     function page(id){let p=pages.get(id);if(!p){const c=document.createElement('canvas');c.width=PW;c.height=PH;const x=c.getContext('2d');const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=ANI;p={id,c,x,tex,meta:{}};pages.set(id,p);paint(p)}p.used=performance.now();return p}
@@ -108,14 +109,14 @@ const Book={
     /* ---------- page → world ---------- */
     function p2w(s,side,px,py){const brd=(side==='R'&&s===1)||(side==='L'&&s===S);const w=brd?W+OV:W,h=brd?H+OV*2:H;const ps=phys(side);const x=ps==='R'?px/PW*w:-(1-px/PW)*w;const z=-h/2+py/PH*h;const hh=side==='R'?hR(s):hL(s);return {x,z,y:surfY(brd?0:hh,x),sx:w/PW,sz:h/PH}}
     /* ---------- extras: everything that stands on, or is tapped on, the open spread ---------- */
-    function foldExtras(){const ex=st.ex;if(!ex)return;st.ex=null;ex.dead=true;if(ex.pop&&ex.pop.stop)try{ex.pop.stop()}catch(e){}
+    function foldExtras(){Bright.fold();const ex=st.ex;if(!ex)return;st.ex=null;ex.dead=true;if(ex.pop&&ex.pop.stop)try{ex.pop.stop()}catch(e){}
       const kids=ex.g.children.slice();const s0=kids.map(c=>c.scale.y);E.anim(dur(.24),k=>{kids.forEach((c,i)=>{if(c.userData.fold!==false)c.scale.y=Math.max(.02,s0[i]*(1-k))})}).then(()=>{scene.remove(ex.g);ex.picks.forEach(o=>E.untap(o));PK.disposeTree(ex.g)})}
     function makeHits(ex,k,side){(ex.hits[side]||[]).forEach(m=>{ex.g.remove(m);E.untap(m);m.geometry.dispose();m.material.dispose()});ex.hits[side]=[];const p=page(side+k);
       (p.meta.hits||[]).forEach(hh=>{const c=p2w(k,side,hh.x+hh.w/2,hh.y+hh.h/2);const pl=new THREE.Mesh(new THREE.PlaneGeometry(hh.w*c.sx,hh.h*c.sz),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pl.rotation.x=-Math.PI/2;pl.position.set(c.x,c.y+.006,c.z);pl.userData.fold=false;ex.g.add(pl);ex.hits[side].push(pl);ex.tap(pl,()=>{if(hh.sound!==false)Snd.tick();hh.fn()})})}
     function buildExtras(k){if(st.ex)foldExtras();Overlay.sync();
       const g=new THREE.Group();scene.add(g);const ex={g,s:k,sp:null,picks:[],drags:[],ups:[],pop:null,root:null,hits:{L:[],R:[]}};st.ex=ex;
       ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;fn(h,oo,e)});ex.picks.push(o);return o};
-      if(k<1||k>M+1){Book.coverExtras(ex,k,st);return}
+      if(k<1||k>M+1){Book.coverExtras(ex,k,st);Bright.spreadReady();return}
       if(k===1)repaint('R1');if(k===S)repaint('L'+S);bd.last=k;
       const sp=SPREADS[k-1];ex.sp=sp;
       makeHits(ex,k,'R');makeHits(ex,k,'L');
@@ -131,7 +132,7 @@ const Book={
         if(pl.meta.note)P.note(ex.pop.capEn||'Your turn! Tap, drag and press the buttons.',ex.pop.capAr||'دورك! اضغط واسحب وجرّب الأزرار.');
         root.scale.y=.02*kS;E.tw(root.scale,{y:kS},RM?.01:.62,Ease.back);
       }
-      Overlay.live(sp);
+      Overlay.live(sp);Bright.spreadReady();
     }
     st.refresh=id=>{repaint(id);const ex=st.ex;if(!ex||ex.dead)return;const side=id[0],k=+id.slice(1);if(k===ex.s)makeHits(ex,k,side)};
     st.repaintAll=()=>{pages.forEach(p=>paint(p));if(!st.flip&&st.turned>=1&&st.turned<=M+1)buildExtras(st.turned)};
@@ -158,10 +159,10 @@ const Book={
     document.addEventListener('keydown',onKey);
     const start=ctx.start||0;layout(start);if(ctx.focus)st.focus=ctx.focus;aim(0);buildExtras(start);
     return {
-      update(dt,t){const ex=st.ex;if(ex&&!ex.dead){if(ex.pop&&ex.pop.update)try{ex.pop.update(dt,t)}catch(e){console.error(e);ex.pop.update=null}ex.ups.forEach(f=>f(dt,t))}},
+      update(dt,t){Bright.update(dt,t);const ex=st.ex;if(ex&&!ex.dead){if(ex.pop&&ex.pop.update)try{ex.pop.update(dt,t)}catch(e){console.error(e);ex.pop.update=null}ex.ups.forEach(f=>f(dt,t))}},
       resize(){if(!orbit.fly)aim(0)},
-      tapNone(e){if(st.flip)return;castFrom(e);const hp=ray.intersectObjects([LT.f,RT.b,BF.f,BB.b].filter(m=>E.visibleChain(m)),false)[0];if(hp&&Math.abs(hp.point.x)>W*.84){((hp.point.x<0)===(MIR>0))?next():prev()}},
-      dispose(){document.removeEventListener('keydown',onKey);R.shadowMap.enabled=false;if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}pages.forEach(p=>p.tex.dispose());pages.clear();Book.st=null;Overlay.read(false)}
+      tapNone(e){if(Bright.dismiss())return;if(st.flip)return;castFrom(e);const hp=ray.intersectObjects([LT.f,RT.b,BF.f,BB.b].filter(m=>E.visibleChain(m)),false)[0];if(hp&&Math.abs(hp.point.x)>W*.84){((hp.point.x<0)===(MIR>0))?next():prev()}},
+      dispose(){Bright.detach();document.removeEventListener('keydown',onKey);R.shadowMap.enabled=false;if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}pages.forEach(p=>p.tex.dispose());pages.clear();Book.st=null;Overlay.read(false)}
     };
   },
   ribbon(){const pts=[[.1,BK.BD+.02,2.45],[.12,BK.BD+.02,2.72],[.16,BK.BD-.02,2.98],[.24,.02,3.32],[.36,.012,3.8]].map(p=>new THREE.Vector3(...p));const cv=new THREE.CatmullRomCurve3(pts);const n=40,pos=[],idx=[];
@@ -238,7 +239,7 @@ const Book={
         if(showAr){PT.fnt(x,24,400);x.fillStyle=PINK2;PT.rtl(x);x.fillText(PT.wrap(x,noteTxt[1],W-140)[0],W-28,y0+lh+12)}note.userData.tex.needsUpdate=true},
       cap(en,ar){P.note(en,ar)},
       controls(items,ref){const tr=o.meta.tray;if(!tr||!items||!items.length)return null;
-        if(wid&&typeof AskUI!=='undefined'&&!items.some(it=>it.ai))items=items.concat([{id:'ai-why',label:'✨ Ask why',cls:'gold',ai:true,fn:()=>AskUI.open({sp,note:notes>1?noteTxt[0]:'',task:notes>1?'why':null})}]);const n=items.length;const per=n<=4?n:n<=8?Math.ceil(n/2):Math.ceil(n/3);const rows=Math.ceil(n/per);const gap=14;
+        if(wid&&typeof Bright!=='undefined'&&!items.some(it=>it.ai))items=items.concat([{id:'ai-why',label:'✨ Ask why',cls:'gold',ai:true,fn:()=>{const m=o.meta.note;Bright.ask({task:'why',sp,note:notes>1?noteTxt[0]:(sp.c.try&&sp.c.try.hint)||'',anchor:m?{side:'L',px:(m.x0+m.x1)/2,py:m.y0,h:m.y1-m.y0}:null})}}]);const n=items.length;const per=n<=4?n:n<=8?Math.ceil(n/2):Math.ceil(n/3);const rows=Math.ceil(n/per);const gap=14;
         const bwPx=(tr.x1-tr.x0-(per-1)*gap)/per,bhPx=Math.min(88,(tr.y1-tr.y0-(rows-1)*gap)/rows);const btns={};const list=[];
         items.forEach((it,i)=>{const r=Math.floor(i/per),ci=i%per,nr=Math.min(per,n-r*per);const rowW=nr*bwPx+(nr-1)*gap;const cx=(tr.x0+tr.x1)/2-rowW/2+ci*(bwPx+gap)+bwPx/2,cy=tr.y0+r*(bhPx+gap)+bhPx/2;
           const c=o.p2w(o.k,'L',cx,cy);const b=Book.button(it,bwPx*c.sx,bhPx*c.sz,ch);b.position.set(c.x,c.y+.03-(it.on?.018:0),c.z);b.userData.y0=c.y+.03;b.userData.it=it;b.userData.fold=false;tray.add(b);btns[it.id||('b'+i)]=b;list.push(b);
@@ -280,5 +281,5 @@ const Overlay={
       ${L.flap?`<div class="box"><h4>Predict, then lift the flap</h4><p>${esc(L.flap.q)}</p><p class="ans" hidden>${esc(L.flap.a)}</p><button class="btn sm gold" type="button" data-reveal>Show the answer</button></div>`:''}
       ${arP(L.ar)}${Tr.hint?`<h4>Try it (right page)</h4><p>${esc(Tr.hint)}</p>${arP(Tr.ar)}`:''}`}
 };
-const BOOK_HOWTO=[['Tap ✨ Ask to ask Bright, the book helper. It can explain again, tell a story or quiz you.','اضغط ✨ لتسأل المساعد الذكي: يشرح من جديد ويحكي قصة ويسألك.'],['Turn a page: drag the right page to the left, press the arrow, or use the arrow keys.','قلّب الصفحة بسحب الصفحة اليمنى نحو اليسار أو بالأسهم.'],['Read the left page first. Then lift the flap to check your answer and get a stamp.','اقرأ الصفحة اليسرى أولاً، ثم ارفع اللسان لترى الجواب.'],['Play with the pop-up on the right page. Press the buttons under it.','جرّب النموذج المجسّم والأزرار تحته.'],['Turn over to practise, quiz and home learning for the same topic.','في الصفحتين التاليتين: تدريب واختبار وواجب البيت.'],['Collect stamps, stickers and stars. They are kept in this book.','اجمع الأختام والملصقات والنجوم.']];
+const BOOK_HOWTO=[['Bright, the little star, lives in this book. Tap it for ideas, or tap any sentence or key word and Bright explains it.','النجمة Bright تعيش في الكتاب: اضغطها، أو اضغط أي جملة أو كلمة لتشرحها لك.'],['Turn a page: drag the right page to the left, press the arrow, or use the arrow keys.','قلّب الصفحة بسحب الصفحة اليمنى نحو اليسار أو بالأسهم.'],['Read the left page first. Then lift the flap to check your answer and get a stamp.','اقرأ الصفحة اليسرى أولاً، ثم ارفع اللسان لترى الجواب.'],['Play with the pop-up on the right page. Press the buttons under it.','جرّب النموذج المجسّم والأزرار تحته.'],['Turn over to practise, quiz and home learning for the same topic.','في الصفحتين التاليتين: تدريب واختبار وواجب البيت.'],['Collect stamps, stickers and stars. They are kept in this book.','اجمع الأختام والملصقات والنجوم.']];
 const BOOK_PARENTS=()=>{const pe=nextDow([2,5]);return [[`PE: every Tuesday and Friday — next one ${inDaysEn(pe.n)} (${enDate(pe.d)}).`,'الرياضة كل ثلاثاء وجمعة بزي الرياضة.'],[`Parents' maths workshop "Learning Together": Thursday 19 November, 2:15–3:15 pm (${inDaysEn(daysTo(KEY_DATES.workshop))}).`,'ورشة الرياضيات للأهالي: الخميس 19 نوفمبر.'],[`Bronze Reading Challenge: 5 books by Wednesday 16 December — ${Math.min(booksCount(),5)} of 5 so far.`,'تحدّي القراءة البرونزي: 5 كتب قبل 16 ديسمبر.'],['Every Friday: homework evidence goes to school.','كل جمعة: يأخذ الطفل دليل الواجب إلى المدرسة.'],['Little and often: read every day, plus a little English, maths and science each week.','قليل ومتكرر: قراءة يومية ونشاط قصير كل أسبوع.']]};

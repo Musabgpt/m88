@@ -26,7 +26,7 @@ App.book=function(){
   $('#bkToc').onclick=()=>{const s=st();if(!s)return;Overlay.read(false);s.go(1,'L')};
   $('#bkRead').onclick=()=>Overlay.read(!Overlay.open);
   $('#bkSay').onclick=()=>{const s=st();if(!s)return;const k=s.turned;const sp=k>=1&&k<=s.M+1?SPREADS[k-1]:null;if(!sp){Voice.say('BrightSteps 3D. My Year 2 learning book. Tap the cover to open it.');return}
-    if(sp.kind==='learn'){const L=sp.c.learn||{};Voice.say(WB[sp.w].en+'. '+(L.body||[]).map(p=>p.replace(/^EX:/,'')).join(' '))}
+    if(sp.kind==='learn'){if(Bright.readAloud())return;const L=sp.c.learn||{};Voice.say(WB[sp.w].en+'. '+(L.body||[]).map(p=>p.replace(/^EX:/,'')).join(' '))}
     else if(sp.kind==='practise'){const g=sp.c.practise||{};Voice.say((g.title||'')+'. '+(g.how||''))}
     else if(sp.kind==='intro')Voice.say('How to use this book. '+BOOK_HOWTO.map(h=>h[0]).join(' '));else Voice.say("Parents' corner. "+BOOK_PARENTS().map(h=>h[0]).join(' '))};
   $('#recenter').onclick=()=>{const s=st();s&&s.aim(.8)};

@@ -8,7 +8,13 @@ Everything is in English, the language of school. Arabic stays only as short not
   1. **Learn | Try it.** The left page teaches, with key words and a "Predict, then lift the flap" question. The right page has a 3D pop-up model to play with: stretch, drag, tap, build, roll.
   2. **Practise | Quiz.** A practice game (sort, pick, put in order, fill the gap, match), the booklet's home learning as tick boxes, and a 4-question quiz with a trophy.
 - The controls sit **in the book, next to the thing they move.** The buttons are printed on the page, labels like "👆 Tap" and "✋ Drag" sit on the models, and a sticky note on the page says what just happened.
-- **Bright, the AI helper**, lives in the book: **✨ Ask me** on each lesson page and in the top bar (explain again, another example, fun fact, a story, quiz me, Arabic for parents, or any question), **✨ Ask why** under each 3D model, and **✨ New questions** on each quiz page for endless questions. It uses the free AI providers of the MusabAI app (Musabgpt/C66) with the same order and failover rules. When none answers, the book answers from its own pages. Grown-ups add optional keys behind a small maths gate (Parents' corner → AI helper settings).
+- **Bright, the AI helper, lives in the book** as a little glowing star that floats over the page, lights it and follows the child:
+  - tap Bright: its thought bubbles open (explain again, another example, fun fact, a story, quiz me, read it to me, ask by voice or typing, Arabic for parents);
+  - tap **any sentence or key word** on a lesson page: the yellow marker sweeps over it, Bright flies there and writes the explanation on a paper note that pops out of the page;
+  - **✨ Ask why** under every 3D model, **💡 Hint** inside every quiz question, **✨ New questions** for endless quizzes; Bright cheers right answers and comforts wrong ones;
+  - **Read it to me**: Bright reads the lesson line by line while the marker follows.
+- **Fast answers**: every reply streams in word by word; the provider that answers fastest on this device goes first; if it is slow to start, the next one starts too and the first to write wins; answers are kept on the device (asking again is instant) and the next "Another" is fetched while the child reads.
+- The AI uses the free providers of the MusabAI app (Musabgpt/C66) with the same order and failover rules. When none answers, the book answers from its own pages. Grown-ups add optional keys behind a small maths gate (Parents' corner → AI helper settings).
 - Stamps, stickers and trophies collect on the back pages. The last spread is the parents' corner (dates and tips).
 - On a phone the book shows one page at a time. The text button opens the page as plain text, with Arabic notes for parents.
 - The old 3D island is still there (`#island`) as an extra. Its worlds are English-first too.
@@ -27,8 +33,9 @@ Everything is in English, the language of school. Arabic stays only as short not
 | `src/book-world-a.js` … `-d.js` | the English content and pop-up model for each topic |
 | `src/book-app.js` | makes the book the home view, top bar, page arrows, read-aloud |
 | `src/book-english.js` | English-first layer for the island and the extra 3D worlds |
-| `src/book-ai.js` | Bright's engine: the MusabAI provider pool (health, cooldowns, failover), prompts, safety filters, offline helper, endless quiz questions |
-| `src/book-ai-ui.js` | Bright in the book: Ask panel, grown-ups' settings, Android bridges (voice, voice typing, back button, saving files) |
+| `src/book-ai.js` | Bright's engine: the MusabAI provider pool (health, cooldowns, failover) with streaming, racing, fastest-first and an answer cache; prompts, safety filters, offline helper, endless quiz questions |
+| `src/book-bright.js` | Bright in the 3D book: the star, its thought bubbles, the paper notes with streaming ink, tap-a-sentence, Ask why, hints, read-aloud with the marker |
+| `src/book-ai-ui.js` | the ✨ button, voice typing, the grown-ups' settings, Android bridges (voice, back button, saving files) |
 | `src/book.css` | styles |
 | `vendor/` | Three.js r128 and the fonts, for the offline Android build (`tools/vendor_fonts.py` refreshes the fonts) |
 | `build.py` | injects everything into the original and writes `BrightSteps3D_Book.html` |
