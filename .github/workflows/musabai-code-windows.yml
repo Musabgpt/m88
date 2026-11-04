@@ -1,0 +1,126 @@
+name: MusabAI Code Windows
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "windows/musabai-code/**"
+      - "musabai-code/**"
+      - "linux/musabai-code/build_editor.py"
+      - ".github/workflows/musabai-code-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Build and verify portable ZIP and Windows installer
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      VSCODIUM_VERSION: "1.140.06880"
+    steps:
+      - name: Check out MusabAI Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.0"
+          cache: npm
+          cache-dependency-path: musabai-code/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build MusabAI extension and terminal agent
+        working-directory: musabai-code
+        shell: pwsh
+        run: |
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "Typecheck failed" }
+          npm run package
+          if ($LASTEXITCODE -ne 0) { throw "Extension build failed" }
+          if (!(Test-Path dist/musabai-code.vsix)) { throw "VSIX missing" }
+
+      - name: Download and verify VSCodium for Windows x64
+        shell: pwsh
+        run: |
+          $asset = "VSCodium-win32-x64-$env:VSCODIUM_VERSION.zip"
+          $base = "https://github.com/VSCodium/vscodium/releases/download/$env:VSCODIUM_VERSION"
+          $zip = Join-Path $env:RUNNER_TEMP $asset
+          $hashFile = "$zip.sha256"
+          Invoke-WebRequest -Uri "$base/$asset" -OutFile $zip
+          Invoke-WebRequest -Uri "$base/$asset.sha256" -OutFile $hashFile
+          $text = Get-Content $hashFile -Raw
+          $expected = [regex]::Match($text, '[a-fA-F0-9]{64}').Value.ToLowerInvariant()
+          if ($expected.Length -ne 64) { throw "Missing upstream SHA-256" }
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "VSCodium SHA-256 mismatch: $actual" }
+          Write-Host "Verified upstream VSCodium SHA-256: $actual"
+          Add-Content $env:GITHUB_ENV "VSCODIUM_ZIP=$zip"
+          Add-Content $env:GITHUB_ENV "VSCODIUM_SHA256=$expected"
+
+      - name: Build standalone Windows editor and portable ZIP
+        shell: pwsh
+        run: |
+          python windows/musabai-code/build_editor.py --vscodium "$env:VSCODIUM_ZIP" --sha256 "$env:VSCODIUM_SHA256" --extension musabai-code --out dist
+          if ($LASTEXITCODE -ne 0) { throw "Windows packaging failed" }
+
+      - name: Verify the standalone editor, integrated agent and branding
+        shell: pwsh
+        run: |
+          $app = Join-Path $env:GITHUB_WORKSPACE "dist\MusabAI-Code-win32-x64"
+          $exe = Join-Path $app "MusabAI Code.exe"
+          $agent = Join-Path $app "resources\app\extensions\musabai-code\dist\cli.js"
+          $product = Get-Content (Join-Path $app "resources\app\product.json") -Raw | ConvertFrom-Json
+          if (!(Test-Path $exe)) { throw "MusabAI Code.exe missing" }
+          if (!(Test-Path $agent)) { throw "Bundled MusabAI agent missing" }
+          if ($product.nameShort -ne "MusabAI Code") { throw "Editor branding missing" }
+          if (!(Test-Path (Join-Path $app "resources\app\extensions\musabai-defaults\package.json"))) { throw "Editor defaults missing" }
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Editor --version failed" }
+          & (Join-Path $app "musabai-agent.cmd") --version
+          if ($LASTEXITCODE -ne 0) { throw "Terminal agent --version failed" }
+          Write-Host "MusabAI Code Windows smoke checks passed"
+
+      - name: Build Windows installer with Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Cannot install Inno Setup" }
+          }
+          if (!(Test-Path $iscc)) { throw "Inno Setup compiler missing" }
+          $version = node -p "require('./musabai-code/package.json').version"
+          & $iscc "/DAppVersion=$version" "windows/musabai-code/install.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installer build failed" }
+
+      - name: Record hashes and verify final artifacts
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem dist -File | Where-Object { $_.Name -match '^MusabAI-Code-.*(zip|exe)$' })
+          if ($files.Count -ne 2) { throw "Expected ZIP and installer EXE, found $($files.Count)" }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content dist/SHA256SUMS -Encoding ascii
+          Write-Host ($lines -join [Environment]::NewLine)
+
+      - name: Upload the Windows installer and portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusabAI-Code-Windows-x64-${{ github.run_number }}
+          path: |
+            dist/MusabAI-Code-Setup-*.exe
+            dist/MusabAI-Code-*-windows-x64.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
