@@ -73,6 +73,11 @@ details.ar-orig .ar-in{display:flex;flex-direction:column;gap:12px}
 .bright-ask .ba-star{font-size:22px}
 .bright-ask input{flex:1;min-width:0;border:0;background:transparent;font-family:var(--f-read);font-size:18px;color:#2d2219;padding:6px 4px;outline:none}
 .bright-ask .btn.ghost{color:#2d2219;border-color:#cdb98f}
+.bright-ask{flex-wrap:wrap}
+.bright-ask .ba-mics{flex-basis:100%;display:flex;gap:8px}
+.bright-ask .ba-mics .btn{flex:1;justify-content:center;font-size:17px;padding-block:9px}
+.bright-ask .ba-mics .btn[lang=ar]{font-family:var(--f-body)}
+.bright-ask .ba-mics .btn.ghost.hot{color:#2a1003}
 @keyframes baPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 .ai-set[hidden]{display:none}
 .ai-set .btn.ghost{color:var(--paper-ink,#2d2219);border-color:#cdb98f}

@@ -50,8 +50,9 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   pose(){const cam=E.camera,o=E.orbit;cam.updateMatrixWorld();const P=o.target.clone().lerp(cam.position,.36);P.addScaledVector(new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1),.12);return P},
   toWorld(cx,cy){if(!this.g)return null;return this.g.localToWorld(new THREE.Vector3((cx/this.W-.5)*this.bw,(.5-cy/this.H)*this.bh,.16))},
   /* ---------- neon drawing ---------- */
-  neon(x,txt,X,Y,col,sz,o={}){x.save();PT.fnt(x,sz,o.wt||700,o.fam||FONT_R);x.textBaseline='alphabetic';x.direction='ltr';x.textAlign='left';
-    if(o.clip!=null){x.beginPath();x.rect(X-14,Y-sz*1.25,o.clip+14,sz*1.7);x.clip()}
+  /* o.rtl: Arabic, written from X (the right edge) to the left */
+  neon(x,txt,X,Y,col,sz,o={}){x.save();PT.fnt(x,sz,o.wt||700,o.fam||FONT_R);x.textBaseline='alphabetic';x.direction=o.rtl?'rtl':'ltr';x.textAlign=o.rtl?'right':'left';
+    if(o.clip!=null){x.beginPath();if(o.rtl)x.rect(X-o.clip,Y-sz*1.25,o.clip+14,sz*1.7);else x.rect(X-14,Y-sz*1.25,o.clip+14,sz*1.7);x.clip()}
     x.shadowColor=col;x.shadowBlur=sz*.5;x.fillStyle=col;x.fillText(txt,X,Y);x.shadowBlur=sz*.14;x.globalAlpha=.5;x.fillStyle='#ffffff';x.fillText(txt,X,Y);x.restore()},
   path(x,pts,col,w,t=1){let L=0;const seg=[];for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}let left=L*t,tip=pts[0];
     x.save();x.lineCap='round';x.lineJoin='round';x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=w*2.4;x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
@@ -69,9 +70,9 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   /* ---------- items: each one knows its height and draws itself up to a point t (0..1), returning where the pen is ---------- */
   make(it){const x=this.x,W=this.W,X0=56,CW=W-112,fs=this.fs();const o=Object.assign({},it);
     if(o.t==='title'){o.h=96;o.dur=.5+o.text.length/40;o.draw=(x,t,y)=>{PT.fnt(x,72,800,FONT_D);const tw=x.measureText(o.text).width;this.neon(x,o.text,X0,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.min(W-90,X0+tw+70),y+44,64);return [X0+tw*t,y+60]}}
-    else if(o.t==='line'||o.t==='stream'){PT.fnt(x,fs,700,FONT_R);o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*fs*1.38+20;o.dur=.25+(o.text||'').length/56;
-      o.draw=(x,t,y)=>{PT.fnt(x,fs,700,FONT_R);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[X0,y+fs];
-        ls.forEach((l,i)=>{if(left<=0)return;const lw=x.measureText(l).width,yy=y+fs+i*fs*1.38;this.neon(x,l,X0,yy,o.col||'#8ff8ff',fs,{clip:Math.min(lw,left)});tip=[X0+Math.min(lw,left),yy-fs*.3];left-=lw});return tip}}
+    else if(o.t==='line'||o.t==='stream'){const ar=()=>o.ar!=null?o.ar:aiIsAr(o.text),fam=()=>ar()?FONT_B:FONT_R,lh=()=>fs*(ar()?1.5:1.38);PT.fnt(x,fs,700,fam());o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*lh()+20;o.dur=.25+(o.text||'').length/56;
+      o.draw=(x,t,y)=>{const rtl=ar(),f=fam(),L=lh();PT.fnt(x,fs,700,f);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;o.rtl=rtl;if(o.t==='stream')o.h=Math.max(1,ls.length)*L+20;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[rtl?X0+CW:X0,y+fs];
+        ls.forEach((l,i)=>{if(left<=0)return;const lw=x.measureText(l).width,yy=y+fs+i*L,c=Math.min(lw,left);this.neon(x,l,rtl?X0+CW:X0,yy,o.col||'#8ff8ff',fs,{clip:c,fam:f,rtl});tip=[rtl?X0+CW-c:X0+c,yy-fs*.3];left-=lw});return tip}}
     else if(o.t==='ex'){PT.fnt(x,fs,700,FONT_R);o.lines=PT.wrap(x,o.text,CW-60);o.h=o.lines.length*fs*1.38+56;o.dur=.5+o.text.length/56;
       o.draw=(x,t,y)=>{const bh=o.h-16;const tip=this.path(x,this.rectPts(X0,y,CW,bh),'#ff7ae0',4,Math.min(1,t/.3));if(t<=.3)return tip;const k=(t-.3)/.7;PT.fnt(x,fs,700,FONT_R);const total=o.lines.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*k,tp=tip;
         o.lines.forEach((l,i)=>{if(left<=0)return;const lw=x.measureText(l).width,yy=y+24+fs+i*fs*1.38;this.neon(x,l,X0+30,yy,'#ffb8f0',fs,{clip:Math.min(lw,left)});tp=[X0+30+Math.min(lw,left),yy-fs*.3];left-=lw});return tp}}
@@ -116,9 +117,9 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     this.redrawAsk();if(A.done){this.doneAt=performance.now();this.ask.after=true}},
   redrawAsk(){this.dirty=true},
   /* ---------- running the lesson ---------- */
-  speak(text){this.spoken=false;this.sub=text;this.dirty=true;const words=String(text).split(/\s+/).length;Bright.setState('talk',Math.min(16,words*.36));const voiced=!!((window.BookNative&&BookNative.speak)||('speechSynthesis' in window&&speechSynthesis.getVoices().length));
+  speak(text){this.spoken=false;this.sub=text;this.dirty=true;const words=String(text).split(/\s+/).length,ar=aiIsAr(text);this.sayAt=performance.now();this.sayWords=words;Bright.setState('talk',Math.min(16,words*.36));const voiced=!!((window.BookNative&&BookNative.speak)||('speechSynthesis' in window&&speechSynthesis.getVoices().length));
     let once=false;const done=()=>{if(once)return;once=true;clearTimeout(this.sayT);this.spoken=true;this.doneAt=performance.now()};
-    if(!Snd.on){this.sayT=setTimeout(done,words*260+400);return}Voice.say(text,{rate:1,end:done});this.sayT=setTimeout(done,voiced?words*700+3500:words*300+500)},
+    if(!Snd.on){this.sayT=setTimeout(done,words*260+400);return}Voice.say(text,{rate:1,lang:ar?'ar':'en',end:done});this.sayT=setTimeout(done,voiced?words*700+3500:words*300+500)},
   next(){if(!this.on)return;this.i++;const s=this.steps[this.i];if(!s){this.finish();return}this.stepRef=s;
     if(s.wipe)this.wipe();this.queue=(s.items||[]).slice();this.ask=null;this.btns=[];
     if(s.ask){this.ask={q:s.ask.q,opts:shuffle(s.ask.o.slice()),right:s.ask.o[0],why:s.ask.why,tried:[],done:false,msg:''};this.queue.push({t:'qa'})}
@@ -137,11 +138,11 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     if(!lines||!lines.length){const L=(this.sp.c.learn||{}),ex=(L.body||[]).filter(p=>p.startsWith('EX:')).map(p=>p.slice(3).trim().replace(/ {2,}/g,'   '));lines=[ex.length?pick(ex):(L.words||[]).map(x=>x[0]).join(' · ')];say='Here is another way to see it.'}
     this.steps.splice(this.i+1,0,{say:say||lines.join(' '),items:[{t:'title',text:'Another way',icon:'💡'},...lines.map(l=>({t:'line',text:l,col:'#7dff9a'}))],wipe:true});this.paused=false;this.cur=null;this.queue=[];this.next()},
   /* the child's own question, answered on the board as the words stream in */
-  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;
-    const item={t:'stream',text:'',col:'#ffffff'};this.steps.splice(this.i+1,0,{say:'',items:[{t:'line',text:'You asked: '+q,col:'#ffe45f'},item],wipe:true,live:item});this.cur=null;this.queue=[];this.next();
+  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;const ar=aiIsAr(q);
+    const item={t:'stream',text:'',col:'#ffffff'};this.steps.splice(this.i+1,0,{say:'',items:[{t:'line',text:(ar?'سألت: ':'You asked: ')+q,col:'#ffe45f',ar},item],wipe:true,live:item});this.cur=null;this.queue=[];this.next();
     const sp=this.sp;let out='';const mk=()=>{if(this.cur&&this.cur.t==='stream'){this.cur.text=item.text;this.cur.final=item.final}};
-    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:`The child asks: «${q}». Answer in 2 or 3 short sentences.`}],{max:170,onText:t=>{item.text=aiCleanOut(t);mk()}});out=aiCleanOut(r.text)}catch(e){}}
-    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q});item.text=out;item.final=true;mk();if(this.on)this.speak(out)},
+    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:ar?`The child asks in Arabic: «${q}». Answer in simple Arabic, in 2 or 3 short sentences, like a kind teacher. Keep the English school words from this page in English.`:`The child asks: «${q}». Answer in 2 or 3 short sentences.`}],{max:ar?280:170,onText:t=>{item.text=aiCleanOut(t);mk()}});out=aiCleanOut(r.text)}catch(e){}}
+    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q,ar});item.text=out;item.final=true;mk();if(this.on)this.speak(out)},
   tap(h){if(!h||!h.uv)return;const X=h.uv.x*this.W,Y=(1-h.uv.y)*this.H;const b=this.btns.find(r=>X>=r.x&&X<=r.x+r.w&&Y>=r.y&&Y<=r.y+r.h);if(b){Snd.tick();Bright.buzz(10);b.act()}},
   /* ---------- every frame ---------- */
   update(dt){if(!this.g)return;const cam=E.camera,now=performance.now();dt=Math.min(.25,(now-(this.lt||now))/1000);this.lt=now;
@@ -155,8 +156,8 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     if(this.sweep>0){this.sweep=Math.max(0,this.sweep-dt*2.6);this.dirty=true}
     if(this.dirty&&now-this.lastDraw>33){this.lastDraw=now;this.render()}
     /* Bright writes: it follows the pen; otherwise it floats by the board */
-    if(it&&it.tip&&!this.paused&&it.t!=='qa'&&it.p<1){const w=this.toWorld(Math.min(this.W-60,it.tip[0]+46),Math.min(this.H-60,it.tip[1]+52));if(w){Bright.away=true;Bright.goal.copy(w)}}else{const w=this.toWorld(this.W-70,this.H-(this.sg()?300:250));if(w){Bright.away=true;Bright.goal.copy(w)}}
-    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(this.ask&&this.ask.after?1800:650))this.next();
+    if(it&&it.tip&&!this.paused&&it.t!=='qa'&&it.p<1){const w=this.toWorld(Math.max(60,Math.min(this.W-60,it.tip[0]+(it.rtl?-46:46))),Math.min(this.H-60,it.tip[1]+52));if(w){Bright.away=true;Bright.goal.copy(w)}}else{const w=this.toWorld(this.W-70,this.H-(this.sg()?300:250));if(w){Bright.away=true;Bright.goal.copy(w)}}
+    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(s.live?Math.max(2500,(this.sayWords||0)*420-(this.doneAt-(this.sayAt||this.doneAt))):this.ask&&this.ask.after?1800:650))this.next();
     if(this.cur&&this.cur.t==='qa'&&this.ask&&this.ask.done&&this.spoken&&now-this.doneAt>1800){this.cur=null;this.next()}},
   render(){if(!this.x)return;const x=this.x,W=this.W,H=this.H;this.dirty=false;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);x.drawImage(this.bake,0,0);
     const it=this.cur;if(it){it.tip=it.draw(x,it.p,it.t==='qa'?(this.qaY||this.y):this.y);if(it.tip&&!this.paused&&it.p<1&&it.t!=='qa'){x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=26;x.beginPath();x.arc(it.tip[0]+6,it.tip[1]+4,9,0,7);x.fill();x.restore()}}
@@ -165,7 +166,7 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     const n=this.steps.length;for(let k=0;k<n;k++){x.fillStyle=k<this.i?'#7dff9a':k===this.i?'#ffe45f':'rgba(255,255,255,.22)';x.beginPath();x.arc(W-50-(n-1-k)*24,56,7,0,7);x.fill()}
     /* what Bright is saying, and the buttons */
     const fy=H-(this.sg()?232:186);x.fillStyle='rgba(143,248,255,.12)';x.fillRect(40,fy-8,W-80,2);const sub=this.thinking?'Bright is thinking…':this.sub;
-    if(sub){PT.fnt(x,this.sg()?32:28,700,FONT_R);x.fillStyle='rgba(255,255,255,.88)';PT.ltr(x);PT.wrap(x,sub,W-120).slice(0,2).forEach((l,i)=>x.fillText(l,60,fy+38+i*(this.sg()?40:36)))}
+    if(sub){const ar=aiIsAr(sub);PT.fnt(x,this.sg()?32:28,700,ar?FONT_B:FONT_R);x.fillStyle='rgba(255,255,255,.88)';if(ar)PT.rtl(x);else PT.ltr(x);PT.wrap(x,sub,W-120).slice(0,2).forEach((l,i)=>x.fillText(l,ar?W-60:60,fy+38+i*(this.sg()?40:36)))}
     this.btns=this.btns.filter(b=>b.opt);const bh=this.sg()?92:70,by=H-bh-24,labels=[[this.paused?'▶ Play':'⏸ Pause',()=>this.togglePause()],['⏭ Next',()=>this.skip()],['💡 Another way',()=>this.another()],['✕ Close',()=>this.stop()]];
     const gap=16,bw=(W-80-gap*(labels.length-1))/labels.length;labels.forEach(([l,act],i)=>{const r={x:40+i*(bw+gap),y:by,w:bw,h:bh};this.path(x,this.rectPts(r.x,r.y,r.w,r.h),i===2?'#7dff9a':'#8ff8ff',3,1);const f=PT.fitFont(x,l,bw-24,this.sg()?36:30,800,FONT_D,16);this.neon(x,l,r.x+(bw-x.measureText(l).width)/2,r.y+bh/2+f*.36,'#ffffff',f,{fam:FONT_D,wt:800});this.btns.push({x:r.x,y:r.y,w:r.w,h:r.h,act})});
     this.tex.needsUpdate=true}

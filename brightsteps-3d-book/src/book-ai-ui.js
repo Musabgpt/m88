@@ -8,10 +8,14 @@ const BrightBar={mount(){const toc=$('#bkToc');if(!toc||$('#bkAsk'))return;const
 /* speech in: the Android app's voice typing, or the browser's own speech recognition where it has one */
 const AIVoiceIn={cb:null,
   can(){return !!((window.BookNative&&typeof BookNative.listen==='function')||window.SpeechRecognition||window.webkitSpeechRecognition)},
-  listen(cb){this.cb=cb;const mic=$('#aiMic');mic&&mic.classList.add('on');
-    if(window.BookNative&&typeof BookNative.listen==='function'){try{BookNative.listen('en-GB')}catch(e){this.done('')}return}
-    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang='en-GB';r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on')};r.start()}catch(e){this.done('')}},
-  done(t){const mic=$('#aiMic');mic&&mic.classList.remove('on');const cb=this.cb;this.cb=null;if(!t)toast("I didn't hear that. Try again!");cb&&cb(String(t||'').trim())}};
+  /* the language Bright listens in: the last one the child chose (English first) */
+  lang(){try{return localStorage.getItem('bs-ask-lang')==='ar'?'ar':'en'}catch(e){return 'en'}},
+  /* Arabic: the phone's own Arabic if it has one the recognisers know, else Levantine (Jordan) */
+  tag(l){if(l!=='ar')return 'en-GB';const L=[].concat(navigator.languages||[],navigator.language||[]).map(String),a=L.find(x=>/^ar[-_](AE|BH|DZ|EG|IQ|JO|KW|LB|MA|OM|PS|QA|SA|TN|YE)$/i.test(x));return a?a.replace('_','-'):'ar-JO'},
+  listen(cb,l){l=l==='ar'||l==='en'?l:this.lang();try{localStorage.setItem('bs-ask-lang',l)}catch(e){}this.l=l;const tag=this.tag(l);this.cb=cb;const mic=$('#aiMic');mic&&mic.classList.add('on');
+    if(window.BookNative&&typeof BookNative.listen==='function'){try{BookNative.listen(tag)}catch(e){this.done('')}return}
+    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang=tag;r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on')};r.start()}catch(e){this.done('')}},
+  done(t){const mic=$('#aiMic');mic&&mic.classList.remove('on');const cb=this.cb;this.cb=null;if(!t)toast(this.l==='ar'?'لم أسمعك جيدًا. حاول مرة أخرى!':"I didn't hear that. Try again!");cb&&cb(String(t||'').trim())}};
 window.__bookHeard=t=>AIVoiceIn.done(t);
 
 /* grown-ups: AI settings behind a small maths gate */

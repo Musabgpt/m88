@@ -109,14 +109,14 @@ const Book={
     /* ---------- page → world ---------- */
     function p2w(s,side,px,py){const brd=(side==='R'&&s===1)||(side==='L'&&s===S);const w=brd?W+OV:W,h=brd?H+OV*2:H;const ps=phys(side);const x=ps==='R'?px/PW*w:-(1-px/PW)*w;const z=-h/2+py/PH*h;const hh=side==='R'?hR(s):hL(s);return {x,z,y:surfY(brd?0:hh,x),sx:w/PW,sz:h/PH}}
     /* ---------- extras: everything that stands on, or is tapped on, the open spread ---------- */
-    function foldExtras(){Bright.fold();const ex=st.ex;if(!ex)return;st.ex=null;ex.dead=true;if(ex.pop&&ex.pop.stop)try{ex.pop.stop()}catch(e){}
+    function foldExtras(keep){if(!keep)Bright.fold();const ex=st.ex;if(!ex)return;st.ex=null;ex.dead=true;if(ex.pop&&ex.pop.stop)try{ex.pop.stop()}catch(e){}
       const kids=ex.g.children.slice();const s0=kids.map(c=>c.scale.y);E.anim(dur(.24),k=>{kids.forEach((c,i)=>{if(c.userData.fold!==false)c.scale.y=Math.max(.02,s0[i]*(1-k))})}).then(()=>{scene.remove(ex.g);ex.picks.forEach(o=>E.untap(o));PK.disposeTree(ex.g)})}
     function makeHits(ex,k,side){(ex.hits[side]||[]).forEach(m=>{ex.g.remove(m);E.untap(m);m.geometry.dispose();m.material.dispose()});ex.hits[side]=[];const p=page(side+k);
       (p.meta.hits||[]).forEach(hh=>{const c=p2w(k,side,hh.x+hh.w/2,hh.y+hh.h/2);const pl=new THREE.Mesh(new THREE.PlaneGeometry(hh.w*c.sx,hh.h*c.sz),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pl.rotation.x=-Math.PI/2;pl.position.set(c.x,c.y+.006,c.z);pl.userData.fold=false;ex.g.add(pl);ex.hits[side].push(pl);ex.tap(pl,()=>{if(hh.sound!==false)Snd.tick();hh.fn()})})}
-    function buildExtras(k){if(st.ex)foldExtras();Overlay.sync();
+    function buildExtras(k,keep){if(st.ex)foldExtras(keep);Overlay.sync();
       const g=new THREE.Group();scene.add(g);const ex={g,s:k,sp:null,picks:[],drags:[],ups:[],pop:null,root:null,hits:{L:[],R:[]}};st.ex=ex;
       ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;fn(h,oo,e)});ex.picks.push(o);return o};
-      if(k<1||k>M+1){Book.coverExtras(ex,k,st);Bright.spreadReady();return}
+      if(k<1||k>M+1){Book.coverExtras(ex,k,st);Bright.spreadReady(keep);return}
       if(k===1)repaint('R1');if(k===S)repaint('L'+S);bd.last=k;
       const sp=SPREADS[k-1];ex.sp=sp;
       makeHits(ex,k,'R');makeHits(ex,k,'L');
@@ -132,10 +132,12 @@ const Book={
         if(pl.meta.note)P.note(ex.pop.capEn||'Your turn! Tap, drag and press the buttons.',ex.pop.capAr||'دورك! اضغط واسحب وجرّب الأزرار.');
         root.scale.y=.02*kS;E.tw(root.scale,{y:kS},RM?.01:.62,Ease.back);
       }
-      Overlay.live(sp);Bright.spreadReady();
+      Overlay.live(sp);Bright.spreadReady(keep);
     }
     st.refresh=id=>{repaint(id);const ex=st.ex;if(!ex||ex.dead)return;const side=id[0],k=+id.slice(1);if(k===ex.s)makeHits(ex,k,side)};
-    st.repaintAll=()=>{pages.forEach(p=>paint(p));if(!st.flip&&st.turned>=1&&st.turned<=M+1)buildExtras(st.turned)};
+    /* after a font loads: repaint the pages. An Arabic font (soft) only redraws, so nothing the child is using closes; others also rebuild the pop-ups, keeping Bright as it is */
+    st.repaintAll=soft=>{pages.forEach(p=>paint(p));const ex=st.ex,k=st.turned,inBook=!st.flip&&k>=1&&k<=M+1;
+      if(soft){if(ex&&!ex.dead&&inBook&&ex.s===k){makeHits(ex,k,'R');makeHits(ex,k,'L')}Bright.redraw();return}if(inBook)buildExtras(k,true)};
     st.next=next;st.prev=prev;st.go=go;st.repaint=repaint;st.page=page;st.p2w=p2w;st.single=single;st.aim=aim;
     st.burst=(id,px,py,o)=>{const k=+id.slice(1),w=p2w(k,id[0],px,py);FX.burst(new THREE.Vector3(w.x,w.y+.25,w.z),Object.assign({n:60,speed:2.6,size:.2,colors:['#ffd166','#ffffff','#ff7b39'],sound:false},o||{}))};
     /* ---------- pointer: drag pop-up parts, drag a page edge to turn ---------- */

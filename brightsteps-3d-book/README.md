@@ -12,6 +12,7 @@ Everything is in English, the language of school. Arabic stays only as short not
 - **The pen ✎ writes on the page itself**: strokes go into the page's paper, stay on that page, turn with it and are kept on the device (undo and clear work on the open pages).
 - **Bright, the AI helper, lives in the book** as a little glowing star that floats over the page and follows the child:
   - tap Bright: its thought bubbles open (explain again, another example, fun fact, a story, quiz me, read it to me, ask by voice or typing, Arabic for parents);
+  - **ask in English or Arabic**: type in either language, or press 🎤 English or 🎤 عربي. A question in Arabic gets a simple Arabic answer (the lesson's English words stay in English), written right to left on the note or the board and read with the Arabic voice;
   - tap **any sentence or key word** on a lesson page: the yellow marker sweeps over it, Bright flies there and writes the explanation on a paper note that pops out of the page;
   - **✨ Ask why** under every 3D model, **💡 Hint** inside every quiz question, **✨ New questions** for endless quizzes; Bright cheers right answers and comforts wrong ones;
   - **Read it to me**: Bright reads the lesson line by line while the marker follows.

@@ -68,7 +68,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
   /* ---------- thought bubbles ---------- */
   spread(){const st=this.st;return st&&st.turned>=1&&st.turned<=st.M+1?SPREADS[st.turned-1]:null},
   items(){const st=this.st,k=st.turned,sp=this.spread();const T=AI_TASKS;const I=(t,fn)=>({icon:T[t].icon,label:T[t].label,fn:fn||(()=>this.ask({task:t,sp}))});
-    if(Board.on)return [{icon:'▶️',label:'Carry on',fn:()=>{Board.paused=false;Board.dirty=true}},{icon:'❓',label:'Ask a question',fn:()=>this.listen()},{icon:'💡',label:'Another way',fn:()=>Board.another()},{icon:'✕',label:'Stop the lesson',fn:()=>Board.stop()}];
+    if(Board.on)return [{icon:'▶️',label:'Carry on',fn:()=>{Board.paused=false;Board.dirty=true}},{icon:'❓',label:'Ask a question · اسأل',fn:()=>this.listen()},{icon:'💡',label:'Another way',fn:()=>Board.another()},{icon:'✕',label:'Stop the lesson',fn:()=>Board.stop()}];
     if(!sp){const bd=BookData();return [{icon:'👋',label:"Hi, I'm Bright!",fn:()=>this.hello()},{icon:'📖',label:k===0?'Open the book':'Open it again',fn:()=>st.go(k===0?1:bd.last>1?bd.last:1)}]}
     if(sp.kind==='intro')return [{icon:'👋',label:'Who are you?',fn:()=>this.hello()},{icon:'🗺️',label:'Where do I start?',fn:()=>this.ask({task:'ask',sp,text:'Which topic in this book should I start with today, and why?'})},I('ask',()=>this.listen())];
     if(sp.kind==='learn')return [{icon:'🎓',label:'Teach me',fn:()=>Board.start(sp)},I('explain'),I('example'),I('fact'),I('story'),I('quiz'),{icon:'🔊',label:'Read it to me',fn:()=>this.readAloud()},I('ask',()=>this.listen()),I('parents')];
@@ -92,8 +92,9 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
   isOpen(){return !!(this.menu.length||this.card||this.reading||$('#brightAsk')||Board.on)},
   close(){const b=$('#brightAsk');if(b)b.remove();if(this.dismiss())return true;if(Board.on){Board.stop();return true}return false},
   /* the book calls these when a spread is built or starts to fold away */
-  spreadReady(){const k=this.st?this.st.turned:-1,moved=k!==this.lastK;this.lastK=k;if(!moved&&Board.on)return;this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();this.away=false;this.homeAt(false);
+  spreadReady(keep){const k=this.st?this.st.turned:-1,moved=k!==this.lastK;this.lastK=k;if(!moved&&(Board.on||keep))return;this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();this.away=false;this.homeAt(false);
     const sp=this.spread();if(sp&&sp.kind==='learn'&&BookAI.conf().teach!==false&&!Board.auto[sp.w]){Board.maybeAuto(sp);return}if(!this.greeted&&sp&&sp.kind==='learn'){this.greeted=true;setTimeout(()=>{if(this.on&&!this.isOpen()){this.tagMe();this.react('cheer')}},1400)}},
+  redraw(){if(this.card)this.drawCard();if(Board.on)Board.dirty=true},
   fold(){this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();Board.stop();const b=$('#brightAsk');if(b)b.remove()},
   /* ---------- the yellow marker on the page ---------- */
   mark(k,side,rects){this.clearMarks();const st=this.st;(rects||[]).forEach((r,i)=>{const L=st.p2w(k,side,r.x,r.y+r.h/2),R=st.p2w(k,side,r.x+r.w,r.y+r.h/2);const w=Math.max(.01,R.x-L.x),d=r.h*L.sz;
@@ -110,7 +111,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const cv=document.createElement('canvas');cv.width=1024;cv.height=Math.round(1024*ph/pw);const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({map:tex,roughness:.88,transparent:true,alphaTest:.5}));mesh.castShadow=true;mesh.rotation.x=-Math.PI/2+tilt;mesh.renderOrder=20;
     const g=new THREE.Group();g.position.set(c.x,c.y+.07+lift+Math.sin(tilt)*d/2,c.z+lift*.35);g.add(mesh);g.scale.set(.05,.05,.05);this.scene.add(g);
-    const C={g,mesh,cv,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,kind:o.kind||'text',text:'',shown:0,cps:RM?999:70,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
+    const C={g,mesh,cv,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,auto:!!o.auto,kind:o.kind||'text',text:'',shown:0,cps:RM?999:70,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
     this.card=C;this.drawCard();E.tw(g.scale,{x:1,y:1,z:1},RM?.01:.42,Ease.back);Snd.noise(.22,{vol:.08,f:2600,type:'bandpass'});this.buzz(8);
     E.tap(mesh,h=>this.cardTap(h));
     const corner=st.p2w(kk,side,Math.min(BK.PW-60,BK.PW/2+pw/2-10),cy-ph/2);this.flyTo(new THREE.Vector3(corner.x,corner.y+.75,corner.z));
@@ -119,7 +120,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const gone=()=>{this.scene&&this.scene.remove(C.g);C.mesh.geometry.dispose();C.mesh.material.dispose();C.tex.dispose()};
     if(fast||RM)gone();else E.tw(C.g.scale,{x:.05,y:.05,z:.05},.22,Ease.in).then(gone);
     if(!this.reading){this.flyTo(null);if(this.state==='think'||this.state==='talk')this.setState('idle')}},
-  cardText(text,o={}){const C=this.card;if(!C)return;if(text!=null){if(text.length<C.shown||!text.startsWith(C.text.slice(0,Math.floor(C.shown))))C.shown=0;C.text=text}
+  cardText(text,o={}){const C=this.card;if(!C)return;if(text!=null){if(text.length<C.shown||!text.startsWith(C.text.slice(0,Math.floor(C.shown))))C.shown=0;C.text=text;if(C.auto&&text)C.ar=aiIsAr(text)}
     if(o.src)C.src=o.src;if(C.text)C.status=C.status==='done'?'done':'write';if(o.final){C.final=true;if(this.state==='think')this.setState('idle')}this.drawCard()},
   finishCard(){const C=this.card;if(!C)return;C.status='done';C.shown=C.text.length;this.drawCard();if(this.state==='think')this.setState('idle');
     if(C.kind!=='quiz'&&C.text&&BookAI.conf().voice!==false){const words=C.text.split(/\s+/).length;this.setState('talk',Math.min(14,words*.38));Voice.say(C.text,{lang:C.ar?'ar':'en',auto:true,rate:1,end:()=>{if(this.state==='talk')this.setState('idle')}})}},
@@ -153,12 +154,12 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     if(b){this.buzz(10);Snd.tick();b.act()}else if(C.status==='done'&&C.text&&C.kind!=='quiz')Voice.say(C.text,{lang:C.ar?'ar':'en'})},
   /* ---------- asking ---------- */
   async ask(o){if(!this.on)return;const st=this.st,sp=o.sp||this.spread();if(o.task==='quiz')return this.quizCard(sp);
-    const T=AI_TASKS[o.task]||AI_TASKS.ask;this.closeMenu();this.stopRead(false);
-    const C=this.openCard({title:T.title,icon:T.icon,ar:!!T.ar,anchor:o.anchor,size:o.task==='story'?'l':o.task==='hint'||o.task==='word'?'s':'m',lift:o.task==='why'?1.15:0});C.o.q=Object.assign({},o,{another:undefined});
+    const arQ=o.task==='ask'&&aiIsAr(o.text),T=arQ?AI_TASKS.askAr:AI_TASKS[o.task]||AI_TASKS.ask;this.closeMenu();this.stopRead(false);
+    const C=this.openCard({title:T.title,icon:T.icon,ar:!!T.ar,auto:o.task==='ask',anchor:o.anchor,size:o.task==='story'?'l':o.task==='hint'||o.task==='word'?'s':'m',lift:o.task==='why'?1.15:0});C.o.q=Object.assign({},o,{another:undefined});
     if(o.marks&&o.anchor)this.mark(C.k,o.anchor.side,o.marks);this.react('think');
     const text=aiCleanIn(o.text||''),user=T.p.replace('{text}',text).replace('{opts}',(o.opts||[]).map(String).join(' / '))+(o.another?`\nGive a different answer from this one: «${String(o.another).slice(0,300)}»`:'');
     const ctxText=aiPageContext(sp,o.note?'What the child just saw in the 3D model: '+o.note:'');const key=AICache.key(o.task,sp&&sp.w||sp&&sp.kind||'',T.p.replace('{text}',text).replace('{opts}',''),T.ar?'ar':'en');
-    const offline=()=>AIOffline.answer(o.task==='ask'?'free':o.task,sp,{note:o.note,text:o.text});
+    const offline=()=>AIOffline.answer(o.task==='ask'?'free':o.task,sp,{note:o.note,text:o.text,ar:arQ});
     if(o.task==='ask'&&AI_BAD.test(text)){this.cardText("That's a question for a grown-up. Shall we look at this page together instead? 😊",{src:'book',final:true});return}
     const hit=o.another?AICache.take(key+'#next'):AICache.get(key);
     if(hit){this.cardText(hit.x,{src:hit.p||'book',final:true});this.prefetch(o,key,user,ctxText,T,hit.x);return}
@@ -197,13 +198,17 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     step();return true},
   stopRead(back=true){const r=this.reading;if(!r)return;r.dead=true;clearTimeout(r.t);this.reading=null;this.clearMarks();this.setState('idle');try{if('speechSynthesis' in window)speechSynthesis.cancel();if(window.BookNative&&BookNative.stop)BookNative.stop()}catch(e){}if(back)this.flyTo(null)},
   /* ---------- asking with your voice, or a little speech bubble to type in ---------- */
-  listen(){const go=t=>{t=aiCleanIn(t);if(!t)return;if(Board.on)Board.question(t);else this.ask({task:'ask',text:t})};
-    if(AIVoiceIn.can()&&(window.BookNative||!(window.matchMedia&&matchMedia('(pointer:fine)').matches))){AIVoiceIn.listen(t=>{if(t)go(t);else this.typeBox(go)});return}this.typeBox(go)},
+  listen(){const go=t=>{t=aiCleanIn(t);if(!t)return;if(Board.on)Board.question(t);else this.ask({task:'ask',text:t})};this.typeBox(go)},
   typeBox(cb){let el=$('#brightAsk');if(el)el.remove();const host=$('#stage');if(!host)return;el=document.createElement('form');el.id='brightAsk';el.className='bright-ask';el.dir='ltr';el.lang='en';
-    el.innerHTML='<span class="ba-star" aria-hidden="true">✨</span><input maxlength="200" placeholder="Ask Bright anything…" autocomplete="off" enterkeyhint="send" aria-label="Your question"><button class="btn sm hot" type="submit">Ask</button>'+(AIVoiceIn.can()?'<button class="btn sm ghost" type="button" data-mic aria-label="Say it">🎤</button>':'')+'<button class="btn sm ghost" type="button" data-x aria-label="Close">✕</button>';
-    host.appendChild(el);this.placeBox();const inp=el.querySelector('input');setTimeout(()=>inp.focus(),40);
-    el.onsubmit=e=>{e.preventDefault();const v=inp.value;el.remove();cb(v)};el.querySelector('[data-x]').onclick=()=>el.remove();const m=el.querySelector('[data-mic]');if(m)m.onclick=()=>{el.remove();AIVoiceIn.listen(t=>{if(t)cb(t)})};
+    const lg=AIVoiceIn.lang(),mic=(l,t,a)=>`<button class="btn sm ghost${lg===l?' hot':''}" type="button" data-mic="${l}" lang="${l}" aria-label="${a}">🎤 ${t}</button>`;
+    el.innerHTML='<span class="ba-star" aria-hidden="true">✨</span><input maxlength="200" dir="auto" placeholder="Ask Bright… · اسأل…" autocomplete="off" enterkeyhint="send" aria-label="Your question"><button class="btn sm hot" type="submit">Ask</button><button class="btn sm ghost" type="button" data-x aria-label="Close">✕</button>'+
+      (AIVoiceIn.can()?'<div class="ba-mics">'+mic('en','English','Say it in English')+mic('ar','عربي','قلها بالعربي')+'</div>':'');
+    host.appendChild(el);this.placeBox();const inp=el.querySelector('input'),touch=!(window.matchMedia&&matchMedia('(pointer:fine)').matches);if(!(touch&&AIVoiceIn.can()))setTimeout(()=>inp.focus(),40);
+    el.onsubmit=e=>{e.preventDefault();const v=inp.value;el.remove();cb(v)};el.querySelector('[data-x]').onclick=()=>{el.remove();if(Board.on&&Board.paused&&!Board.thinking){Board.paused=false;Board.dirty=true}};
+    el.querySelectorAll('[data-mic]').forEach(m=>m.onclick=()=>{el.remove();AIVoiceIn.listen(t=>{if(t)cb(t);else this.typeBox(cb)},m.dataset.mic)});
     ['pointerdown','keydown'].forEach(ev=>el.addEventListener(ev,e=>e.stopPropagation()));el.addEventListener('wheel',e=>e.stopPropagation(),{passive:true})},
   placeBox(){const el=$('#brightAsk');if(!el||!this.g)return;const host=$('#stage');if(!host)return;const r=host.getBoundingClientRect(),v=this.g.position.clone().project(E.camera);
-    const sx=(v.x+1)/2*r.width,sy=(1-v.y)/2*r.height,w=Math.min(r.width-24,440);el.style.width=w+'px';el.style.left=Math.max(12,Math.min(r.width-w-12,sx-w*.75))+'px';el.style.top=Math.max(64,Math.min(r.height-90,sy+36))+'px'}
+    const sx=(v.x+1)/2*r.width,sy=(1-v.y)/2*r.height,w=Math.min(r.width-24,440);
+    /* the bubble keeps still while Bright bobs, so it is easy to tap; it moves only when Bright really goes somewhere or the screen changes */
+    const at=el._at;if(at&&Math.abs(at[0]-sx)<48&&Math.abs(at[1]-sy)<48&&at[2]===r.width&&at[3]===r.height)return;el._at=[sx,sy,r.width,r.height];el.style.width=w+'px';el.style.left=Math.max(12,Math.min(r.width-w-12,sx-w*.75))+'px';el.style.top=Math.max(64,Math.min(r.height-(el.offsetHeight||90)-12,sy+36))+'px'}
 };

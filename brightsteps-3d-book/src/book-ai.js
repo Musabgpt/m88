@@ -198,7 +198,10 @@ Be warm and encouraging. Use at most one emoji.
 Stay on safe school topics. If the child asks about anything scary, rude, violent, private or grown-up, say kindly that it is a question for a grown-up, and suggest something from this page instead.
 Never ask for or repeat personal details (names, addresses, school, phone numbers, photos).
 No links, no web addresses, no markdown symbols like * or #.
-If you are not sure, say so simply. Follow the National Curriculum for England, Year 2.`;
+If you are not sure, say so simply. Follow the National Curriculum for England, Year 2.
+If the child writes in Arabic, reply in simple Arabic that a 6 year old understands (easy Modern Standard Arabic, short sentences), and keep the English school words from the book in English, for example tens and ones.`;
+/* written in Arabic? (Arabic letters are at least half as many as the English ones) */
+function aiIsAr(t){const s=String(t||''),a=(s.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g)||[]).length,l=(s.match(/[A-Za-z]/g)||[]).length;return a>0&&a*2>=l}
 function aiPageContext(sp,extra){if(!sp||!sp.w)return 'Page: the start of the book (how to use it and the contents).';const w=WB[sp.w],c=sp.c||WC[sp.w]||{},L=c.learn||{},ch=CH[w.d]||{};
   const lines=[`Topic: ${w.en} (Chapter ${ch.n||''}: ${ch.enName||''}).`];if(L.body)lines.push('The lesson says: '+L.body.map(p=>p.replace(/^EX:/,'Example: ').replace(/ {2,}/g,'; ')).join(' '));
   if(L.words)lines.push('Key words: '+L.words.map(x=>x[0]).join(', ')+'.');if(L.flap)lines.push(`Question in the book: ${L.flap.q} Answer: ${L.flap.a}`);
@@ -214,7 +217,8 @@ const AI_TASKS={
   line:{icon:'🔍',label:'This sentence',title:'This sentence',p:'The child tapped this sentence in the book: «{text}». Explain just this sentence in a new, simple way, in 2 short sentences, with one tiny example.',max:130},
   word:{icon:'🔤',label:'This word',title:'Word magic',p:'The child tapped the key word «{text}». Say what it means in very simple words, then use it in one short sentence. Under 35 words.',max:90},
   hint:{icon:'💡',label:'Hint',title:'A little hint',p:'The child is answering this quiz question: «{text}». The choices are: {opts}. Give ONE gentle hint that helps them think. Do NOT say the answer or which letter. Under 30 words.',max:80},
-  ask:{icon:'🎤',label:'Ask me',title:'You asked',p:'The child asks: «{text}». Answer them in 2 or 3 short sentences.',max:170},
+  ask:{icon:'🎤',label:'Ask me · اسألني',title:'You asked',p:'The child asks: «{text}». Answer them in 2 or 3 short sentences.',max:170},
+  askAr:{icon:'🎤',label:'اسألني',title:'سؤالك',ar:true,p:'The child asks in Arabic: «{text}». Answer in simple Arabic, in 2 or 3 short sentences, like a kind teacher. Keep the English school words from this page in English.',max:280},
   parents:{icon:'👪',label:'عربي للأهل',title:'للأهل',ar:true,p:'Reply in simple Modern Standard Arabic for a parent (not for the child): in 3 short sentences, say what the child is learning on this page and one easy way to help at home. Keep English school words in English.',max:220}
 };
 const AI_BAD=/\b(sex\w*|porn\w*|nude|naked|fuck\w*|shit\w*|bitch\w*|cunt|dick|bastard|wank\w*|rape\w*|suicid\w*|cocaine|heroin|weed|vodka|nigg\w*|slut|whore)\b/i;
@@ -226,7 +230,10 @@ function aiCleanOut(t,ar){let s=String(t||'').replace(/```[\s\S]*?```/g,'').repl
 /* ---------- the offline helper: answers from the book itself ---------- */
 const AI_NAMES=['Ava','Sam','Leo','Mia','Zain','Amira','Noah','Isla','Yusuf','Ruby'];
 const AIOffline={
-  answer(task,sp,o={}){if(!sp||!sp.w)return task==='ask'?"I can't think of new answers right now. Open a topic and I'll tell you about it! 📖":"Hi! I'm Bright ✨ Open a topic from the contents and tap me there.";const w=WB[sp.w],c=sp.c||WC[sp.w]||{},L=c.learn||{};
+  /* an Arabic question and no AI answers: say so in Arabic, with what this page teaches (the note for parents) */
+  arabic(sp){if(!sp||!sp.w)return 'لا أستطيع أن أجيب الآن. افتح موضوعًا من الفهرس، وسأخبرك عنه! 📖';const L=(sp.c||WC[sp.w]||{}).learn||{};
+    return 'لا أستطيع الوصول إلى المساعد الآن، لكن هذا ما نتعلّمه في هذه الصفحة: '+(L.ar||WB[sp.w].en)+' 😊'},
+  answer(task,sp,o={}){if(o.ar)return this.arabic(sp);if(!sp||!sp.w)return task==='ask'?"I can't think of new answers right now. Open a topic and I'll tell you about it! 📖":"Hi! I'm Bright ✨ Open a topic from the contents and tap me there.";const w=WB[sp.w],c=sp.c||WC[sp.w]||{},L=c.learn||{};
     const body=(L.body||[]).filter(p=>!p.startsWith('EX:')),ex=(L.body||[]).filter(p=>p.startsWith('EX:')).map(p=>p.slice(3).trim().replace(/ {2,}/g,' · ')),words=(L.words||[]).map(x=>x[0]);
     const near=t=>{const ws=String(t||'').toLowerCase().match(/[a-z]{3,}/g)||[];let best=null,bs=0;body.forEach(l=>{const sc=ws.filter(x=>l.toLowerCase().includes(x)).length;if(sc>bs){bs=sc;best=l}});return best};
     if(task==='explain')return 'Here is the big idea: '+body.slice(0,2).join(' ')+(words.length?' Key words: '+words.slice(0,4).join(', ')+'.':'');
