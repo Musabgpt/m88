@@ -12,7 +12,7 @@ SRC = ROOT / 'src'
 html = (SRC / 'original.html').read_text(encoding='utf-8')
 css = (SRC / 'book.css').read_text(encoding='utf-8')
 js = '\n'.join((SRC / f).read_text(encoding='utf-8') for f in
-               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js', 'book-ai.js', 'book-bright.js', 'book-board.js', 'book-ink.js', 'book-ai-ui.js'])
+               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js', 'book-ai.js', 'book-bright.js', 'book-board.js', 'book-ink.js', 'book-ai-ui.js', 'book-perf.js'])
 
 def sub(old, new, count=1):
     global html

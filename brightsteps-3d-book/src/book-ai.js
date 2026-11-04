@@ -68,7 +68,7 @@ const AINet={seq:0,pending:{},
     const ab=()=>{why='cancelled';ctl.abort()};if(signal){if(signal.aborted)ab();else signal.addEventListener('abort',ab)}
     return fetch(url,{method,headers,body:method==='GET'?undefined:body,signal:ctl.signal,credentials:'omit'})
       .then(async r=>{const h={'retry-after':r.headers.get('retry-after')||'','content-type':r.headers.get('content-type')||''};let text='';
-        if(onChunk&&r.ok&&r.body&&r.body.getReader){const rd=r.body.getReader(),dec=new TextDecoder();for(;;){const {done,value}=await rd.read();if(done)break;const c=dec.decode(value,{stream:true});text+=c;onChunk(c)}}
+        if(onChunk&&r.ok&&r.body&&r.body.getReader){const rd=r.body.getReader(),dec=new TextDecoder();try{for(;;){const {done,value}=await rd.read();if(done)break;const c=dec.decode(value,{stream:true});text+=c;onChunk(c)}}catch(e){try{rd.cancel()}catch(_){}throw e}}
         else text=await r.text();
         return {status:r.status,headers:h,body:text}})
       .catch(e=>{if(e instanceof AIError)throw e;const ab2=e&&e.name==='AbortError';throw new AIError(ab2?(why==='cancelled'?'cancelled':'timed out'):'cannot reach the AI service',0,'',null,ab2?why:'network')})
@@ -109,7 +109,7 @@ async function aiOpenAI(spec,key,messages,o){
   const h={'Content-Type':'application/json',Accept:stream?'text/event-stream':'application/json'};if(key)h.Authorization='Bearer '+key;if(/openrouter\.ai/.test(spec.base))h['X-Title']='BrightSteps 3D Book';
   const sse=aiSSE(o.onText);
   const r=await AINet.http(spec.base.replace(/\/+$/,'')+'/chat/completions',{headers:h,body:JSON.stringify(body),timeout:o.timeout||40000,signal:o.signal,onChunk:stream?c=>sse.push(c):null});
-  if(r.status===400&&stream&&/stream/i.test(r.body||'')){spec.noStream=true;return aiOpenAI(spec,key,messages,o)}
+  if(r.status===400&&stream&&/\bstream/i.test(r.body||'')){spec.noStream=true;return aiOpenAI(spec,key,messages,o)}
   if(r.status>=400)throw new AIError(spec.name+' HTTP '+r.status,r.status,r.body,r.headers['retry-after']||null);
   const text=sse.isSSE()?aiVisible(sse.text()).trim():aiParseCompletion(r.body);if(!text)throw new AIError('empty reply',502);
   if(!sse.isSSE()&&o.onText)o.onText(text);return text}
@@ -222,7 +222,10 @@ const AI_TASKS={
   parents:{icon:'👪',label:'عربي للأهل',title:'للأهل',ar:true,p:'Reply in simple Modern Standard Arabic for a parent (not for the child): in 3 short sentences, say what the child is learning on this page and one easy way to help at home. Keep English school words in English.',max:220}
 };
 const AI_BAD=/\b(sex\w*|porn\w*|nude|naked|fuck\w*|shit\w*|bitch\w*|cunt|dick|bastard|wank\w*|rape\w*|suicid\w*|cocaine|heroin|weed|vodka|nigg\w*|slut|whore)\b/i;
-function aiCleanIn(t){return String(t||'').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g,'[email]').replace(/https?:\/\/\S+|www\.\S+/gi,'[link]').replace(/(\+?\d[\d\s-]{7,}\d)/g,'[number]').replace(/\s+/g,' ').trim().slice(0,240)}
+/* what goes to the AI: no e-mail, link or phone number, and never the child's own name */
+function aiCleanIn(t){let s=String(t||'');const nm=typeof childName==='function'?childName():'';
+  if(nm.length>1){const e=nm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),to=aiIsAr(s)?'الطفل':'the child';try{s=s.replace(new RegExp('(?<![\\p{L}\\p{M}])'+e+'(?![\\p{L}\\p{M}])','giu'),to)}catch(_){s=s.split(nm).join(to)}}
+  return s.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g,'[email]').replace(/https?:\/\/\S+|www\.\S+/gi,'[link]').replace(/(\+?\d[\d\s-]{7,}\d)/g,'[number]').replace(/\s+/g,' ').trim().slice(0,240)}
 function aiCleanOut(t,ar){let s=String(t||'').replace(/```[\s\S]*?```/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/\s*\b(?:see|visit|go to|check out|read more at)\b[:\s]*(?:https?:\/\/\S+|www\.\S+)/gi,'').replace(/https?:\/\/\S+|www\.\S+/gi,'').replace(/[*_#`>]+/g,'').replace(/[ \t]+/g,' ').replace(/ +([.,!?])/g,'$1').replace(/\n{3,}/g,'\n\n').trim();
   if(s.length>900){const cut=s.slice(0,900);const k=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('! '),cut.lastIndexOf('? '),cut.lastIndexOf('。'));s=(k>300?cut.slice(0,k+1):cut)+' …'}
   if(AI_BAD.test(s))return ar?'هذا سؤال للكبار. لنعد إلى صفحة الكتاب.':"That's a question for a grown-up. Shall we look at this page together instead? 😊";return s}

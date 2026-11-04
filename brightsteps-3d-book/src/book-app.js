@@ -34,5 +34,5 @@ App.book=function(){
 };
 /* no WebGL: the same book as a scroll of pages */
 App.bookFlat=function(){bookSpreads();const v=$('#stage');v.style.height='auto';v.innerHTML=`<div class="wrap" dir="ltr" lang="en"><div class="bk-flat">${SPREADS.map(sp=>`<div class="card" style="background:#fbf4e2;color:#2d2219"><div class="bk-read" style="position:static;box-shadow:none;border-radius:14px;max-height:none">${Overlay.html(sp)}</div></div>`).join('')}</div></div>`;
-  $$('[data-href]',v).forEach(b=>b.onclick=()=>App.go(b.dataset.href));$$('[data-reveal]',v).forEach(b=>b.onclick=()=>{const a=b.parentElement.querySelector('.ans');if(a)a.hidden=false;b.remove()});$$('[data-goto]',v).forEach(b=>b.remove())};
+  $$('[data-href]',v).forEach(b=>b.onclick=()=>App.go(b.dataset.href));$$('[data-reveal]',v).forEach(b=>b.onclick=()=>{const a=b.parentElement.querySelector('.ans');if(a)a.hidden=false;b.remove()});$$('[data-goto]',v).forEach(b=>b.remove());$$('[data-aiset]',v).forEach(b=>b.onclick=()=>AISettings.gate())};
 if(document.fonts&&document.fonts.addEventListener)document.fonts.addEventListener('loadingdone',e=>{const s=Book.st;if(!s||!s.repaintAll)return;const ff=(e&&e.fontfaces)||[];s.repaintAll(ff.length>0&&ff.every(f=>/^\s*U\+0?6/i.test(String(f.unicodeRange||''))))});

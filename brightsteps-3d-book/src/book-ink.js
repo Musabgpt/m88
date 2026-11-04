@@ -24,7 +24,7 @@ const BookInk={k:'bs-ink-v1',m:null,cur:null,undoStack:[],dirty:new Set(),saveT:
   undo(){const vis=this.visible();for(let i=this.undoStack.length-1;i>=0;i--){const id=this.undoStack[i];if(!vis.includes(id))continue;this.undoStack.splice(i,1);const l=this.load()[id];if(l&&l.length){l.pop();if(!l.length)delete this.m[id]}this.save();Book.st.repaint(id);return}
     /* nothing drawn in this visit: take back the last stroke on these pages */
     for(const id of vis){const l=this.load()[id];if(l&&l.length){l.pop();if(!l.length)delete this.m[id];this.save();Book.st.repaint(id);return}}},
-  clear(){const m=this.load();this.visible().forEach(id=>{if(m[id]){delete m[id];Book.st.repaint(id)}});this.save();toast('Cleared')}
+  clear(){const m=this.load(),vis=this.visible();vis.forEach(id=>{if(m[id]){delete m[id];Book.st.repaint(id)}});this.undoStack=this.undoStack.filter(id=>!vis.includes(id));this.save();toast('Cleared')}
 };
 /* the pen button keeps its bar; in the book it writes on the page, elsewhere it still draws over the screen */
 (()=>{const toggle0=Pen.toggle.bind(Pen),init0=Pen.init.bind(Pen);

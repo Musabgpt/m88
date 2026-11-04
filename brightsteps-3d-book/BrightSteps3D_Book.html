@@ -2687,7 +2687,7 @@ const Book={
     scene.background=new THREE.Color('#0d0b14');scene.fog=new THREE.FogExp2('#0d0b14',.034);
     scene.add(new THREE.HemisphereLight(0xfff1de,0x2c2019,.78));
     const sun=new THREE.DirectionalLight(0xffebd2,1.32);sun.position.set(4.5,13,8);sun.castShadow=true;const sc=sun.shadow.camera;sc.left=-9;sc.right=9;sc.top=9;sc.bottom=-9;sc.near=2;sc.far=40;
-    const sm=innerWidth<700?1024:2048;sun.shadow.mapSize.set(sm,sm);sun.shadow.bias=-.0006;sun.shadow.normalBias=.025;scene.add(sun,sun.target);
+    const sm=innerWidth<700?1024:2048;sun.shadow.mapSize.set(sm,sm);sun.shadow.bias=-.0006;sun.shadow.normalBias=.025;scene.add(sun,sun.target);st.sun=sun;
     const fill=new THREE.DirectionalLight(0xa9bcff,.2);fill.position.set(-7,6,-6);scene.add(fill);
     const lamp=new THREE.PointLight(0xffb070,.5,30,1.6);lamp.position.set(-7,6,-5);scene.add(lamp);
     /* desk */
@@ -2792,7 +2792,7 @@ const Book={
       (p.meta.hits||[]).forEach(hh=>{const c=p2w(k,side,hh.x+hh.w/2,hh.y+hh.h/2);const pl=new THREE.Mesh(new THREE.PlaneGeometry(hh.w*c.sx,hh.h*c.sz),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pl.rotation.x=-Math.PI/2;pl.position.set(c.x,c.y+.006,c.z);pl.userData.fold=false;ex.g.add(pl);ex.hits[side].push(pl);ex.tap(pl,()=>{if(hh.sound!==false)Snd.tick();hh.fn()})})}
     function buildExtras(k,keep){if(st.ex)foldExtras(keep);Overlay.sync();
       const g=new THREE.Group();scene.add(g);const ex={g,s:k,sp:null,picks:[],drags:[],ups:[],pop:null,root:null,hits:{L:[],R:[]}};st.ex=ex;
-      ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;fn(h,oo,e)});ex.picks.push(o);return o};
+      ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;ex.used=true;fn(h,oo,e)});ex.picks.push(o);return o};
       if(k<1||k>M+1){Book.coverExtras(ex,k,st);Bright.spreadReady(keep);return}
       if(k===1)repaint('R1');if(k===S)repaint('L'+S);bd.last=k;
       const sp=SPREADS[k-1];ex.sp=sp;
@@ -2812,9 +2812,10 @@ const Book={
       Overlay.live(sp);Bright.spreadReady(keep);
     }
     st.refresh=id=>{repaint(id);const ex=st.ex;if(!ex||ex.dead)return;const side=id[0],k=+id.slice(1);if(k===ex.s)makeHits(ex,k,side)};
-    /* after a font loads: repaint the pages. An Arabic font (soft) only redraws, so nothing the child is using closes; others also rebuild the pop-ups, keeping Bright as it is */
+    /* after a font loads: repaint the pages. An Arabic font (soft), or a spread the child has started using, only redraws, so a lifted flap or a
+       half-built model stays as it is; otherwise the pop-ups are rebuilt too (their labels get the new font), keeping Bright as it is */
     st.repaintAll=soft=>{pages.forEach(p=>paint(p));const ex=st.ex,k=st.turned,inBook=!st.flip&&k>=1&&k<=M+1;
-      if(soft){if(ex&&!ex.dead&&inBook&&ex.s===k){makeHits(ex,k,'R');makeHits(ex,k,'L')}Bright.redraw();return}if(inBook)buildExtras(k,true)};
+      if(soft||(ex&&ex.used&&!ex.dead)){if(ex&&!ex.dead&&inBook&&ex.s===k){makeHits(ex,k,'R');makeHits(ex,k,'L')}Bright.redraw();return}if(inBook)buildExtras(k,true)};
     st.next=next;st.prev=prev;st.go=go;st.repaint=repaint;st.page=page;st.p2w=p2w;st.single=single;st.aim=aim;
     st.burst=(id,px,py,o)=>{const k=+id.slice(1),w=p2w(k,id[0],px,py);FX.burst(new THREE.Vector3(w.x,w.y+.25,w.z),Object.assign({n:60,speed:2.6,size:.2,colors:['#ffd166','#ffffff','#ff7b39'],sound:false},o||{}))};
     /* ---------- pointer: drag pop-up parts, drag a page edge to turn ---------- */
@@ -2826,7 +2827,7 @@ const Book={
     st.inkPick=e=>{castFrom(e);const ms=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const h=ray.intersectObjects(ms,false)[0];if(!h||!h.uv)return null;const lf=[LT,RT,BF,BB].find(l=>l.f===h.object||l.b===h.object);if(!lf)return null;
       const id=h.object===lf.f?lf.ids[0]:lf.ids[1];if(!id||!pages.get(id))return null;return {id,px:h.uv.x*PW,py:(1-h.uv.y)*PH}};
     orbit.onDown=e=>{if(BookInk.active()&&orbit.ptrs.size===1){const hit=st.inkPick(e);if(hit){st.inking=true;BookInk.start(hit);return}}if(orbit.ptrs.size>1){if(st.inking){st.inking=false;BookInk.end()}st.drag=null;const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f)finish(pd.f,false);return}if(st.flip||st.busy)return;castFrom(e);
-      const ex=st.ex;if(ex&&ex.drags.length){const hs=ray.intersectObjects(ex.drags,true).filter(h=>E.visibleChain(h.object));if(hs.length){const o=owner(hs[0].object);const hd=o.userData.drag;const n=hd.plane==='z'?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);plane.setFromNormalAndCoplanarPoint(n,hs[0].point);st.drag={o,hd,root:ex.root||o.parent};const lp=st.drag.root.worldToLocal(hs[0].point.clone());hd.start&&hd.start(lp,e);return}}
+      const ex=st.ex;if(ex&&ex.drags.length){const hs=ray.intersectObjects(ex.drags,true).filter(h=>E.visibleChain(h.object));if(hs.length){const o=owner(hs[0].object);const hd=o.userData.drag;const n=hd.plane==='z'?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);plane.setFromNormalAndCoplanarPoint(n,hs[0].point);st.drag={o,hd,root:ex.root||o.parent};ex.used=true;const lp=st.drag.root.worldToLocal(hs[0].point.clone());hd.start&&hd.start(lp,e);return}}
       const targets=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const hp=ray.intersectObjects(targets,false)[0];
       if(hp&&Math.abs(hp.point.x)>W*.4){const es=phys(hp.point.x<0?'L':'R');st.pdrag={side:es,x0:e.clientX,f:null}}};
     orbit.dragHandler=(e)=>{
@@ -3941,7 +3942,7 @@ App.book=function(){
 };
 /* no WebGL: the same book as a scroll of pages */
 App.bookFlat=function(){bookSpreads();const v=$('#stage');v.style.height='auto';v.innerHTML=`<div class="wrap" dir="ltr" lang="en"><div class="bk-flat">${SPREADS.map(sp=>`<div class="card" style="background:#fbf4e2;color:#2d2219"><div class="bk-read" style="position:static;box-shadow:none;border-radius:14px;max-height:none">${Overlay.html(sp)}</div></div>`).join('')}</div></div>`;
-  $$('[data-href]',v).forEach(b=>b.onclick=()=>App.go(b.dataset.href));$$('[data-reveal]',v).forEach(b=>b.onclick=()=>{const a=b.parentElement.querySelector('.ans');if(a)a.hidden=false;b.remove()});$$('[data-goto]',v).forEach(b=>b.remove())};
+  $$('[data-href]',v).forEach(b=>b.onclick=()=>App.go(b.dataset.href));$$('[data-reveal]',v).forEach(b=>b.onclick=()=>{const a=b.parentElement.querySelector('.ans');if(a)a.hidden=false;b.remove()});$$('[data-goto]',v).forEach(b=>b.remove());$$('[data-aiset]',v).forEach(b=>b.onclick=()=>AISettings.gate())};
 if(document.fonts&&document.fonts.addEventListener)document.fonts.addEventListener('loadingdone',e=>{const s=Book.st;if(!s||!s.repaintAll)return;const ff=(e&&e.fontfaces)||[];s.repaintAll(ff.length>0&&ff.every(f=>/^\s*U\+0?6/i.test(String(f.unicodeRange||''))))});
 
 /* ===== English first: the 3D island and the extra 3D worlds =====
@@ -4131,7 +4132,7 @@ const AINet={seq:0,pending:{},
     const ab=()=>{why='cancelled';ctl.abort()};if(signal){if(signal.aborted)ab();else signal.addEventListener('abort',ab)}
     return fetch(url,{method,headers,body:method==='GET'?undefined:body,signal:ctl.signal,credentials:'omit'})
       .then(async r=>{const h={'retry-after':r.headers.get('retry-after')||'','content-type':r.headers.get('content-type')||''};let text='';
-        if(onChunk&&r.ok&&r.body&&r.body.getReader){const rd=r.body.getReader(),dec=new TextDecoder();for(;;){const {done,value}=await rd.read();if(done)break;const c=dec.decode(value,{stream:true});text+=c;onChunk(c)}}
+        if(onChunk&&r.ok&&r.body&&r.body.getReader){const rd=r.body.getReader(),dec=new TextDecoder();try{for(;;){const {done,value}=await rd.read();if(done)break;const c=dec.decode(value,{stream:true});text+=c;onChunk(c)}}catch(e){try{rd.cancel()}catch(_){}throw e}}
         else text=await r.text();
         return {status:r.status,headers:h,body:text}})
       .catch(e=>{if(e instanceof AIError)throw e;const ab2=e&&e.name==='AbortError';throw new AIError(ab2?(why==='cancelled'?'cancelled':'timed out'):'cannot reach the AI service',0,'',null,ab2?why:'network')})
@@ -4172,7 +4173,7 @@ async function aiOpenAI(spec,key,messages,o){
   const h={'Content-Type':'application/json',Accept:stream?'text/event-stream':'application/json'};if(key)h.Authorization='Bearer '+key;if(/openrouter\.ai/.test(spec.base))h['X-Title']='BrightSteps 3D Book';
   const sse=aiSSE(o.onText);
   const r=await AINet.http(spec.base.replace(/\/+$/,'')+'/chat/completions',{headers:h,body:JSON.stringify(body),timeout:o.timeout||40000,signal:o.signal,onChunk:stream?c=>sse.push(c):null});
-  if(r.status===400&&stream&&/stream/i.test(r.body||'')){spec.noStream=true;return aiOpenAI(spec,key,messages,o)}
+  if(r.status===400&&stream&&/\bstream/i.test(r.body||'')){spec.noStream=true;return aiOpenAI(spec,key,messages,o)}
   if(r.status>=400)throw new AIError(spec.name+' HTTP '+r.status,r.status,r.body,r.headers['retry-after']||null);
   const text=sse.isSSE()?aiVisible(sse.text()).trim():aiParseCompletion(r.body);if(!text)throw new AIError('empty reply',502);
   if(!sse.isSSE()&&o.onText)o.onText(text);return text}
@@ -4285,7 +4286,10 @@ const AI_TASKS={
   parents:{icon:'👪',label:'عربي للأهل',title:'للأهل',ar:true,p:'Reply in simple Modern Standard Arabic for a parent (not for the child): in 3 short sentences, say what the child is learning on this page and one easy way to help at home. Keep English school words in English.',max:220}
 };
 const AI_BAD=/\b(sex\w*|porn\w*|nude|naked|fuck\w*|shit\w*|bitch\w*|cunt|dick|bastard|wank\w*|rape\w*|suicid\w*|cocaine|heroin|weed|vodka|nigg\w*|slut|whore)\b/i;
-function aiCleanIn(t){return String(t||'').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g,'[email]').replace(/https?:\/\/\S+|www\.\S+/gi,'[link]').replace(/(\+?\d[\d\s-]{7,}\d)/g,'[number]').replace(/\s+/g,' ').trim().slice(0,240)}
+/* what goes to the AI: no e-mail, link or phone number, and never the child's own name */
+function aiCleanIn(t){let s=String(t||'');const nm=typeof childName==='function'?childName():'';
+  if(nm.length>1){const e=nm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),to=aiIsAr(s)?'الطفل':'the child';try{s=s.replace(new RegExp('(?<![\\p{L}\\p{M}])'+e+'(?![\\p{L}\\p{M}])','giu'),to)}catch(_){s=s.split(nm).join(to)}}
+  return s.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g,'[email]').replace(/https?:\/\/\S+|www\.\S+/gi,'[link]').replace(/(\+?\d[\d\s-]{7,}\d)/g,'[number]').replace(/\s+/g,' ').trim().slice(0,240)}
 function aiCleanOut(t,ar){let s=String(t||'').replace(/```[\s\S]*?```/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/\s*\b(?:see|visit|go to|check out|read more at)\b[:\s]*(?:https?:\/\/\S+|www\.\S+)/gi,'').replace(/https?:\/\/\S+|www\.\S+/gi,'').replace(/[*_#`>]+/g,'').replace(/[ \t]+/g,' ').replace(/ +([.,!?])/g,'$1').replace(/\n{3,}/g,'\n\n').trim();
   if(s.length>900){const cut=s.slice(0,900);const k=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('! '),cut.lastIndexOf('? '),cut.lastIndexOf('。'));s=(k>300?cut.slice(0,k+1):cut)+' …'}
   if(AI_BAD.test(s))return ar?'هذا سؤال للكبار. لنعد إلى صفحة الكتاب.':"That's a question for a grown-up. Shall we look at this page together instead? 😊";return s}
@@ -4416,7 +4420,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     else if(kind==='oops'){this.setState('oops',1.5);this.buzz(55)}
     else if(kind==='think')this.setState('think',o.dur||40);
     else this.setState('idle')},
-  tagMe(text){this.untagMe();if(!this.g)return;const t=Book.tagSprite(text||'👆 Tap me!',.2);this.scene.add(t);this.tagS=t;setTimeout(()=>this.untagMe(),7000)},
+  tagMe(text){this.untagMe();if(!this.g)return;const t=Book.tagSprite(text||'👆 Tap me!',.2);this.scene.add(t);this.tagS=t;clearTimeout(this.tagT);this.tagT=setTimeout(()=>{if(this.tagS===t)this.untagMe()},7000)},
   untagMe(){if(this.tagS){this.scene.remove(this.tagS);PK.disposeTree(this.tagS);this.tagS=null}},
   /* ---------- every frame ---------- */
   update(dt,t){if(!this.on||!this.g)return;const P=this.parts;
@@ -4435,12 +4439,12 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     if(this.tagS){this.tagS.position.copy(this.g.position);this.tagS.position.y+=.42}
     this.placeMenu();this.placeBox();
     const C=this.card;if(C){C.tick-=dt;const now=performance.now(),el=Math.min(.25,(now-(C.lt||now))/1000);C.lt=now;const writing=C.shown<C.text.length;if(writing)C.shown=Math.min(C.text.length,C.shown+el*(C.cps+(C.text.length-C.shown)*3));
-      if((writing||C.status==='think')&&C.tick<=0){C.tick=.05;this.drawCard()}
+      if((writing||C.status==='think')&&C.tick<=0){C.tick=C.big?.08:.05;this.drawCard()}
       if(!writing&&C.final&&C.status!=='done')this.finishCard()}},
   /* ---------- thought bubbles ---------- */
   spread(){const st=this.st;return st&&st.turned>=1&&st.turned<=st.M+1?SPREADS[st.turned-1]:null},
   items(){const st=this.st,k=st.turned,sp=this.spread();const T=AI_TASKS;const I=(t,fn)=>({icon:T[t].icon,label:T[t].label,fn:fn||(()=>this.ask({task:t,sp}))});
-    if(Board.on)return [{icon:'▶️',label:'Carry on',fn:()=>{Board.paused=false;Board.dirty=true}},{icon:'❓',label:'Ask a question · اسأل',fn:()=>this.listen()},{icon:'💡',label:'Another way',fn:()=>Board.another()},{icon:'✕',label:'Stop the lesson',fn:()=>Board.stop()}];
+    if(Board.on)return [{icon:'▶️',label:'Carry on',fn:()=>{Board.paused=false;Board.dirty=true}},{icon:'❓',label:'Ask a question · اسأل',fn:()=>this.listen()},{icon:'💡',label:'Another way',fn:()=>Board.another()},{icon:'🌙',label:'In Arabic · بالعربي',fn:()=>Board.arabic()},{icon:'✕',label:'Stop the lesson',fn:()=>Board.stop()}];
     if(!sp){const bd=BookData();return [{icon:'👋',label:"Hi, I'm Bright!",fn:()=>this.hello()},{icon:'📖',label:k===0?'Open the book':'Open it again',fn:()=>st.go(k===0?1:bd.last>1?bd.last:1)}]}
     if(sp.kind==='intro')return [{icon:'👋',label:'Who are you?',fn:()=>this.hello()},{icon:'🗺️',label:'Where do I start?',fn:()=>this.ask({task:'ask',sp,text:'Which topic in this book should I start with today, and why?'})},I('ask',()=>this.listen())];
     if(sp.kind==='learn')return [{icon:'🎓',label:'Teach me',fn:()=>Board.start(sp)},I('explain'),I('example'),I('fact'),I('story'),I('quiz'),{icon:'🔊',label:'Read it to me',fn:()=>this.readAloud()},I('ask',()=>this.listen()),I('parents')];
@@ -4462,7 +4466,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
   /* a tap anywhere else closes what Bright has open */
   dismiss(){if(this.menu.length){this.closeMenu();if(Board.on){Board.paused=false;Board.dirty=true}return true}if(this.card){this.closeCard();return true}if(this.reading){this.stopRead();return true}return false},
   isOpen(){return !!(this.menu.length||this.card||this.reading||$('#brightAsk')||Board.on)},
-  close(){const b=$('#brightAsk');if(b)b.remove();if(this.dismiss())return true;if(Board.on){Board.stop();return true}return false},
+  close(){const b=$('#brightAsk');if(b)b.remove();if(this.dismiss())return true;if(b){if(Board.on&&Board.paused&&!Board.thinking){Board.paused=false;Board.dirty=true}return true}if(Board.on){Board.stop();return true}return false},
   /* the book calls these when a spread is built or starts to fold away */
   spreadReady(keep){const k=this.st?this.st.turned:-1,moved=k!==this.lastK;this.lastK=k;if(!moved&&(Board.on||keep))return;this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();this.away=false;this.homeAt(false);
     const sp=this.spread();if(sp&&sp.kind==='learn'&&BookAI.conf().teach!==false&&!Board.auto[sp.w]){Board.maybeAuto(sp);return}if(!this.greeted&&sp&&sp.kind==='learn'){this.greeted=true;setTimeout(()=>{if(this.on&&!this.isOpen()){this.tagMe();this.react('cheer')}},1400)}},
@@ -4480,10 +4484,11 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const pw=BK.PW-150,ph=o.kind==='quiz'?(sg?820:700):o.size==='l'?(sg?800:640):o.size==='s'?(sg?480:390):(sg?640:500);
     let cy;if(o.anchor){const ay=o.anchor.py,ah=o.anchor.h||0;if(ay+ah+ph+40<BK.PH-50)cy=ay+ah+24+ph/2;else if(ay-ph-24>50)cy=ay-24-ph/2;else cy=BK.PH-50-ph/2}else cy=Math.min(BK.PH-60-ph/2,Math.max(70+ph/2,BK.PH*.52));
     const kk=k>=1&&k<=st.M+1?k:1;const c=st.p2w(kk,side,BK.PW/2,cy);const w=pw*c.sx,d=ph*c.sz,tilt=o.lift?.62:.3,lift=o.lift||0;
-    const cv=document.createElement('canvas');cv.width=1024;cv.height=Math.round(1024*ph/pw);const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
+    /* drawn in 1024-wide units; on a phone the canvas itself is smaller, so each redraw sends fewer pixels */
+    const cq=sg?.66:1,cw=1024,chh=Math.round(1024*ph/pw);const cv=document.createElement('canvas');cv.width=Math.round(cw*cq);cv.height=Math.round(chh*cq);const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({map:tex,roughness:.88,transparent:true,alphaTest:.5}));mesh.castShadow=true;mesh.rotation.x=-Math.PI/2+tilt;mesh.renderOrder=20;
     const g=new THREE.Group();g.position.set(c.x,c.y+.07+lift+Math.sin(tilt)*d/2,c.z+lift*.35);g.add(mesh);g.scale.set(.05,.05,.05);this.scene.add(g);
-    const C={g,mesh,cv,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,auto:!!o.auto,kind:o.kind||'text',text:'',shown:0,cps:RM?999:70,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
+    const C={g,mesh,cv,W:cw,H:chh,q:cq,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,auto:!!o.auto,kind:o.kind||'text',text:'',shown:0,cps:RM?999:70,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
     this.card=C;this.drawCard();E.tw(g.scale,{x:1,y:1,z:1},RM?.01:.42,Ease.back);Snd.noise(.22,{vol:.08,f:2600,type:'bandpass'});this.buzz(8);
     E.tap(mesh,h=>this.cardTap(h));
     const corner=st.p2w(kk,side,Math.min(BK.PW-60,BK.PW/2+pw/2-10),cy-ph/2);this.flyTo(new THREE.Vector3(corner.x,corner.y+.75,corner.z));
@@ -4496,8 +4501,8 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     if(o.src)C.src=o.src;if(C.text)C.status=C.status==='done'?'done':'write';if(o.final){C.final=true;if(this.state==='think')this.setState('idle')}this.drawCard()},
   finishCard(){const C=this.card;if(!C)return;C.status='done';C.shown=C.text.length;this.drawCard();if(this.state==='think')this.setState('idle');
     if(C.kind!=='quiz'&&C.text&&BookAI.conf().voice!==false){const words=C.text.split(/\s+/).length;this.setState('talk',Math.min(14,words*.38));Voice.say(C.text,{lang:C.ar?'ar':'en',auto:true,rate:1,end:()=>{if(this.state==='talk')this.setState('idle')}})}},
-  drawCard(){const C=this.card;if(!C)return;const x=C.x,W=C.cv.width,H=C.cv.height;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);C.btns=[];
-    x.save();x.shadowColor='rgba(80,50,10,.28)';x.shadowBlur=16;PT.box(x,14,14,W-28,H-28,42,'#fffdf3');x.restore();PT.box(x,14,14,W-28,H-28,42,null,'#f2c14e',6);PT.box(x,30,30,W-60,H-60,32,null,'rgba(242,193,78,.5)',2,[10,10]);
+  drawCard(){const C=this.card;if(!C)return;const x=C.x,W=C.W,H=C.H;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,C.cv.width,C.cv.height);x.setTransform(C.q,0,0,C.q,0,0);C.btns=[];
+    x.save();x.shadowColor='rgba(80,50,10,.28)';x.shadowBlur=16*C.q;PT.box(x,14,14,W-28,H-28,42,'#fffdf3');x.restore();PT.box(x,14,14,W-28,H-28,42,null,'#f2c14e',6);PT.box(x,30,30,W-60,H-60,32,null,'rgba(242,193,78,.5)',2,[10,10]);
     PT.icon(x,C.icon,78,82,48);PT.fnt(x,40,800,FONT_D);PT.ltr(x);x.fillStyle='#8a5310';x.fillText(C.title,124,96);
     if(C.src){PT.fnt(x,22,700,FONT_R);PT.ltr(x,'right');x.fillStyle='#a08668';x.fillText(C.src==='book'?'📖 from the book':'✨ '+C.src,W-52,92)}
     const btn=(bx,by,bw,bh,label,act,fill)=>{PT.box(x,bx,by,bw,bh,bh/2,fill||'#fff3c4','#d9a32b',3);const fs=PT.fitFont(x,label,bw-30,32,800,FONT_D,18);PT.fnt(x,fs,800,FONT_D);PT.ltr(x,'center');x.fillStyle='#3a2600';x.textBaseline='middle';x.fillText(label,bx+bw/2,by+bh/2+2);x.textBaseline='alphabetic';C.btns.push({x:bx,y:by,w:bw,h:bh,act})};
@@ -4522,7 +4527,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
       if(more){btn(bx,by,bw,bh,'✨ Another',()=>this.ask(Object.assign({},C.o.q,{another:C.text})),'#ffd166');bx+=bw+20}btn(bx,by,bw,bh,'✕ Close',()=>this.closeCard())}
     C.tex.needsUpdate=true},
   sparkleAt(x,cx,cy){const t=performance.now()/1000;x.save();x.globalAlpha=.6+.4*Math.sin(t*9);PT.icon(x,'✨',cx,cy,30);x.restore()},
-  cardTap(h){const C=this.card;if(!C||!h||!h.uv)return;const X=h.uv.x*C.cv.width,Y=(1-h.uv.y)*C.cv.height;const b=C.btns.find(r=>X>=r.x&&X<=r.x+r.w&&Y>=r.y&&Y<=r.y+r.h);
+  cardTap(h){const C=this.card;if(!C||!h||!h.uv)return;const X=h.uv.x*C.W,Y=(1-h.uv.y)*C.H;const b=C.btns.find(r=>X>=r.x&&X<=r.x+r.w&&Y>=r.y&&Y<=r.y+r.h);
     if(b){this.buzz(10);Snd.tick();b.act()}else if(C.status==='done'&&C.text&&C.kind!=='quiz')Voice.say(C.text,{lang:C.ar?'ar':'en'})},
   /* ---------- asking ---------- */
   async ask(o){if(!this.on)return;const st=this.st,sp=o.sp||this.spread();if(o.task==='quiz')return this.quizCard(sp);
@@ -4620,10 +4625,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   /* ---------- the board itself ---------- */
   haloTex(){if(this._halo)return this._halo;this._halo=G.tex(256,160,x=>{const g=x.createRadialGradient(128,80,20,128,80,130);g.addColorStop(0,'rgba(90,220,255,.55)');g.addColorStop(.6,'rgba(90,170,255,.18)');g.addColorStop(1,'rgba(90,170,255,0)');x.fillStyle=g;x.fillRect(0,0,256,160)},true);return this._halo},
   open(){const st=this.st,cam=E.camera,orbit=E.orbit,sg=st.single();const W=sg?1080:1600,H=sg?1320:1000;this.W=W;this.H=H;
-    this.cv=document.createElement('canvas');this.cv.width=W;this.cv.height=H;this.x=this.cv.getContext('2d');this.bake=document.createElement('canvas');this.bake.width=W;this.bake.height=H;this.bx=this.bake.getContext('2d');
-    this.tex=new THREE.CanvasTexture(this.cv);this.tex.encoding=THREE.sRGBEncoding;this.tex.anisotropy=8;
     cam.updateMatrixWorld();const tgt=orbit.target.clone(),P=this.pose();const d=E.camera.position.distanceTo(P),vh=2*d*Math.tan(cam.fov*Math.PI/360),vw=vh*cam.aspect,asp=W/H;
     const bw=Math.min(vw*.86,vh*.8*asp),bh=bw/asp;this.bw=bw;this.bh=bh;this.d0=d;this.rise=0;
+    /* the board is drawn in its own units (W×H) on a canvas no bigger than it shows on the screen, so a phone sends far fewer pixels to the GPU;
+       it is redrawn many times a second, so it has no mipmaps to rebuild each time */
+    const el=E.renderer.domElement,px=bw/vw*(el.clientWidth||innerWidth)*E.renderer.getPixelRatio()*1.15;this.q=clamp(px/W,.55,1);
+    this.cv=document.createElement('canvas');this.cv.width=Math.round(W*this.q);this.cv.height=Math.round(H*this.q);this.x=this.cv.getContext('2d');this.bake=document.createElement('canvas');this.bake.width=this.cv.width;this.bake.height=this.cv.height;this.bx=this.bake.getContext('2d');
+    this.tex=new THREE.CanvasTexture(this.cv);this.tex.encoding=THREE.sRGBEncoding;this.tex.generateMipmaps=false;this.tex.minFilter=THREE.LinearFilter;
     const g=new THREE.Group();const glass=new THREE.Mesh(new THREE.PlaneGeometry(bw,bh),new THREE.MeshBasicMaterial({map:this.tex,transparent:true,depthWrite:false}));glass.renderOrder=82;
     const halo=new THREE.Mesh(new THREE.PlaneGeometry(bw*1.16,bh*1.22),new THREE.MeshBasicMaterial({map:this.haloTex(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.85}));halo.position.z=-.03;halo.renderOrder=80;halo.raycast=()=>{};
     const fm=new THREE.MeshBasicMaterial({color:0x8ff8ff,transparent:true,opacity:.95,depthWrite:false}),th=Math.max(.012,bw*.005);
@@ -4640,13 +4648,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   /* o.rtl: Arabic, written from X (the right edge) to the left */
   neon(x,txt,X,Y,col,sz,o={}){x.save();PT.fnt(x,sz,o.wt||700,o.fam||FONT_R);x.textBaseline='alphabetic';x.direction=o.rtl?'rtl':'ltr';x.textAlign=o.rtl?'right':'left';
     if(o.clip!=null){x.beginPath();if(o.rtl)x.rect(X-o.clip,Y-sz*1.25,o.clip+14,sz*1.7);else x.rect(X-14,Y-sz*1.25,o.clip+14,sz*1.7);x.clip()}
-    x.shadowColor=col;x.shadowBlur=sz*.5;x.fillStyle=col;x.fillText(txt,X,Y);x.shadowBlur=sz*.14;x.globalAlpha=.5;x.fillStyle='#ffffff';x.fillText(txt,X,Y);x.restore()},
+    x.shadowColor=col;x.shadowBlur=sz*.5*(this.q||1);x.fillStyle=col;x.fillText(txt,X,Y);x.shadowBlur=sz*.14*(this.q||1);x.globalAlpha=.5;x.fillStyle='#ffffff';x.fillText(txt,X,Y);x.restore()},
   path(x,pts,col,w,t=1){let L=0;const seg=[];for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}let left=L*t,tip=pts[0];
-    x.save();x.lineCap='round';x.lineJoin='round';x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=w*2.4;x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+    x.save();x.lineCap='round';x.lineJoin='round';x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=w*2.4*(this.q||1);x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
     for(let i=1;i<pts.length&&left>0;i++){const d=seg[i-1]||1e-6,k=Math.min(1,left/d);const px=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*k,py=pts[i-1][1]+(pts[i][1]-pts[i-1][1])*k;x.lineTo(px,py);tip=[px,py];left-=d}
     x.stroke();x.restore();return tip},
   rectPts(X,Y,w,h){return [[X,Y],[X+w,Y],[X+w,Y+h],[X,Y+h],[X,Y]]},
-  base(x){const W=this.W,H=this.H;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(10,20,44,.95)');g.addColorStop(1,'rgba(5,9,24,.97)');
+  base(x){const W=this.W,H=this.H,q=this.q||1;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,x.canvas.width,x.canvas.height);x.setTransform(q,0,0,q,0,0);const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(10,20,44,.95)');g.addColorStop(1,'rgba(5,9,24,.97)');
     x.fillStyle=g;PT.rr(x,4,4,W-8,H-8,34);x.fill();x.fillStyle='rgba(143,248,255,.07)';for(let yy=56;yy<H-40;yy+=46)for(let xx=56;xx<W-40;xx+=46)x.fillRect(xx,yy,2.5,2.5);
     const r=x.createLinearGradient(0,0,W*.8,H);r.addColorStop(0,'rgba(255,255,255,.08)');r.addColorStop(.4,'rgba(255,255,255,0)');x.fillStyle=r;PT.rr(x,4,4,W-8,H-8,34);x.fill();
     if(this.sp){const w=WB[this.sp.w];this.neon(x,'✦ '+w.en,46,66,'#ffe45f',this.sg()?40:36,{fam:FONT_D,wt:800})}},
@@ -4656,9 +4664,11 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   wipe(quiet){this.base(this.bx);this.y=this.top();if(!quiet&&this.g){this.sweep=1;Snd.noise&&Snd.noise(.25,{vol:.05,f:4200,type:'bandpass'})}},
   /* ---------- items: each one knows its height and draws itself up to a point t (0..1), returning where the pen is ---------- */
   make(it){const x=this.x,W=this.W,X0=56,CW=W-112,fs=this.fs();const o=Object.assign({},it);
-    if(o.t==='title'){o.h=96;o.dur=.5+o.text.length/40;o.draw=(x,t,y)=>{PT.fnt(x,72,800,FONT_D);const tw=x.measureText(o.text).width;this.neon(x,o.text,X0,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.min(W-90,X0+tw+70),y+44,64);return [X0+tw*t,y+60]}}
-    else if(o.t==='line'||o.t==='stream'){const ar=()=>o.ar!=null?o.ar:aiIsAr(o.text),fam=()=>ar()?FONT_B:FONT_R,lh=()=>fs*(ar()?1.5:1.38);PT.fnt(x,fs,700,fam());o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*lh()+20;o.dur=.25+(o.text||'').length/56;
-      o.draw=(x,t,y)=>{const rtl=ar(),f=fam(),L=lh();PT.fnt(x,fs,700,f);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;o.rtl=rtl;if(o.t==='stream')o.h=Math.max(1,ls.length)*L+20;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[rtl?X0+CW:X0,y+fs];
+    if(o.t==='title'){o.h=96;o.dur=.5+o.text.length/40;const rtl=aiIsAr(o.text);o.rtl=rtl;o.draw=(x,t,y)=>{PT.fnt(x,72,800,FONT_D);const tw=x.measureText(o.text).width;
+      if(rtl){const XR=X0+CW;this.neon(x,o.text,XR,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t,rtl:true});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.max(90,XR-tw-70),y+44,64);return [XR-tw*t,y+60]}
+      this.neon(x,o.text,X0,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.min(W-90,X0+tw+70),y+44,64);return [X0+tw*t,y+60]}}
+    else if(o.t==='line'||o.t==='stream'){const ar=()=>o.ar!=null?o.ar:aiIsAr(o.text),a0=ar();PT.fnt(x,fs,700,a0?FONT_B:FONT_R);o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*fs*(a0?1.5:1.38)+20;o.dur=.25+(o.text||'').length/56;
+      o.draw=(x,t,y)=>{const rtl=ar(),f=rtl?FONT_B:FONT_R,L=fs*(rtl?1.5:1.38);PT.fnt(x,fs,700,f);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;o.rtl=rtl;if(o.t==='stream')o.h=Math.max(1,ls.length)*L+20;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[rtl?X0+CW:X0,y+fs];
         ls.forEach((l,i)=>{if(left<=0)return;const lw=x.measureText(l).width,yy=y+fs+i*L,c=Math.min(lw,left);this.neon(x,l,rtl?X0+CW:X0,yy,o.col||'#8ff8ff',fs,{clip:c,fam:f,rtl});tip=[rtl?X0+CW-c:X0+c,yy-fs*.3];left-=lw});return tip}}
     else if(o.t==='ex'){PT.fnt(x,fs,700,FONT_R);o.lines=PT.wrap(x,o.text,CW-60);o.h=o.lines.length*fs*1.38+56;o.dur=.5+o.text.length/56;
       o.draw=(x,t,y)=>{const bh=o.h-16;const tip=this.path(x,this.rectPts(X0,y,CW,bh),'#ff7ae0',4,Math.min(1,t/.3));if(t<=.3)return tip;const k=(t-.3)/.7;PT.fnt(x,fs,700,FONT_R);const total=o.lines.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*k,tp=tip;
@@ -4675,13 +4685,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   art(x,wid,X,Y,w,h,t){const cx=X+w/2,cy=Y+h/2,P=(pts,c,lw,k)=>this.path(x,pts,c,lw,k);
     if(wid==='blocks'){const s=Math.min(26,(h-60)/10);let tip=[cx,cy];for(let i=0;i<10;i++){const k=clamp(t*12-i,0,1);if(k>0)tip=P(this.rectPts(cx-200,Y+20+i*s,s,s),'#ffe45f',3,k)}
       for(let j=0;j<3;j++){const k=clamp(t*12-10-j*.6,0,1);if(k>0)tip=P(this.rectPts(cx+40+j*(s+14),Y+20+9*s,s,s),'#8ff8ff',3,k)}if(t>.8){this.neon(x,'10',cx-206,Y+h-6,'#ffe45f',40,{wt:800});this.neon(x,'1 + 1 + 1',cx+30,Y+h-6,'#8ff8ff',40,{wt:800})}return tip}
-    if(wid==='dice'){let tip=[cx,cy];[4,6,3].forEach((v,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const s=120,dx=cx-220+i*160,dy=cy-60;tip=P(this.rectPts(dx,dy,s,s),'#8ff8ff',4,k);if(k>=1){const pp={3:[[.25,.25],[.5,.5],[.75,.75]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],6:[[.28,.22],[.72,.22],[.28,.5],[.72,.5],[.28,.78],[.72,.78]]}[v];x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=10;pp.forEach(([a,b])=>{x.beginPath();x.arc(dx+a*s,dy+b*s,10,0,7);x.fill()});x.restore()}});
+    if(wid==='dice'){let tip=[cx,cy];[4,6,3].forEach((v,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const s=120,dx=cx-220+i*160,dy=cy-60;tip=P(this.rectPts(dx,dy,s,s),'#8ff8ff',4,k);if(k>=1){const pp={3:[[.25,.25],[.5,.5],[.75,.75]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],6:[[.28,.22],[.72,.22],[.28,.5],[.72,.5],[.28,.78],[.72,.78]]}[v];x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=10*(this.q||1);pp.forEach(([a,b])=>{x.beginPath();x.arc(dx+a*s,dy+b*s,10,0,7);x.fill()});x.restore()}});
       if(t>.9)this.neon(x,'4 + 6 = 10,  10 + 3 = 13',cx-260,cy+120,'#ffe45f',44,{wt:800});return tip}
     if(wid==='balance'){const k1=clamp(t*2,0,1),k2=clamp(t*2-1,0,1);let tip=P([[cx,cy+110],[cx,cy-40]],'#8ff8ff',5,k1);tip=P([[cx-230,cy-40],[cx+230,cy-40]],'#8ff8ff',5,k1);
       if(k2>0){tip=P([[cx-280,cy+10],[cx-180,cy+10],[cx-230,cy-40],[cx-280,cy+10]],'#ffe45f',4,k2);P([[cx+180,cy+10],[cx+280,cy+10],[cx+230,cy-40],[cx+180,cy+10]],'#ffe45f',4,k2)}
       if(t>.9){this.neon(x,'12',cx-262,cy+70,'#ffe45f',46,{wt:800});this.neon(x,'7 + 5',cx+176,cy+70,'#ffe45f',46,{wt:800})}return tip}
     if(wid==='shapes2d'){const sh=[3,4,6];let tip=[cx,cy];sh.forEach((n,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const ox=cx-240+i*240,R=80,pts=[];for(let j=0;j<=n;j++){const a=-Math.PI/2+j*2*Math.PI/n+(n===4?Math.PI/4:0);pts.push([ox+Math.cos(a)*R,cy+Math.sin(a)*R])}tip=P(pts,['#8ff8ff','#ffe45f','#ff7ae0'][i],5,k);
-        if(k>=1){x.save();x.fillStyle='#fff';x.shadowColor='#fff';x.shadowBlur=8;pts.slice(0,n).forEach(([a,b])=>{x.beginPath();x.arc(a,b,7,0,7);x.fill()});x.restore();this.neon(x,n+' sides',ox-62,cy+136,'#ffffff',32,{})}});return tip}
+        if(k>=1){x.save();x.fillStyle='#fff';x.shadowColor='#fff';x.shadowBlur=8*(this.q||1);pts.slice(0,n).forEach(([a,b])=>{x.beginPath();x.arc(a,b,7,0,7);x.fill()});x.restore();this.neon(x,n+' sides',ox-62,cy+136,'#ffffff',32,{})}});return tip}
     if(wid==='shapes3d'){const s=110,ox=cx-60,oy=cy-30,d=50;const f=[[ox,oy],[ox+s,oy],[ox+s,oy+s],[ox,oy+s],[ox,oy]],b=f.map(([a,c])=>[a+d,c-d]);let tip=P(f,'#8ff8ff',4,clamp(t*2,0,1));if(t>.5){tip=P(b,'#ffe45f',4,clamp(t*2-1,0,1));if(t>.9)[[0,0],[1,1],[2,2],[3,3]].forEach(([i,j])=>P([f[i],b[j]],'#ffe45f',3,1))}
       if(t>.95)this.neon(x,'6 faces · 12 edges · 8 vertices',cx-330,cy+150,'#ffffff',36,{});return tip}
     if(wid==='phonics'||wid==='tricky'){const pairs=wid==='phonics'?SOUNDS[0].sp.map(([g,word])=>[word,g]):TRICKY.slice(0,3).map(tw=>[tw.w,tw.w.slice(tw.h[0],tw.h[1]+1)]);let tip=[cx,cy];
@@ -4724,12 +4734,19 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     if(!this.on)return;this.thinking=false;
     if(!lines||!lines.length){const L=(this.sp.c.learn||{}),ex=(L.body||[]).filter(p=>p.startsWith('EX:')).map(p=>p.slice(3).trim().replace(/ {2,}/g,'   '));lines=[ex.length?pick(ex):(L.words||[]).map(x=>x[0]).join(' · ')];say='Here is another way to see it.'}
     this.steps.splice(this.i+1,0,{say:say||lines.join(' '),items:[{t:'title',text:'Another way',icon:'💡'},...lines.map(l=>({t:'line',text:l,col:'#7dff9a'}))],wipe:true});this.paused=false;this.cur=null;this.queue=[];this.next()},
+  /* the same idea in simple Arabic, for a child who learns in English at school: from the AI, else the page's own Arabic note */
+  async arabic(){if(!this.on||this.thinking)return;const s=this.stepRef||{},idea=(s.items||[]).map(it=>it.text||'').join(' ')||(s.ask&&s.ask.q)||(s.end?'':s.say||'');
+    this.thinking=true;this.paused=true;this.sub='Bright يفكّر بالعربي…';this.dirty=true;Bright.react('think');let text='';
+    if(BookAI.enabled()){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(this.sp)},{role:'user',content:`Explain this idea in simple Arabic to a 6 year old who learns in English at school: «${aiCleanIn(idea)||WB[this.sp.w].en}». 2 or 3 short sentences, like a kind teacher. Keep the English school words in English, so the child can find them in the lesson.`}],{max:280});text=aiCleanOut(r.text,true)}catch(e){}}
+    if(!this.on)return;this.thinking=false;if(!text||!aiIsAr(text))text=((this.sp.c||WC[this.sp.w]||{}).learn||{}).ar||'';
+    if(!text){this.paused=false;this.sub='';this.dirty=true;return}
+    this.steps.splice(this.i+1,0,{say:text,items:[{t:'title',text:'بالعربي',icon:'🌙'},{t:'line',text,col:'#ffe9a8',ar:true}],wipe:true,hold:true});this.paused=false;this.cur=null;this.queue=[];this.next()},
   /* the child's own question, answered on the board as the words stream in */
-  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;const ar=aiIsAr(q);
+  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;const ar=aiIsAr(q),T=AI_TASKS[ar?'askAr':'ask'];
     const item={t:'stream',text:'',col:'#ffffff'};this.steps.splice(this.i+1,0,{say:'',items:[{t:'line',text:(ar?'سألت: ':'You asked: ')+q,col:'#ffe45f',ar},item],wipe:true,live:item});this.cur=null;this.queue=[];this.next();
     const sp=this.sp;let out='';const mk=()=>{if(this.cur&&this.cur.t==='stream'){this.cur.text=item.text;this.cur.final=item.final}};
-    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:ar?`The child asks in Arabic: «${q}». Answer in simple Arabic, in 2 or 3 short sentences, like a kind teacher. Keep the English school words from this page in English.`:`The child asks: «${q}». Answer in 2 or 3 short sentences.`}],{max:ar?280:170,onText:t=>{item.text=aiCleanOut(t);mk()}});out=aiCleanOut(r.text)}catch(e){}}
-    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q,ar});item.text=out;item.final=true;mk();if(this.on)this.speak(out)},
+    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:T.p.replace('{text}',q)}],{max:T.max,onText:t=>{item.text=aiCleanOut(t,ar);mk()}});out=aiCleanOut(r.text,ar)}catch(e){}}
+    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q,ar});item.text=out;item.final=true;mk();if(this.on&&this.stepRef&&this.stepRef.live===item)this.speak(out)},
   tap(h){if(!h||!h.uv)return;const X=h.uv.x*this.W,Y=(1-h.uv.y)*this.H;const b=this.btns.find(r=>X>=r.x&&X<=r.x+r.w&&Y>=r.y&&Y<=r.y+r.h);if(b){Snd.tick();Bright.buzz(10);b.act()}},
   /* ---------- every frame ---------- */
   update(dt){if(!this.g)return;const cam=E.camera,now=performance.now();dt=Math.min(.25,(now-(this.lt||now))/1000);this.lt=now;
@@ -4738,24 +4755,24 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
       g.quaternion.copy(cam.quaternion);g.rotateY(Math.sin(now/1700)*.035);g.rotateX(Math.sin(now/2300)*.02)}
     if(!this.on)return;
     if(!this.paused&&!this.cur&&this.queue.length){this.cur=this.make(this.queue.shift());this.cur.p=0;if(this.y+this.cur.h>this.bottom()&&this.cur.t!=='qa'&&this.y>this.top()+5){this.wipe();}if(this.cur.t==='qa')this.qaY=this.y}
-    const it=this.cur;if(it&&!this.paused&&!(it.t==='qa'&&it.p>=1)){const speed=it.t==='stream'?1:1.15;if(it.t==='stream'){const L=(it.text||'').length;it.dur=.25+L/56;if(!it.final&&it.p>=.97)it.p=.97}
+    const it=this.cur;if(it&&it.t==='stream'&&this.y+it.h>this.bottom()&&this.y>this.top()+5)this.wipe(true);if(it&&!this.paused&&!(it.t==='qa'&&it.p>=1)){const speed=it.t==='stream'?1:1.15;if(it.t==='stream'){const L=(it.text||'').length;it.dur=.25+L/56;if(!it.final&&it.p>=.97)it.p=.97}
       it.p=Math.min(1,it.p+dt*speed/Math.max(.2,it.dur));this.dirty=true;if(it.p>=1&&(it.t!=='stream'||it.final)){if(it.t!=='qa'){it.draw(this.bx,1,this.y);this.y+=it.h+14;this.cur=null}}}
     if(this.sweep>0){this.sweep=Math.max(0,this.sweep-dt*2.6);this.dirty=true}
-    if(this.dirty&&now-this.lastDraw>33){this.lastDraw=now;this.render()}
+    if(this.dirty&&now-this.lastDraw>(this.sg()?50:33)){this.lastDraw=now;this.render()}
     /* Bright writes: it follows the pen; otherwise it floats by the board */
     if(it&&it.tip&&!this.paused&&it.t!=='qa'&&it.p<1){const w=this.toWorld(Math.max(60,Math.min(this.W-60,it.tip[0]+(it.rtl?-46:46))),Math.min(this.H-60,it.tip[1]+52));if(w){Bright.away=true;Bright.goal.copy(w)}}else{const w=this.toWorld(this.W-70,this.H-(this.sg()?300:250));if(w){Bright.away=true;Bright.goal.copy(w)}}
-    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(s.live?Math.max(2500,(this.sayWords||0)*420-(this.doneAt-(this.sayAt||this.doneAt))):this.ask&&this.ask.after?1800:650))this.next();
+    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(s.live||s.hold?Math.max(2500,(this.sayWords||0)*420-(this.doneAt-(this.sayAt||this.doneAt))):this.ask&&this.ask.after?1800:650))this.next();
     if(this.cur&&this.cur.t==='qa'&&this.ask&&this.ask.done&&this.spoken&&now-this.doneAt>1800){this.cur=null;this.next()}},
-  render(){if(!this.x)return;const x=this.x,W=this.W,H=this.H;this.dirty=false;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);x.drawImage(this.bake,0,0);
-    const it=this.cur;if(it){it.tip=it.draw(x,it.p,it.t==='qa'?(this.qaY||this.y):this.y);if(it.tip&&!this.paused&&it.p<1&&it.t!=='qa'){x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=26;x.beginPath();x.arc(it.tip[0]+6,it.tip[1]+4,9,0,7);x.fill();x.restore()}}
+  render(){if(!this.x)return;const x=this.x,W=this.W,H=this.H,q=this.q||1;this.dirty=false;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,this.cv.width,this.cv.height);x.drawImage(this.bake,0,0);x.setTransform(q,0,0,q,0,0);
+    const it=this.cur;if(it){it.tip=it.draw(x,it.p,it.t==='qa'?(this.qaY||this.y):this.y);if(it.tip&&!this.paused&&it.p<1&&it.t!=='qa'){x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=26*q;x.beginPath();x.arc(it.tip[0]+6,it.tip[1]+4,9,0,7);x.fill();x.restore()}}
     if(this.sweep>0){const yy=(1-this.sweep)*H;const g=x.createLinearGradient(0,yy-60,0,yy+60);g.addColorStop(0,'rgba(143,248,255,0)');g.addColorStop(.5,'rgba(143,248,255,.45)');g.addColorStop(1,'rgba(143,248,255,0)');x.fillStyle=g;x.fillRect(0,yy-60,W,120)}
     /* progress dots */
     const n=this.steps.length;for(let k=0;k<n;k++){x.fillStyle=k<this.i?'#7dff9a':k===this.i?'#ffe45f':'rgba(255,255,255,.22)';x.beginPath();x.arc(W-50-(n-1-k)*24,56,7,0,7);x.fill()}
     /* what Bright is saying, and the buttons */
     const fy=H-(this.sg()?232:186);x.fillStyle='rgba(143,248,255,.12)';x.fillRect(40,fy-8,W-80,2);const sub=this.thinking?'Bright is thinking…':this.sub;
     if(sub){const ar=aiIsAr(sub);PT.fnt(x,this.sg()?32:28,700,ar?FONT_B:FONT_R);x.fillStyle='rgba(255,255,255,.88)';if(ar)PT.rtl(x);else PT.ltr(x);PT.wrap(x,sub,W-120).slice(0,2).forEach((l,i)=>x.fillText(l,ar?W-60:60,fy+38+i*(this.sg()?40:36)))}
-    this.btns=this.btns.filter(b=>b.opt);const bh=this.sg()?92:70,by=H-bh-24,labels=[[this.paused?'▶ Play':'⏸ Pause',()=>this.togglePause()],['⏭ Next',()=>this.skip()],['💡 Another way',()=>this.another()],['✕ Close',()=>this.stop()]];
-    const gap=16,bw=(W-80-gap*(labels.length-1))/labels.length;labels.forEach(([l,act],i)=>{const r={x:40+i*(bw+gap),y:by,w:bw,h:bh};this.path(x,this.rectPts(r.x,r.y,r.w,r.h),i===2?'#7dff9a':'#8ff8ff',3,1);const f=PT.fitFont(x,l,bw-24,this.sg()?36:30,800,FONT_D,16);this.neon(x,l,r.x+(bw-x.measureText(l).width)/2,r.y+bh/2+f*.36,'#ffffff',f,{fam:FONT_D,wt:800});this.btns.push({x:r.x,y:r.y,w:r.w,h:r.h,act})});
+    this.btns=this.btns.filter(b=>b.opt);const bh=this.sg()?92:70,by=H-bh-24,labels=[[this.paused?'▶ Play':'⏸ Pause',()=>this.togglePause()],['⏭ Next',()=>this.skip()],[this.sg()?'💡 Another':'💡 Another way',()=>this.another()],['🌙 عربي',()=>this.arabic()],['✕ Close',()=>this.stop()]];
+    const gap=16,bw=(W-80-gap*(labels.length-1))/labels.length;labels.forEach(([l,act],i)=>{const r={x:40+i*(bw+gap),y:by,w:bw,h:bh};this.path(x,this.rectPts(r.x,r.y,r.w,r.h),i===2?'#7dff9a':i===3?'#ffe45f':'#8ff8ff',3,1);const f=PT.fitFont(x,l,bw-24,this.sg()?36:30,800,FONT_D,16);this.neon(x,l,r.x+(bw-x.measureText(l).width)/2,r.y+bh/2+f*.36,'#ffffff',f,{fam:FONT_D,wt:800});this.btns.push({x:r.x,y:r.y,w:r.w,h:r.h,act})});
     this.tex.needsUpdate=true}
 };
 
@@ -4785,7 +4802,7 @@ const BookInk={k:'bs-ink-v1',m:null,cur:null,undoStack:[],dirty:new Set(),saveT:
   undo(){const vis=this.visible();for(let i=this.undoStack.length-1;i>=0;i--){const id=this.undoStack[i];if(!vis.includes(id))continue;this.undoStack.splice(i,1);const l=this.load()[id];if(l&&l.length){l.pop();if(!l.length)delete this.m[id]}this.save();Book.st.repaint(id);return}
     /* nothing drawn in this visit: take back the last stroke on these pages */
     for(const id of vis){const l=this.load()[id];if(l&&l.length){l.pop();if(!l.length)delete this.m[id];this.save();Book.st.repaint(id);return}}},
-  clear(){const m=this.load();this.visible().forEach(id=>{if(m[id]){delete m[id];Book.st.repaint(id)}});this.save();toast('Cleared')}
+  clear(){const m=this.load(),vis=this.visible();vis.forEach(id=>{if(m[id]){delete m[id];Book.st.repaint(id)}});this.undoStack=this.undoStack.filter(id=>!vis.includes(id));this.save();toast('Cleared')}
 };
 /* the pen button keeps its bar; in the book it writes on the page, elsewhere it still draws over the screen */
 (()=>{const toggle0=Pen.toggle.bind(Pen),init0=Pen.init.bind(Pen);
@@ -4816,7 +4833,7 @@ const AIVoiceIn={cb:null,
   tag(l){if(l!=='ar')return 'en-GB';const L=[].concat(navigator.languages||[],navigator.language||[]).map(String),a=L.find(x=>/^ar[-_](AE|BH|DZ|EG|IQ|JO|KW|LB|MA|OM|PS|QA|SA|TN|YE)$/i.test(x));return a?a.replace('_','-'):'ar-JO'},
   listen(cb,l){l=l==='ar'||l==='en'?l:this.lang();try{localStorage.setItem('bs-ask-lang',l)}catch(e){}this.l=l;const tag=this.tag(l);this.cb=cb;const mic=$('#aiMic');mic&&mic.classList.add('on');
     if(window.BookNative&&typeof BookNative.listen==='function'){try{BookNative.listen(tag)}catch(e){this.done('')}return}
-    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang=tag;r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on')};r.start()}catch(e){this.done('')}},
+    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang=tag;r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on');if(this.cb)this.done('')};r.start()}catch(e){this.done('')}},
   done(t){const mic=$('#aiMic');mic&&mic.classList.remove('on');const cb=this.cb;this.cb=null;if(!t)toast(this.l==='ar'?'لم أسمعك جيدًا. حاول مرة أخرى!':"I didn't hear that. Try again!");cb&&cb(String(t||'').trim())}};
 window.__bookHeard=t=>AIVoiceIn.done(t);
 
@@ -4838,6 +4855,7 @@ const AISettings={el:null,
       <label class="ai-row"><input type="checkbox" id="aiVoice"${c.voice?' checked':''}> <span>Read answers aloud</span></label>
       <label class="ai-row"><input type="checkbox" id="aiTeach"${c.teach!==false?' checked':''}> <span>Bright teaches each new lesson by itself, on the glowing board</span></label>
       <label class="ai-row"><input type="checkbox" id="aiFast"${c.fast!==false?' checked':''}> <span>Fastest provider first (learns which one answers quickest here)</span></label>
+      <label class="ai-row"><input type="checkbox" id="aiLite"${Perf.forced()?' checked':''}> <span>Simpler graphics: smoother on older phones</span></label>
       <label class="ai-field"><span>First choice</span><select id="aiFirst"><option value="auto"${c.first==='auto'?' selected':''}>Automatic (MusabAI order)</option>${AI_SPECS.filter(s=>!s.custom).map(opt).join('')}</select></label>
       <h4>Free keys (optional)</h4><p class="note">Kilo Auto Free and AI Horde need no key. A free key from another provider makes Bright faster and more reliable.</p>
       ${AI_KEYS.map(([k,n])=>{const s=AI_SPECS.find(x=>x.secret===k);return `<label class="ai-field"><span>${esc(n)}${s&&s.site?` <small>${esc(s.site)}</small>`:''}</span><input type="password" data-key="${k}" value="${esc(c.keys[k]||'')}" autocomplete="off" spellcheck="false" placeholder="paste key"></label>`}).join('')}
@@ -4851,7 +4869,7 @@ const AISettings={el:null,
       <p class="note">Privacy: Bright sends the text of the page and the question, never the child's name. Free services may keep what is typed. Free tiers have limits, so Bright cannot promise an answer every time.</p>
       <p class="ar-note" dir="rtl" lang="ar">الخصوصية: يرسل الكتاب نص الصفحة والسؤال فقط، ولا يرسل اسم الطفل. الخدمات المجانية قد تحتفظ بما يُكتب ولها حدود استخدام.</p>`);
     const el=this.el;const list=()=>{$('#aiList',el).innerHTML=BookAI.order().filter((s,i,a)=>a.findIndex(x=>x.id===s.id)===i).map(s=>{const st=BookAI.status(s);return `<li><span>${esc(s.name)}</span><i class="st ${st.c}">${esc(st.t)}</i></li>`}).join('')};list();
-    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.teach=$('#aiTeach',el).checked;c.first=$('#aiFirst',el).value;$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
+    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.teach=$('#aiTeach',el).checked;c.first=$('#aiFirst',el).value;Perf.force($('#aiLite',el).checked);$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
     $('#aiSave',el).onclick=()=>{read();toast('Saved ✓');this.close()};
     $('#aiReset',el).onclick=()=>{BookAI.reset();list();$('#aiTestOut',el).textContent='Provider health cleared.'};
     $('#aiTest',el).onclick=async()=>{read();const out=$('#aiTestOut',el);out.textContent='Testing…';const t0=performance.now();
@@ -4872,6 +4890,37 @@ window.__bookSaved=(ok,msg)=>toast(ok?'Saved to Downloads ✓':'Could not save'+
 (()=>{const b0=App.book;App.book=function(){const r=b0.apply(this,arguments);AISettings.el=null;BrightBar.mount();BookAI.warm();return r};
   const r0=App.route;App.route=function(){AISettings.close();const ba=$('#brightAsk');if(ba)ba.remove();try{window.BookNative&&BookNative.stop&&BookNative.stop()}catch(e){}return r0.apply(this,arguments)}})();
 BookAI.load();
+
+/* ===== Smooth on every phone =====
+   The book watches how fast it draws. When a phone struggles, it draws a little less: fewer pixels first, then a
+   smaller shadow, then no shadows. The level it settles on is kept on this device and tried one step higher again
+   after a week. A grown-up can also choose "Simpler graphics" in the AI settings, and the Android app asks for it
+   after the phone ran out of memory. */
+const Perf={k:'bs-perf-v1',lvl:0,forcedLvl:0,on:false,iv:[],last:0,until:0,next:0,slow:0,
+  levels:[{pr:2},{pr:1.25},{pr:1,sm:512},{pr:.85,sm:0}],
+  load(){let o={};try{o=JSON.parse(localStorage.getItem(this.k)||'{}')||{}}catch(e){}
+    let l=Math.max(0,Math.min(3,Math.floor(+o.lvl||0)));if(l&&o.at&&Date.now()-o.at>7*864e5)l--;this.lvl=l;this.forcedLvl=o.force?2:0;
+    if(/[?&]lite=1(&|$)/.test(location.search))this.lvl=Math.max(this.lvl,2)},
+  save(){try{localStorage.setItem(this.k,JSON.stringify({lvl:this.lvl,at:Date.now(),force:!!this.forcedLvl}))}catch(e){}},
+  forced(){return this.forcedLvl>0},
+  force(v){this.forcedLvl=v?2:0;this.save();this.apply()},
+  level(){return Math.max(this.lvl,this.forcedLvl)},
+  /* the level, applied to the renderer and to the book's sun */
+  apply(){const r=E.renderer;if(!r)return;const L=this.levels[this.level()],base=Math.min(window.devicePixelRatio||1,innerWidth<700?1.5:2),pr=Math.min(base,L.pr);
+    if(Math.abs(r.getPixelRatio()-pr)>.01){r.setPixelRatio(pr);E.resize&&E.resize()}
+    const sun=Book.st&&Book.st.sun;if(!sun)return;
+    if(L.sm===0){if(sun.castShadow){sun.castShadow=false;r.shadowMap.enabled=false}return}
+    if(!sun.castShadow){sun.castShadow=true;r.shadowMap.enabled=true}
+    const sm=Math.min(L.sm||4096,innerWidth<700?1024:2048);if(sun.shadow.mapSize.x!==sm){sun.shadow.mapSize.set(sm,sm);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}},
+  /* every frame: how long it took (a very slow frame counts as 0.4 s); every 2.5 s: was it slow (under about 43 frames a second)? twice in a row: one level down */
+  tick(now){requestAnimationFrame(t=>this.tick(t));if(document.hidden||!E.scene||!E.visible){this.last=0;return}
+    if(this.last){const d=now-this.last;if(d<2000)this.iv.push(Math.min(d,400))}this.last=now;if(now<this.until){this.iv=[];return}
+    if(now<this.next)return;this.next=now+2500;const n=this.iv.length;if(n<3){this.iv=[];return}
+    const s=this.iv.slice().sort((a,b)=>a-b),med=s[n>>1];this.iv=[];
+    if(med>23&&this.lvl<3){if(++this.slow>=2){this.slow=0;this.lvl++;this.save();this.apply();this.until=now+4000}}else this.slow=0},
+  start(){this.load();this.apply();if(this.on)return;this.on=true;this.until=performance.now()+5000;requestAnimationFrame(t=>this.tick(t))}
+};
+(()=>{const b0=App.book;App.book=function(){const r=b0.apply(this,arguments);try{Perf.start()}catch(e){}return r}})();
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>App.boot());else App.boot();
 

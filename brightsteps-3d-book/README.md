@@ -16,6 +16,8 @@ Everything is in English, the language of school. Arabic stays only as short not
   - tap **any sentence or key word** on a lesson page: the yellow marker sweeps over it, Bright flies there and writes the explanation on a paper note that pops out of the page;
   - **✨ Ask why** under every 3D model, **💡 Hint** inside every quiz question, **✨ New questions** for endless quizzes; Bright cheers right answers and comforts wrong ones;
   - **Read it to me**: Bright reads the lesson line by line while the marker follows.
+- **🌙 عربي on the board**: Bright explains the step it is on again in simple Arabic, for a child who learns in English at school, keeping the lesson's English words; without the AI it shows the page's Arabic note.
+- **Smooth on every phone**: the board and the answer notes are drawn on canvases no bigger than they show on the screen, and redrawn less often on phones; the book watches its own frame rate and, if a phone struggles, draws fewer pixels and simpler shadows, and remembers that (a grown-up can also tick "Simpler graphics").
 - **Fast answers**: every reply streams in word by word; the provider that answers fastest on this device goes first; if it is slow to start, the next one starts too and the first to write wins; answers are kept on the device (asking again is instant) and the next "Another" is fetched while the child reads.
 - The AI uses the free providers of the MusabAI app (Musabgpt/C66) with the same order and failover rules. When none answers, the book answers from its own pages. Grown-ups add optional keys behind a small maths gate (Parents' corner → AI helper settings).
 - Stamps, stickers and trophies collect on the back pages. The last spread is the parents' corner (dates and tips).
@@ -40,6 +42,7 @@ Everything is in English, the language of school. Arabic stays only as short not
 | `src/book-bright.js` | Bright in the 3D book: the star, its thought bubbles, the paper notes with streaming ink, tap-a-sentence, Ask why, hints, read-aloud with the marker |
 | `src/book-board.js` | the lightboard lesson: the glass board, neon writing and drawings, questions, another way, the child's questions |
 | `src/book-ink.js` | the pen that writes on the page |
+| `src/book-perf.js` | keeps it smooth: watches the frame rate and draws less on slow phones |
 | `src/book-ai-ui.js` | the ✨ button, voice typing, the grown-ups' settings, Android bridges (voice, back button, saving files) |
 | `src/book.css` | styles |
 | `vendor/` | Three.js r128 and the fonts, for the offline Android build (`tools/vendor_fonts.py` refreshes the fonts) |

@@ -14,7 +14,7 @@ const AIVoiceIn={cb:null,
   tag(l){if(l!=='ar')return 'en-GB';const L=[].concat(navigator.languages||[],navigator.language||[]).map(String),a=L.find(x=>/^ar[-_](AE|BH|DZ|EG|IQ|JO|KW|LB|MA|OM|PS|QA|SA|TN|YE)$/i.test(x));return a?a.replace('_','-'):'ar-JO'},
   listen(cb,l){l=l==='ar'||l==='en'?l:this.lang();try{localStorage.setItem('bs-ask-lang',l)}catch(e){}this.l=l;const tag=this.tag(l);this.cb=cb;const mic=$('#aiMic');mic&&mic.classList.add('on');
     if(window.BookNative&&typeof BookNative.listen==='function'){try{BookNative.listen(tag)}catch(e){this.done('')}return}
-    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang=tag;r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on')};r.start()}catch(e){this.done('')}},
+    const R=window.SpeechRecognition||window.webkitSpeechRecognition;try{const r=new R();r.lang=tag;r.interimResults=false;r.maxAlternatives=1;r.onresult=e=>this.done(e.results[0][0].transcript);r.onerror=()=>this.done('');r.onend=()=>{const m=$('#aiMic');m&&m.classList.remove('on');if(this.cb)this.done('')};r.start()}catch(e){this.done('')}},
   done(t){const mic=$('#aiMic');mic&&mic.classList.remove('on');const cb=this.cb;this.cb=null;if(!t)toast(this.l==='ar'?'لم أسمعك جيدًا. حاول مرة أخرى!':"I didn't hear that. Try again!");cb&&cb(String(t||'').trim())}};
 window.__bookHeard=t=>AIVoiceIn.done(t);
 
@@ -36,6 +36,7 @@ const AISettings={el:null,
       <label class="ai-row"><input type="checkbox" id="aiVoice"${c.voice?' checked':''}> <span>Read answers aloud</span></label>
       <label class="ai-row"><input type="checkbox" id="aiTeach"${c.teach!==false?' checked':''}> <span>Bright teaches each new lesson by itself, on the glowing board</span></label>
       <label class="ai-row"><input type="checkbox" id="aiFast"${c.fast!==false?' checked':''}> <span>Fastest provider first (learns which one answers quickest here)</span></label>
+      <label class="ai-row"><input type="checkbox" id="aiLite"${Perf.forced()?' checked':''}> <span>Simpler graphics: smoother on older phones</span></label>
       <label class="ai-field"><span>First choice</span><select id="aiFirst"><option value="auto"${c.first==='auto'?' selected':''}>Automatic (MusabAI order)</option>${AI_SPECS.filter(s=>!s.custom).map(opt).join('')}</select></label>
       <h4>Free keys (optional)</h4><p class="note">Kilo Auto Free and AI Horde need no key. A free key from another provider makes Bright faster and more reliable.</p>
       ${AI_KEYS.map(([k,n])=>{const s=AI_SPECS.find(x=>x.secret===k);return `<label class="ai-field"><span>${esc(n)}${s&&s.site?` <small>${esc(s.site)}</small>`:''}</span><input type="password" data-key="${k}" value="${esc(c.keys[k]||'')}" autocomplete="off" spellcheck="false" placeholder="paste key"></label>`}).join('')}
@@ -49,7 +50,7 @@ const AISettings={el:null,
       <p class="note">Privacy: Bright sends the text of the page and the question, never the child's name. Free services may keep what is typed. Free tiers have limits, so Bright cannot promise an answer every time.</p>
       <p class="ar-note" dir="rtl" lang="ar">الخصوصية: يرسل الكتاب نص الصفحة والسؤال فقط، ولا يرسل اسم الطفل. الخدمات المجانية قد تحتفظ بما يُكتب ولها حدود استخدام.</p>`);
     const el=this.el;const list=()=>{$('#aiList',el).innerHTML=BookAI.order().filter((s,i,a)=>a.findIndex(x=>x.id===s.id)===i).map(s=>{const st=BookAI.status(s);return `<li><span>${esc(s.name)}</span><i class="st ${st.c}">${esc(st.t)}</i></li>`}).join('')};list();
-    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.teach=$('#aiTeach',el).checked;c.first=$('#aiFirst',el).value;$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
+    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.teach=$('#aiTeach',el).checked;c.first=$('#aiFirst',el).value;Perf.force($('#aiLite',el).checked);$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
     $('#aiSave',el).onclick=()=>{read();toast('Saved ✓');this.close()};
     $('#aiReset',el).onclick=()=>{BookAI.reset();list();$('#aiTestOut',el).textContent='Provider health cleared.'};
     $('#aiTest',el).onclick=async()=>{read();const out=$('#aiTestOut',el);out.textContent='Testing…';const t0=performance.now();

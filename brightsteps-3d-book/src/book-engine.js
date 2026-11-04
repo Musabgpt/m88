@@ -10,7 +10,7 @@ const Book={
     scene.background=new THREE.Color('#0d0b14');scene.fog=new THREE.FogExp2('#0d0b14',.034);
     scene.add(new THREE.HemisphereLight(0xfff1de,0x2c2019,.78));
     const sun=new THREE.DirectionalLight(0xffebd2,1.32);sun.position.set(4.5,13,8);sun.castShadow=true;const sc=sun.shadow.camera;sc.left=-9;sc.right=9;sc.top=9;sc.bottom=-9;sc.near=2;sc.far=40;
-    const sm=innerWidth<700?1024:2048;sun.shadow.mapSize.set(sm,sm);sun.shadow.bias=-.0006;sun.shadow.normalBias=.025;scene.add(sun,sun.target);
+    const sm=innerWidth<700?1024:2048;sun.shadow.mapSize.set(sm,sm);sun.shadow.bias=-.0006;sun.shadow.normalBias=.025;scene.add(sun,sun.target);st.sun=sun;
     const fill=new THREE.DirectionalLight(0xa9bcff,.2);fill.position.set(-7,6,-6);scene.add(fill);
     const lamp=new THREE.PointLight(0xffb070,.5,30,1.6);lamp.position.set(-7,6,-5);scene.add(lamp);
     /* desk */
@@ -115,7 +115,7 @@ const Book={
       (p.meta.hits||[]).forEach(hh=>{const c=p2w(k,side,hh.x+hh.w/2,hh.y+hh.h/2);const pl=new THREE.Mesh(new THREE.PlaneGeometry(hh.w*c.sx,hh.h*c.sz),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pl.rotation.x=-Math.PI/2;pl.position.set(c.x,c.y+.006,c.z);pl.userData.fold=false;ex.g.add(pl);ex.hits[side].push(pl);ex.tap(pl,()=>{if(hh.sound!==false)Snd.tick();hh.fn()})})}
     function buildExtras(k,keep){if(st.ex)foldExtras(keep);Overlay.sync();
       const g=new THREE.Group();scene.add(g);const ex={g,s:k,sp:null,picks:[],drags:[],ups:[],pop:null,root:null,hits:{L:[],R:[]}};st.ex=ex;
-      ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;fn(h,oo,e)});ex.picks.push(o);return o};
+      ex.tap=(o,fn)=>{E.tap(o,(h,oo,e)=>{if(st.flip||ex.dead)return;ex.used=true;fn(h,oo,e)});ex.picks.push(o);return o};
       if(k<1||k>M+1){Book.coverExtras(ex,k,st);Bright.spreadReady(keep);return}
       if(k===1)repaint('R1');if(k===S)repaint('L'+S);bd.last=k;
       const sp=SPREADS[k-1];ex.sp=sp;
@@ -135,9 +135,10 @@ const Book={
       Overlay.live(sp);Bright.spreadReady(keep);
     }
     st.refresh=id=>{repaint(id);const ex=st.ex;if(!ex||ex.dead)return;const side=id[0],k=+id.slice(1);if(k===ex.s)makeHits(ex,k,side)};
-    /* after a font loads: repaint the pages. An Arabic font (soft) only redraws, so nothing the child is using closes; others also rebuild the pop-ups, keeping Bright as it is */
+    /* after a font loads: repaint the pages. An Arabic font (soft), or a spread the child has started using, only redraws, so a lifted flap or a
+       half-built model stays as it is; otherwise the pop-ups are rebuilt too (their labels get the new font), keeping Bright as it is */
     st.repaintAll=soft=>{pages.forEach(p=>paint(p));const ex=st.ex,k=st.turned,inBook=!st.flip&&k>=1&&k<=M+1;
-      if(soft){if(ex&&!ex.dead&&inBook&&ex.s===k){makeHits(ex,k,'R');makeHits(ex,k,'L')}Bright.redraw();return}if(inBook)buildExtras(k,true)};
+      if(soft||(ex&&ex.used&&!ex.dead)){if(ex&&!ex.dead&&inBook&&ex.s===k){makeHits(ex,k,'R');makeHits(ex,k,'L')}Bright.redraw();return}if(inBook)buildExtras(k,true)};
     st.next=next;st.prev=prev;st.go=go;st.repaint=repaint;st.page=page;st.p2w=p2w;st.single=single;st.aim=aim;
     st.burst=(id,px,py,o)=>{const k=+id.slice(1),w=p2w(k,id[0],px,py);FX.burst(new THREE.Vector3(w.x,w.y+.25,w.z),Object.assign({n:60,speed:2.6,size:.2,colors:['#ffd166','#ffffff','#ff7b39'],sound:false},o||{}))};
     /* ---------- pointer: drag pop-up parts, drag a page edge to turn ---------- */
@@ -149,7 +150,7 @@ const Book={
     st.inkPick=e=>{castFrom(e);const ms=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const h=ray.intersectObjects(ms,false)[0];if(!h||!h.uv)return null;const lf=[LT,RT,BF,BB].find(l=>l.f===h.object||l.b===h.object);if(!lf)return null;
       const id=h.object===lf.f?lf.ids[0]:lf.ids[1];if(!id||!pages.get(id))return null;return {id,px:h.uv.x*PW,py:(1-h.uv.y)*PH}};
     orbit.onDown=e=>{if(BookInk.active()&&orbit.ptrs.size===1){const hit=st.inkPick(e);if(hit){st.inking=true;BookInk.start(hit);return}}if(orbit.ptrs.size>1){if(st.inking){st.inking=false;BookInk.end()}st.drag=null;const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f)finish(pd.f,false);return}if(st.flip||st.busy)return;castFrom(e);
-      const ex=st.ex;if(ex&&ex.drags.length){const hs=ray.intersectObjects(ex.drags,true).filter(h=>E.visibleChain(h.object));if(hs.length){const o=owner(hs[0].object);const hd=o.userData.drag;const n=hd.plane==='z'?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);plane.setFromNormalAndCoplanarPoint(n,hs[0].point);st.drag={o,hd,root:ex.root||o.parent};const lp=st.drag.root.worldToLocal(hs[0].point.clone());hd.start&&hd.start(lp,e);return}}
+      const ex=st.ex;if(ex&&ex.drags.length){const hs=ray.intersectObjects(ex.drags,true).filter(h=>E.visibleChain(h.object));if(hs.length){const o=owner(hs[0].object);const hd=o.userData.drag;const n=hd.plane==='z'?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);plane.setFromNormalAndCoplanarPoint(n,hs[0].point);st.drag={o,hd,root:ex.root||o.parent};ex.used=true;const lp=st.drag.root.worldToLocal(hs[0].point.clone());hd.start&&hd.start(lp,e);return}}
       const targets=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const hp=ray.intersectObjects(targets,false)[0];
       if(hp&&Math.abs(hp.point.x)>W*.4){const es=phys(hp.point.x<0?'L':'R');st.pdrag={side:es,x0:e.clientX,f:null}}};
     orbit.dragHandler=(e)=>{

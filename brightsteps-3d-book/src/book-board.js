@@ -33,10 +33,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   /* ---------- the board itself ---------- */
   haloTex(){if(this._halo)return this._halo;this._halo=G.tex(256,160,x=>{const g=x.createRadialGradient(128,80,20,128,80,130);g.addColorStop(0,'rgba(90,220,255,.55)');g.addColorStop(.6,'rgba(90,170,255,.18)');g.addColorStop(1,'rgba(90,170,255,0)');x.fillStyle=g;x.fillRect(0,0,256,160)},true);return this._halo},
   open(){const st=this.st,cam=E.camera,orbit=E.orbit,sg=st.single();const W=sg?1080:1600,H=sg?1320:1000;this.W=W;this.H=H;
-    this.cv=document.createElement('canvas');this.cv.width=W;this.cv.height=H;this.x=this.cv.getContext('2d');this.bake=document.createElement('canvas');this.bake.width=W;this.bake.height=H;this.bx=this.bake.getContext('2d');
-    this.tex=new THREE.CanvasTexture(this.cv);this.tex.encoding=THREE.sRGBEncoding;this.tex.anisotropy=8;
     cam.updateMatrixWorld();const tgt=orbit.target.clone(),P=this.pose();const d=E.camera.position.distanceTo(P),vh=2*d*Math.tan(cam.fov*Math.PI/360),vw=vh*cam.aspect,asp=W/H;
     const bw=Math.min(vw*.86,vh*.8*asp),bh=bw/asp;this.bw=bw;this.bh=bh;this.d0=d;this.rise=0;
+    /* the board is drawn in its own units (W×H) on a canvas no bigger than it shows on the screen, so a phone sends far fewer pixels to the GPU;
+       it is redrawn many times a second, so it has no mipmaps to rebuild each time */
+    const el=E.renderer.domElement,px=bw/vw*(el.clientWidth||innerWidth)*E.renderer.getPixelRatio()*1.15;this.q=clamp(px/W,.55,1);
+    this.cv=document.createElement('canvas');this.cv.width=Math.round(W*this.q);this.cv.height=Math.round(H*this.q);this.x=this.cv.getContext('2d');this.bake=document.createElement('canvas');this.bake.width=this.cv.width;this.bake.height=this.cv.height;this.bx=this.bake.getContext('2d');
+    this.tex=new THREE.CanvasTexture(this.cv);this.tex.encoding=THREE.sRGBEncoding;this.tex.generateMipmaps=false;this.tex.minFilter=THREE.LinearFilter;
     const g=new THREE.Group();const glass=new THREE.Mesh(new THREE.PlaneGeometry(bw,bh),new THREE.MeshBasicMaterial({map:this.tex,transparent:true,depthWrite:false}));glass.renderOrder=82;
     const halo=new THREE.Mesh(new THREE.PlaneGeometry(bw*1.16,bh*1.22),new THREE.MeshBasicMaterial({map:this.haloTex(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.85}));halo.position.z=-.03;halo.renderOrder=80;halo.raycast=()=>{};
     const fm=new THREE.MeshBasicMaterial({color:0x8ff8ff,transparent:true,opacity:.95,depthWrite:false}),th=Math.max(.012,bw*.005);
@@ -53,13 +56,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   /* o.rtl: Arabic, written from X (the right edge) to the left */
   neon(x,txt,X,Y,col,sz,o={}){x.save();PT.fnt(x,sz,o.wt||700,o.fam||FONT_R);x.textBaseline='alphabetic';x.direction=o.rtl?'rtl':'ltr';x.textAlign=o.rtl?'right':'left';
     if(o.clip!=null){x.beginPath();if(o.rtl)x.rect(X-o.clip,Y-sz*1.25,o.clip+14,sz*1.7);else x.rect(X-14,Y-sz*1.25,o.clip+14,sz*1.7);x.clip()}
-    x.shadowColor=col;x.shadowBlur=sz*.5;x.fillStyle=col;x.fillText(txt,X,Y);x.shadowBlur=sz*.14;x.globalAlpha=.5;x.fillStyle='#ffffff';x.fillText(txt,X,Y);x.restore()},
+    x.shadowColor=col;x.shadowBlur=sz*.5*(this.q||1);x.fillStyle=col;x.fillText(txt,X,Y);x.shadowBlur=sz*.14*(this.q||1);x.globalAlpha=.5;x.fillStyle='#ffffff';x.fillText(txt,X,Y);x.restore()},
   path(x,pts,col,w,t=1){let L=0;const seg=[];for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}let left=L*t,tip=pts[0];
-    x.save();x.lineCap='round';x.lineJoin='round';x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=w*2.4;x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+    x.save();x.lineCap='round';x.lineJoin='round';x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=w*2.4*(this.q||1);x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
     for(let i=1;i<pts.length&&left>0;i++){const d=seg[i-1]||1e-6,k=Math.min(1,left/d);const px=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*k,py=pts[i-1][1]+(pts[i][1]-pts[i-1][1])*k;x.lineTo(px,py);tip=[px,py];left-=d}
     x.stroke();x.restore();return tip},
   rectPts(X,Y,w,h){return [[X,Y],[X+w,Y],[X+w,Y+h],[X,Y+h],[X,Y]]},
-  base(x){const W=this.W,H=this.H;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(10,20,44,.95)');g.addColorStop(1,'rgba(5,9,24,.97)');
+  base(x){const W=this.W,H=this.H,q=this.q||1;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,x.canvas.width,x.canvas.height);x.setTransform(q,0,0,q,0,0);const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(10,20,44,.95)');g.addColorStop(1,'rgba(5,9,24,.97)');
     x.fillStyle=g;PT.rr(x,4,4,W-8,H-8,34);x.fill();x.fillStyle='rgba(143,248,255,.07)';for(let yy=56;yy<H-40;yy+=46)for(let xx=56;xx<W-40;xx+=46)x.fillRect(xx,yy,2.5,2.5);
     const r=x.createLinearGradient(0,0,W*.8,H);r.addColorStop(0,'rgba(255,255,255,.08)');r.addColorStop(.4,'rgba(255,255,255,0)');x.fillStyle=r;PT.rr(x,4,4,W-8,H-8,34);x.fill();
     if(this.sp){const w=WB[this.sp.w];this.neon(x,'✦ '+w.en,46,66,'#ffe45f',this.sg()?40:36,{fam:FONT_D,wt:800})}},
@@ -69,9 +72,11 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   wipe(quiet){this.base(this.bx);this.y=this.top();if(!quiet&&this.g){this.sweep=1;Snd.noise&&Snd.noise(.25,{vol:.05,f:4200,type:'bandpass'})}},
   /* ---------- items: each one knows its height and draws itself up to a point t (0..1), returning where the pen is ---------- */
   make(it){const x=this.x,W=this.W,X0=56,CW=W-112,fs=this.fs();const o=Object.assign({},it);
-    if(o.t==='title'){o.h=96;o.dur=.5+o.text.length/40;o.draw=(x,t,y)=>{PT.fnt(x,72,800,FONT_D);const tw=x.measureText(o.text).width;this.neon(x,o.text,X0,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.min(W-90,X0+tw+70),y+44,64);return [X0+tw*t,y+60]}}
-    else if(o.t==='line'||o.t==='stream'){const ar=()=>o.ar!=null?o.ar:aiIsAr(o.text),fam=()=>ar()?FONT_B:FONT_R,lh=()=>fs*(ar()?1.5:1.38);PT.fnt(x,fs,700,fam());o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*lh()+20;o.dur=.25+(o.text||'').length/56;
-      o.draw=(x,t,y)=>{const rtl=ar(),f=fam(),L=lh();PT.fnt(x,fs,700,f);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;o.rtl=rtl;if(o.t==='stream')o.h=Math.max(1,ls.length)*L+20;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[rtl?X0+CW:X0,y+fs];
+    if(o.t==='title'){o.h=96;o.dur=.5+o.text.length/40;const rtl=aiIsAr(o.text);o.rtl=rtl;o.draw=(x,t,y)=>{PT.fnt(x,72,800,FONT_D);const tw=x.measureText(o.text).width;
+      if(rtl){const XR=X0+CW;this.neon(x,o.text,XR,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t,rtl:true});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.max(90,XR-tw-70),y+44,64);return [XR-tw*t,y+60]}
+      this.neon(x,o.text,X0,y+70,'#ffe45f',72,{fam:FONT_D,wt:800,clip:tw*t});if(o.icon&&t>.6)PT.icon(x,o.icon,Math.min(W-90,X0+tw+70),y+44,64);return [X0+tw*t,y+60]}}
+    else if(o.t==='line'||o.t==='stream'){const ar=()=>o.ar!=null?o.ar:aiIsAr(o.text),a0=ar();PT.fnt(x,fs,700,a0?FONT_B:FONT_R);o.lines=PT.wrap(x,o.text||'',CW);o.h=Math.max(1,o.lines.length)*fs*(a0?1.5:1.38)+20;o.dur=.25+(o.text||'').length/56;
+      o.draw=(x,t,y)=>{const rtl=ar(),f=rtl?FONT_B:FONT_R,L=fs*(rtl?1.5:1.38);PT.fnt(x,fs,700,f);const ls=o.t==='stream'?PT.wrap(x,o.text||'',CW):o.lines;o.rtl=rtl;if(o.t==='stream')o.h=Math.max(1,ls.length)*L+20;const total=ls.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*t,tip=[rtl?X0+CW:X0,y+fs];
         ls.forEach((l,i)=>{if(left<=0)return;const lw=x.measureText(l).width,yy=y+fs+i*L,c=Math.min(lw,left);this.neon(x,l,rtl?X0+CW:X0,yy,o.col||'#8ff8ff',fs,{clip:c,fam:f,rtl});tip=[rtl?X0+CW-c:X0+c,yy-fs*.3];left-=lw});return tip}}
     else if(o.t==='ex'){PT.fnt(x,fs,700,FONT_R);o.lines=PT.wrap(x,o.text,CW-60);o.h=o.lines.length*fs*1.38+56;o.dur=.5+o.text.length/56;
       o.draw=(x,t,y)=>{const bh=o.h-16;const tip=this.path(x,this.rectPts(X0,y,CW,bh),'#ff7ae0',4,Math.min(1,t/.3));if(t<=.3)return tip;const k=(t-.3)/.7;PT.fnt(x,fs,700,FONT_R);const total=o.lines.reduce((a,l)=>a+x.measureText(l).width,0);let left=total*k,tp=tip;
@@ -88,13 +93,13 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
   art(x,wid,X,Y,w,h,t){const cx=X+w/2,cy=Y+h/2,P=(pts,c,lw,k)=>this.path(x,pts,c,lw,k);
     if(wid==='blocks'){const s=Math.min(26,(h-60)/10);let tip=[cx,cy];for(let i=0;i<10;i++){const k=clamp(t*12-i,0,1);if(k>0)tip=P(this.rectPts(cx-200,Y+20+i*s,s,s),'#ffe45f',3,k)}
       for(let j=0;j<3;j++){const k=clamp(t*12-10-j*.6,0,1);if(k>0)tip=P(this.rectPts(cx+40+j*(s+14),Y+20+9*s,s,s),'#8ff8ff',3,k)}if(t>.8){this.neon(x,'10',cx-206,Y+h-6,'#ffe45f',40,{wt:800});this.neon(x,'1 + 1 + 1',cx+30,Y+h-6,'#8ff8ff',40,{wt:800})}return tip}
-    if(wid==='dice'){let tip=[cx,cy];[4,6,3].forEach((v,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const s=120,dx=cx-220+i*160,dy=cy-60;tip=P(this.rectPts(dx,dy,s,s),'#8ff8ff',4,k);if(k>=1){const pp={3:[[.25,.25],[.5,.5],[.75,.75]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],6:[[.28,.22],[.72,.22],[.28,.5],[.72,.5],[.28,.78],[.72,.78]]}[v];x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=10;pp.forEach(([a,b])=>{x.beginPath();x.arc(dx+a*s,dy+b*s,10,0,7);x.fill()});x.restore()}});
+    if(wid==='dice'){let tip=[cx,cy];[4,6,3].forEach((v,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const s=120,dx=cx-220+i*160,dy=cy-60;tip=P(this.rectPts(dx,dy,s,s),'#8ff8ff',4,k);if(k>=1){const pp={3:[[.25,.25],[.5,.5],[.75,.75]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],6:[[.28,.22],[.72,.22],[.28,.5],[.72,.5],[.28,.78],[.72,.78]]}[v];x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=10*(this.q||1);pp.forEach(([a,b])=>{x.beginPath();x.arc(dx+a*s,dy+b*s,10,0,7);x.fill()});x.restore()}});
       if(t>.9)this.neon(x,'4 + 6 = 10,  10 + 3 = 13',cx-260,cy+120,'#ffe45f',44,{wt:800});return tip}
     if(wid==='balance'){const k1=clamp(t*2,0,1),k2=clamp(t*2-1,0,1);let tip=P([[cx,cy+110],[cx,cy-40]],'#8ff8ff',5,k1);tip=P([[cx-230,cy-40],[cx+230,cy-40]],'#8ff8ff',5,k1);
       if(k2>0){tip=P([[cx-280,cy+10],[cx-180,cy+10],[cx-230,cy-40],[cx-280,cy+10]],'#ffe45f',4,k2);P([[cx+180,cy+10],[cx+280,cy+10],[cx+230,cy-40],[cx+180,cy+10]],'#ffe45f',4,k2)}
       if(t>.9){this.neon(x,'12',cx-262,cy+70,'#ffe45f',46,{wt:800});this.neon(x,'7 + 5',cx+176,cy+70,'#ffe45f',46,{wt:800})}return tip}
     if(wid==='shapes2d'){const sh=[3,4,6];let tip=[cx,cy];sh.forEach((n,i)=>{const k=clamp(t*3-i,0,1);if(k<=0)return;const ox=cx-240+i*240,R=80,pts=[];for(let j=0;j<=n;j++){const a=-Math.PI/2+j*2*Math.PI/n+(n===4?Math.PI/4:0);pts.push([ox+Math.cos(a)*R,cy+Math.sin(a)*R])}tip=P(pts,['#8ff8ff','#ffe45f','#ff7ae0'][i],5,k);
-        if(k>=1){x.save();x.fillStyle='#fff';x.shadowColor='#fff';x.shadowBlur=8;pts.slice(0,n).forEach(([a,b])=>{x.beginPath();x.arc(a,b,7,0,7);x.fill()});x.restore();this.neon(x,n+' sides',ox-62,cy+136,'#ffffff',32,{})}});return tip}
+        if(k>=1){x.save();x.fillStyle='#fff';x.shadowColor='#fff';x.shadowBlur=8*(this.q||1);pts.slice(0,n).forEach(([a,b])=>{x.beginPath();x.arc(a,b,7,0,7);x.fill()});x.restore();this.neon(x,n+' sides',ox-62,cy+136,'#ffffff',32,{})}});return tip}
     if(wid==='shapes3d'){const s=110,ox=cx-60,oy=cy-30,d=50;const f=[[ox,oy],[ox+s,oy],[ox+s,oy+s],[ox,oy+s],[ox,oy]],b=f.map(([a,c])=>[a+d,c-d]);let tip=P(f,'#8ff8ff',4,clamp(t*2,0,1));if(t>.5){tip=P(b,'#ffe45f',4,clamp(t*2-1,0,1));if(t>.9)[[0,0],[1,1],[2,2],[3,3]].forEach(([i,j])=>P([f[i],b[j]],'#ffe45f',3,1))}
       if(t>.95)this.neon(x,'6 faces · 12 edges · 8 vertices',cx-330,cy+150,'#ffffff',36,{});return tip}
     if(wid==='phonics'||wid==='tricky'){const pairs=wid==='phonics'?SOUNDS[0].sp.map(([g,word])=>[word,g]):TRICKY.slice(0,3).map(tw=>[tw.w,tw.w.slice(tw.h[0],tw.h[1]+1)]);let tip=[cx,cy];
@@ -137,12 +142,19 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
     if(!this.on)return;this.thinking=false;
     if(!lines||!lines.length){const L=(this.sp.c.learn||{}),ex=(L.body||[]).filter(p=>p.startsWith('EX:')).map(p=>p.slice(3).trim().replace(/ {2,}/g,'   '));lines=[ex.length?pick(ex):(L.words||[]).map(x=>x[0]).join(' · ')];say='Here is another way to see it.'}
     this.steps.splice(this.i+1,0,{say:say||lines.join(' '),items:[{t:'title',text:'Another way',icon:'💡'},...lines.map(l=>({t:'line',text:l,col:'#7dff9a'}))],wipe:true});this.paused=false;this.cur=null;this.queue=[];this.next()},
+  /* the same idea in simple Arabic, for a child who learns in English at school: from the AI, else the page's own Arabic note */
+  async arabic(){if(!this.on||this.thinking)return;const s=this.stepRef||{},idea=(s.items||[]).map(it=>it.text||'').join(' ')||(s.ask&&s.ask.q)||(s.end?'':s.say||'');
+    this.thinking=true;this.paused=true;this.sub='Bright يفكّر بالعربي…';this.dirty=true;Bright.react('think');let text='';
+    if(BookAI.enabled()){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(this.sp)},{role:'user',content:`Explain this idea in simple Arabic to a 6 year old who learns in English at school: «${aiCleanIn(idea)||WB[this.sp.w].en}». 2 or 3 short sentences, like a kind teacher. Keep the English school words in English, so the child can find them in the lesson.`}],{max:280});text=aiCleanOut(r.text,true)}catch(e){}}
+    if(!this.on)return;this.thinking=false;if(!text||!aiIsAr(text))text=((this.sp.c||WC[this.sp.w]||{}).learn||{}).ar||'';
+    if(!text){this.paused=false;this.sub='';this.dirty=true;return}
+    this.steps.splice(this.i+1,0,{say:text,items:[{t:'title',text:'بالعربي',icon:'🌙'},{t:'line',text,col:'#ffe9a8',ar:true}],wipe:true,hold:true});this.paused=false;this.cur=null;this.queue=[];this.next()},
   /* the child's own question, answered on the board as the words stream in */
-  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;const ar=aiIsAr(q);
+  async question(text){if(!this.on)return;const q=aiCleanIn(text);if(!q)return;this.paused=false;const ar=aiIsAr(q),T=AI_TASKS[ar?'askAr':'ask'];
     const item={t:'stream',text:'',col:'#ffffff'};this.steps.splice(this.i+1,0,{say:'',items:[{t:'line',text:(ar?'سألت: ':'You asked: ')+q,col:'#ffe45f',ar},item],wipe:true,live:item});this.cur=null;this.queue=[];this.next();
     const sp=this.sp;let out='';const mk=()=>{if(this.cur&&this.cur.t==='stream'){this.cur.text=item.text;this.cur.final=item.final}};
-    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:ar?`The child asks in Arabic: «${q}». Answer in simple Arabic, in 2 or 3 short sentences, like a kind teacher. Keep the English school words from this page in English.`:`The child asks: «${q}». Answer in 2 or 3 short sentences.`}],{max:ar?280:170,onText:t=>{item.text=aiCleanOut(t);mk()}});out=aiCleanOut(r.text)}catch(e){}}
-    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q,ar});item.text=out;item.final=true;mk();if(this.on)this.speak(out)},
+    if(BookAI.enabled()&&!AI_BAD.test(q)){try{const r=await BookAI.chat([{role:'system',content:AI_RULES+'\n\nThis page:\n'+aiPageContext(sp)},{role:'user',content:T.p.replace('{text}',q)}],{max:T.max,onText:t=>{item.text=aiCleanOut(t,ar);mk()}});out=aiCleanOut(r.text,ar)}catch(e){}}
+    if(!out)out=AI_BAD.test(q)?"That's a question for a grown-up. Let's keep learning together! 😊":AIOffline.answer('free',sp,{text:q,ar});item.text=out;item.final=true;mk();if(this.on&&this.stepRef&&this.stepRef.live===item)this.speak(out)},
   tap(h){if(!h||!h.uv)return;const X=h.uv.x*this.W,Y=(1-h.uv.y)*this.H;const b=this.btns.find(r=>X>=r.x&&X<=r.x+r.w&&Y>=r.y&&Y<=r.y+r.h);if(b){Snd.tick();Bright.buzz(10);b.act()}},
   /* ---------- every frame ---------- */
   update(dt){if(!this.g)return;const cam=E.camera,now=performance.now();dt=Math.min(.25,(now-(this.lt||now))/1000);this.lt=now;
@@ -151,23 +163,23 @@ const Board={on:false,st:null,scene:null,g:null,mesh:null,cv:null,x:null,tex:nul
       g.quaternion.copy(cam.quaternion);g.rotateY(Math.sin(now/1700)*.035);g.rotateX(Math.sin(now/2300)*.02)}
     if(!this.on)return;
     if(!this.paused&&!this.cur&&this.queue.length){this.cur=this.make(this.queue.shift());this.cur.p=0;if(this.y+this.cur.h>this.bottom()&&this.cur.t!=='qa'&&this.y>this.top()+5){this.wipe();}if(this.cur.t==='qa')this.qaY=this.y}
-    const it=this.cur;if(it&&!this.paused&&!(it.t==='qa'&&it.p>=1)){const speed=it.t==='stream'?1:1.15;if(it.t==='stream'){const L=(it.text||'').length;it.dur=.25+L/56;if(!it.final&&it.p>=.97)it.p=.97}
+    const it=this.cur;if(it&&it.t==='stream'&&this.y+it.h>this.bottom()&&this.y>this.top()+5)this.wipe(true);if(it&&!this.paused&&!(it.t==='qa'&&it.p>=1)){const speed=it.t==='stream'?1:1.15;if(it.t==='stream'){const L=(it.text||'').length;it.dur=.25+L/56;if(!it.final&&it.p>=.97)it.p=.97}
       it.p=Math.min(1,it.p+dt*speed/Math.max(.2,it.dur));this.dirty=true;if(it.p>=1&&(it.t!=='stream'||it.final)){if(it.t!=='qa'){it.draw(this.bx,1,this.y);this.y+=it.h+14;this.cur=null}}}
     if(this.sweep>0){this.sweep=Math.max(0,this.sweep-dt*2.6);this.dirty=true}
-    if(this.dirty&&now-this.lastDraw>33){this.lastDraw=now;this.render()}
+    if(this.dirty&&now-this.lastDraw>(this.sg()?50:33)){this.lastDraw=now;this.render()}
     /* Bright writes: it follows the pen; otherwise it floats by the board */
     if(it&&it.tip&&!this.paused&&it.t!=='qa'&&it.p<1){const w=this.toWorld(Math.max(60,Math.min(this.W-60,it.tip[0]+(it.rtl?-46:46))),Math.min(this.H-60,it.tip[1]+52));if(w){Bright.away=true;Bright.goal.copy(w)}}else{const w=this.toWorld(this.W-70,this.H-(this.sg()?300:250));if(w){Bright.away=true;Bright.goal.copy(w)}}
-    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(s.live?Math.max(2500,(this.sayWords||0)*420-(this.doneAt-(this.sayAt||this.doneAt))):this.ask&&this.ask.after?1800:650))this.next();
+    const s=this.stepRef;const waiting=this.ask&&!this.ask.done;if(!this.paused&&!this.thinking&&!this.cur&&!this.queue.length&&s&&!waiting&&!(s.live&&!s.live.final)&&this.spoken&&now-this.doneAt>(s.live||s.hold?Math.max(2500,(this.sayWords||0)*420-(this.doneAt-(this.sayAt||this.doneAt))):this.ask&&this.ask.after?1800:650))this.next();
     if(this.cur&&this.cur.t==='qa'&&this.ask&&this.ask.done&&this.spoken&&now-this.doneAt>1800){this.cur=null;this.next()}},
-  render(){if(!this.x)return;const x=this.x,W=this.W,H=this.H;this.dirty=false;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);x.drawImage(this.bake,0,0);
-    const it=this.cur;if(it){it.tip=it.draw(x,it.p,it.t==='qa'?(this.qaY||this.y):this.y);if(it.tip&&!this.paused&&it.p<1&&it.t!=='qa'){x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=26;x.beginPath();x.arc(it.tip[0]+6,it.tip[1]+4,9,0,7);x.fill();x.restore()}}
+  render(){if(!this.x)return;const x=this.x,W=this.W,H=this.H,q=this.q||1;this.dirty=false;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,this.cv.width,this.cv.height);x.drawImage(this.bake,0,0);x.setTransform(q,0,0,q,0,0);
+    const it=this.cur;if(it){it.tip=it.draw(x,it.p,it.t==='qa'?(this.qaY||this.y):this.y);if(it.tip&&!this.paused&&it.p<1&&it.t!=='qa'){x.save();x.fillStyle='#ffffff';x.shadowColor='#8ff8ff';x.shadowBlur=26*q;x.beginPath();x.arc(it.tip[0]+6,it.tip[1]+4,9,0,7);x.fill();x.restore()}}
     if(this.sweep>0){const yy=(1-this.sweep)*H;const g=x.createLinearGradient(0,yy-60,0,yy+60);g.addColorStop(0,'rgba(143,248,255,0)');g.addColorStop(.5,'rgba(143,248,255,.45)');g.addColorStop(1,'rgba(143,248,255,0)');x.fillStyle=g;x.fillRect(0,yy-60,W,120)}
     /* progress dots */
     const n=this.steps.length;for(let k=0;k<n;k++){x.fillStyle=k<this.i?'#7dff9a':k===this.i?'#ffe45f':'rgba(255,255,255,.22)';x.beginPath();x.arc(W-50-(n-1-k)*24,56,7,0,7);x.fill()}
     /* what Bright is saying, and the buttons */
     const fy=H-(this.sg()?232:186);x.fillStyle='rgba(143,248,255,.12)';x.fillRect(40,fy-8,W-80,2);const sub=this.thinking?'Bright is thinking…':this.sub;
     if(sub){const ar=aiIsAr(sub);PT.fnt(x,this.sg()?32:28,700,ar?FONT_B:FONT_R);x.fillStyle='rgba(255,255,255,.88)';if(ar)PT.rtl(x);else PT.ltr(x);PT.wrap(x,sub,W-120).slice(0,2).forEach((l,i)=>x.fillText(l,ar?W-60:60,fy+38+i*(this.sg()?40:36)))}
-    this.btns=this.btns.filter(b=>b.opt);const bh=this.sg()?92:70,by=H-bh-24,labels=[[this.paused?'▶ Play':'⏸ Pause',()=>this.togglePause()],['⏭ Next',()=>this.skip()],['💡 Another way',()=>this.another()],['✕ Close',()=>this.stop()]];
-    const gap=16,bw=(W-80-gap*(labels.length-1))/labels.length;labels.forEach(([l,act],i)=>{const r={x:40+i*(bw+gap),y:by,w:bw,h:bh};this.path(x,this.rectPts(r.x,r.y,r.w,r.h),i===2?'#7dff9a':'#8ff8ff',3,1);const f=PT.fitFont(x,l,bw-24,this.sg()?36:30,800,FONT_D,16);this.neon(x,l,r.x+(bw-x.measureText(l).width)/2,r.y+bh/2+f*.36,'#ffffff',f,{fam:FONT_D,wt:800});this.btns.push({x:r.x,y:r.y,w:r.w,h:r.h,act})});
+    this.btns=this.btns.filter(b=>b.opt);const bh=this.sg()?92:70,by=H-bh-24,labels=[[this.paused?'▶ Play':'⏸ Pause',()=>this.togglePause()],['⏭ Next',()=>this.skip()],[this.sg()?'💡 Another':'💡 Another way',()=>this.another()],['🌙 عربي',()=>this.arabic()],['✕ Close',()=>this.stop()]];
+    const gap=16,bw=(W-80-gap*(labels.length-1))/labels.length;labels.forEach(([l,act],i)=>{const r={x:40+i*(bw+gap),y:by,w:bw,h:bh};this.path(x,this.rectPts(r.x,r.y,r.w,r.h),i===2?'#7dff9a':i===3?'#ffe45f':'#8ff8ff',3,1);const f=PT.fitFont(x,l,bw-24,this.sg()?36:30,800,FONT_D,16);this.neon(x,l,r.x+(bw-x.measureText(l).width)/2,r.y+bh/2+f*.36,'#ffffff',f,{fam:FONT_D,wt:800});this.btns.push({x:r.x,y:r.y,w:r.w,h:r.h,act})});
     this.tex.needsUpdate=true}
 };
