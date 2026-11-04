@@ -79,7 +79,7 @@ def package(vscodium: Path, extension: Path, out: Path) -> tuple[Path, Path]:
             value = bundle.read_text(encoding="utf-8")
             if 'nameShort:"VSCodium"' in value:
                 bundle.write_text(patch_inlined_product(value, str(bundle.relative_to(app))), encoding="utf-8")
-                patched.append(str(bundle.relative_to(resources)))
+                patched.append(bundle.relative_to(resources).as_posix())
         if not any(p in patched for p in ("out/main.js", "out/mainImpl.js")):
             raise RuntimeError("Did not patch the main Electron product configuration")
 
