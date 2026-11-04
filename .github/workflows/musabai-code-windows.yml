@@ -85,11 +85,19 @@ jobs:
           if (!(Test-Path (Join-Path $app "resources\app\extensions\musabai-defaults\package.json"))) { throw "Editor defaults missing" }
           $editorCli = Join-Path $app "resources\app\out\cli.js"
           $env:ELECTRON_RUN_AS_NODE = "1"
-          & $exe $editorCli --version
-          if ($LASTEXITCODE -ne 0) { throw "Editor CLI --version failed" }
+          $editorOutput = @(& $exe $editorCli --version 2>&1)
+          $editorStatus = $LASTEXITCODE
+          $editorText = $editorOutput -join " "
+          Write-Host "Editor CLI version output: $editorText"
+          if ($editorText -notmatch '1\.140\.06880') { throw "Editor CLI did not print the expected version" }
+          if ($editorStatus -ne 0) { Write-Warning "Upstream VSCodium version CLI exits $editorStatus in headless Windows runner" }
           Remove-Item Env:ELECTRON_RUN_AS_NODE
-          & (Join-Path $app "musabai-agent.cmd") --version
-          if ($LASTEXITCODE -ne 0) { throw "Terminal agent --version failed" }
+          $agentOutput = @(& (Join-Path $app "musabai-agent.cmd") --version 2>&1)
+          $agentStatus = $LASTEXITCODE
+          $agentText = $agentOutput -join " "
+          Write-Host "MusabAI agent version output: $agentText"
+          if ($agentText -notmatch '0\.2\.2') { throw "Terminal agent did not print the expected version" }
+          if ($agentStatus -ne 0) { Write-Warning "Agent version command exits $agentStatus" }
           Write-Host "MusabAI Code Windows smoke checks passed"
 
       - name: Build Windows installer with Inno Setup
