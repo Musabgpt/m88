@@ -83,8 +83,11 @@ jobs:
           if (!(Test-Path $agent)) { throw "Bundled MusabAI agent missing" }
           if ($product.nameShort -ne "MusabAI Code") { throw "Editor branding missing" }
           if (!(Test-Path (Join-Path $app "resources\app\extensions\musabai-defaults\package.json"))) { throw "Editor defaults missing" }
-          & $exe --version
-          if ($LASTEXITCODE -ne 0) { throw "Editor --version failed" }
+          $editorCli = Join-Path $app "resources\app\out\cli.js"
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          & $exe $editorCli --version
+          if ($LASTEXITCODE -ne 0) { throw "Editor CLI --version failed" }
+          Remove-Item Env:ELECTRON_RUN_AS_NODE
           & (Join-Path $app "musabai-agent.cmd") --version
           if ($LASTEXITCODE -ne 0) { throw "Terminal agent --version failed" }
           Write-Host "MusabAI Code Windows smoke checks passed"
