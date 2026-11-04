@@ -96,7 +96,9 @@ def package(vscodium: Path, extension: Path, out: Path) -> tuple[Path, Path]:
 
         # Standalone editor and the terminal agent both use the bundled Electron runtime.
         (app / "musabai-code.cmd").write_text(
-            '@echo off\r\nsetlocal\r\n"%~dp0MusabAI Code.exe" %*\r\n', encoding="utf-8"
+            '@echo off\r\nsetlocal\r\nset "ELECTRON_RUN_AS_NODE=1"\r\n'
+            '"%~dp0MusabAI Code.exe" "%~dp0resources\\app\\out\\cli.js" %*\r\n',
+            encoding="utf-8"
         )
         (app / "musabai-agent.cmd").write_text(
             '@echo off\r\nsetlocal\r\nset "ELECTRON_RUN_AS_NODE=1"\r\n'
