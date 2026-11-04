@@ -90,7 +90,7 @@ function paintLearn(x,ctx){
   PT.fnt(x,24,700,FONT_D);PT.ltr(x);x.fillStyle=ch.ink;x.fillText('Chapter '+ch.n+' · '+ch.enName,X0,92);PT.ar(x,ch.arName,X0,X1,90,{sz:18,col:ch.ink});
   x.globalAlpha=.85;x.fillStyle=ch.ink;x.fillRect(X0,106,CW,3);x.globalAlpha=1;
   x.fillStyle=ch.tint;x.beginPath();x.arc(X1-48,176,46,0,7);x.fill();PT.icon(x,w.icon,X1-48,176,54);
-  {const ab={x:X1-160,y:236,w:160,h:58};PT.box(x,ab.x,ab.y,ab.w,ab.h,29,'#6648c2','#4a2f9e',2);PT.icon(x,'✨',ab.x+30,ab.y+29,30);PT.fnt(x,27,800,FONT_D);PT.ltr(x);x.fillStyle='#ffffff';x.fillText('Ask me',ab.x+54,ab.y+39);meta.hits.push({x:ab.x-8,y:ab.y-8,w:ab.w+16,h:ab.h+16,fn:()=>Bright.summon()});meta.ask=ab}
+  {const ab={x:X1-160,y:236,w:160,h:58};PT.box(x,ab.x,ab.y,ab.w,ab.h,29,'#6648c2','#4a2f9e',2);PT.icon(x,'🎓',ab.x+30,ab.y+29,30);PT.fnt(x,PT.fitFont(x,'Teach me',ab.w-66,27,800,FONT_D,18),800,FONT_D);PT.ltr(x);x.fillStyle='#ffffff';x.fillText('Teach me',ab.x+54,ab.y+39);meta.hits.push({x:ab.x-8,y:ab.y-8,w:ab.w+16,h:ab.h+16,fn:()=>Board.start(sp)});meta.ask=ab}
   let y=192;PT.fnt(x,58,800,FONT_D);PT.ltr(x);x.fillStyle=PINK;const tl=PT.wrap(x,w.en,CW-170);tl.forEach((l,i)=>x.fillText(l,X0,y+i*64));y+=(tl.length-1)*64;
   PT.squiggle(x,X0,X0+Math.min(330,CW-140),y+20,ch.ink,4);PT.ar(x,w.ar,X0,X1-176,y+56,{sz:24,col:ch.ink});const top=y+86;
   let bot=PH-82;

@@ -30,6 +30,7 @@ const AISettings={el:null,
       <p class="ar-note" dir="rtl" lang="ar">يستعمل الكتاب مزودات الذكاء الاصطناعي المجانية من تطبيق MusabAI بنفس الترتيب. إذا انشغل مزود ينتقل للتالي، وإذا لم يجب أحد يجيب الكتاب من صفحاته. المفاتيح تبقى على هذا الجهاز فقط.</p>
       <label class="ai-row"><input type="checkbox" id="aiOn"${c.on?' checked':''}> <span>AI helper on</span></label>
       <label class="ai-row"><input type="checkbox" id="aiVoice"${c.voice?' checked':''}> <span>Read answers aloud</span></label>
+      <label class="ai-row"><input type="checkbox" id="aiTeach"${c.teach!==false?' checked':''}> <span>Bright teaches each new lesson by itself, on the glowing board</span></label>
       <label class="ai-row"><input type="checkbox" id="aiFast"${c.fast!==false?' checked':''}> <span>Fastest provider first (learns which one answers quickest here)</span></label>
       <label class="ai-field"><span>First choice</span><select id="aiFirst"><option value="auto"${c.first==='auto'?' selected':''}>Automatic (MusabAI order)</option>${AI_SPECS.filter(s=>!s.custom).map(opt).join('')}</select></label>
       <h4>Free keys (optional)</h4><p class="note">Kilo Auto Free and AI Horde need no key. A free key from another provider makes Bright faster and more reliable.</p>
@@ -44,7 +45,7 @@ const AISettings={el:null,
       <p class="note">Privacy: Bright sends the text of the page and the question, never the child's name. Free services may keep what is typed. Free tiers have limits, so Bright cannot promise an answer every time.</p>
       <p class="ar-note" dir="rtl" lang="ar">الخصوصية: يرسل الكتاب نص الصفحة والسؤال فقط، ولا يرسل اسم الطفل. الخدمات المجانية قد تحتفظ بما يُكتب ولها حدود استخدام.</p>`);
     const el=this.el;const list=()=>{$('#aiList',el).innerHTML=BookAI.order().filter((s,i,a)=>a.findIndex(x=>x.id===s.id)===i).map(s=>{const st=BookAI.status(s);return `<li><span>${esc(s.name)}</span><i class="st ${st.c}">${esc(st.t)}</i></li>`}).join('')};list();
-    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.first=$('#aiFirst',el).value;$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
+    const read=()=>{c.on=$('#aiOn',el).checked;c.voice=$('#aiVoice',el).checked;c.fast=$('#aiFast',el).checked;c.teach=$('#aiTeach',el).checked;c.first=$('#aiFirst',el).value;$$('[data-key]',el).forEach(i=>{c.keys[i.dataset.key]=i.value.trim()});c.custom={base:$('#aiCB',el).value.trim(),model:$('#aiCM',el).value.trim(),key:$('#aiCK',el).value.trim()};BookAI.save();list()};
     $('#aiSave',el).onclick=()=>{read();toast('Saved ✓');this.close()};
     $('#aiReset',el).onclick=()=>{BookAI.reset();list();$('#aiTestOut',el).textContent='Provider health cleared.'};
     $('#aiTest',el).onclick=async()=>{read();const out=$('#aiTestOut',el);out.textContent='Testing…';const t0=performance.now();

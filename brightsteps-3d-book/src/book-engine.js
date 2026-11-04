@@ -39,11 +39,11 @@ const Book={
     const blob=G.shadow(1,.55);blob.scale.set(W*1.5,H*1.25,1);blob.position.y=.003;BG.add(blob);
     /* a silk ribbon bookmark hanging out of the bottom of the open book */
     const ribbon=Book.ribbon();scene.add(ribbon);
-    Bright.attach({scene,st});
+    Bright.attach({scene,st});Board.attach({scene,st});
     /* page textures */
     const pages=new Map();const ANI=R.capabilities.getMaxAnisotropy?Math.min(8,R.capabilities.getMaxAnisotropy()):4;
     function page(id){let p=pages.get(id);if(!p){const c=document.createElement('canvas');c.width=PW;c.height=PH;const x=c.getContext('2d');const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=ANI;p={id,c,x,tex,meta:{}};pages.set(id,p);paint(p)}p.used=performance.now();return p}
-    function paint(p){const x=p.x;x.save();x.setTransform(1,0,0,1,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.textBaseline='alphabetic';x.setLineDash([]);try{p.meta=BookPaint(p.id,x,st)||{}}catch(e){console.error(e);p.meta={}}x.restore();p.tex.needsUpdate=true}
+    function paint(p){const x=p.x;x.save();x.setTransform(1,0,0,1,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.textBaseline='alphabetic';x.setLineDash([]);try{p.meta=BookPaint(p.id,x,st)||{};BookInk.paint(p.id,x)}catch(e){console.error(e);p.meta={}}x.restore();p.tex.needsUpdate=true}
     function repaint(id){const p=pages.get(id);if(p)paint(p)}
     const live=()=>new Set([LT,RT,TN,BF,BB].flatMap(l=>l.g.visible?l.ids:[]));
     function trim(){if(pages.size<=10)return;const keep=live();[...pages.values()].filter(p=>!keep.has(p.id)).sort((a,b)=>a.used-b.used).slice(0,pages.size-10).forEach(p=>{p.tex.dispose();pages.delete(p.id)})}
@@ -142,27 +142,32 @@ const Book={
     const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),plane=new THREE.Plane(),hit=new THREE.Vector3();
     const castFrom=e=>{const rc=R.domElement.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);ray.setFromCamera(ndc,cam);return ray};
     const owner=o=>{while(o&&!(o.userData&&o.userData.drag))o=o.parent;return o};
-    orbit.onDown=e=>{if(orbit.ptrs.size>1){st.drag=null;const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f)finish(pd.f,false);return}if(st.flip||st.busy)return;castFrom(e);
+    /* the pen: which page is under the finger, and where on its paper */
+    st.pageObj=id=>pages.get(id);
+    st.inkPick=e=>{castFrom(e);const ms=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const h=ray.intersectObjects(ms,false)[0];if(!h||!h.uv)return null;const lf=[LT,RT,BF,BB].find(l=>l.f===h.object||l.b===h.object);if(!lf)return null;
+      const id=h.object===lf.f?lf.ids[0]:lf.ids[1];if(!id||!pages.get(id))return null;return {id,px:h.uv.x*PW,py:(1-h.uv.y)*PH}};
+    orbit.onDown=e=>{if(BookInk.active()&&orbit.ptrs.size===1){const hit=st.inkPick(e);if(hit){st.inking=true;BookInk.start(hit);return}}if(orbit.ptrs.size>1){if(st.inking){st.inking=false;BookInk.end()}st.drag=null;const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f)finish(pd.f,false);return}if(st.flip||st.busy)return;castFrom(e);
       const ex=st.ex;if(ex&&ex.drags.length){const hs=ray.intersectObjects(ex.drags,true).filter(h=>E.visibleChain(h.object));if(hs.length){const o=owner(hs[0].object);const hd=o.userData.drag;const n=hd.plane==='z'?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);plane.setFromNormalAndCoplanarPoint(n,hs[0].point);st.drag={o,hd,root:ex.root||o.parent};const lp=st.drag.root.worldToLocal(hs[0].point.clone());hd.start&&hd.start(lp,e);return}}
       const targets=[LT.f,RT.b,BF.f,BF.b,BB.f,BB.b].filter(m=>E.visibleChain(m));const hp=ray.intersectObjects(targets,false)[0];
       if(hp&&Math.abs(hp.point.x)>W*.4){const es=phys(hp.point.x<0?'L':'R');st.pdrag={side:es,x0:e.clientX,f:null}}};
     orbit.dragHandler=(e)=>{
+      if(st.inking){const hit=st.inkPick(e);if(hit)BookInk.move(hit);return true}
       if(st.drag){castFrom(e);if(ray.ray.intersectPlane(plane,hit)){const lp=st.drag.root.worldToLocal(hit.clone());st.drag.hd.move&&st.drag.hd.move(lp,e)}return true}
       const pd=st.pdrag;if(pd){const dx=e.clientX-pd.x0;const dir=pd.side==='L'?1:-1,want=dir*MIR;const wpx=R.domElement.clientWidth*(single()?.75:.5);
         if(!pd.f){if(Math.abs(dx)>12&&Math.sign(dx)===want){pd.f=begin(dir);if(!pd.f){st.pdrag=null;return false}}else return Math.abs(dx)>12?false:true}
         set(pd.f,clamp(dx*want/wpx,0,1));return true}
       return false};
-    orbit.onUp=e=>{if(st.drag){const d=st.drag;st.drag=null;d.hd.end&&d.hd.end(e)}const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f){const f=pd.f;const commit=f.p>.3;if(single()&&commit&&f.kind==='P')st.focus=f.dir>0?'R':'L';finish(f,commit)}};
+    orbit.onUp=e=>{if(st.inking){st.inking=false;BookInk.end();return}if(st.drag){const d=st.drag;st.drag=null;d.hd.end&&d.hd.end(e)}const pd=st.pdrag;st.pdrag=null;if(pd&&pd.f){const f=pd.f;const commit=f.p>.3;if(single()&&commit&&f.kind==='P')st.focus=f.dir>0?'R':'L';finish(f,commit)}};
     E.tap(BF.f,()=>{if(!st.flip&&st.turned===0)next()});E.tap(BB.b,()=>{if(!st.flip&&st.turned===M+2)go(bd.last>1?bd.last:1)});
     const onKey=e=>{if(App.cur!=='home'||e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(st.ex&&st.ex.pop&&st.ex.pop.key&&st.ex.pop.key(e))return;
       const fwd=MIR<0?'ArrowRight':'ArrowLeft',back=MIR<0?'ArrowLeft':'ArrowRight';if(e.key===fwd){e.preventDefault();next()}else if(e.key===back){e.preventDefault();prev()}else if(e.key==='Escape')Overlay.read(false)};
     document.addEventListener('keydown',onKey);
     const start=ctx.start||0;layout(start);if(ctx.focus)st.focus=ctx.focus;aim(0);buildExtras(start);
     return {
-      update(dt,t){Bright.update(dt,t);const ex=st.ex;if(ex&&!ex.dead){if(ex.pop&&ex.pop.update)try{ex.pop.update(dt,t)}catch(e){console.error(e);ex.pop.update=null}ex.ups.forEach(f=>f(dt,t))}},
+      update(dt,t){Bright.update(dt,t);Board.update(dt);const ex=st.ex;if(ex&&!ex.dead){if(ex.pop&&ex.pop.update)try{ex.pop.update(dt,t)}catch(e){console.error(e);ex.pop.update=null}ex.ups.forEach(f=>f(dt,t))}},
       resize(){if(!orbit.fly)aim(0)},
       tapNone(e){if(Bright.dismiss())return;if(st.flip)return;castFrom(e);const hp=ray.intersectObjects([LT.f,RT.b,BF.f,BB.b].filter(m=>E.visibleChain(m)),false)[0];if(hp&&Math.abs(hp.point.x)>W*.84){((hp.point.x<0)===(MIR>0))?next():prev()}},
-      dispose(){Bright.detach();document.removeEventListener('keydown',onKey);R.shadowMap.enabled=false;if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}pages.forEach(p=>p.tex.dispose());pages.clear();Book.st=null;Overlay.read(false)}
+      dispose(){Board.detach();Bright.detach();document.removeEventListener('keydown',onKey);R.shadowMap.enabled=false;if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}pages.forEach(p=>p.tex.dispose());pages.clear();Book.st=null;Overlay.read(false)}
     };
   },
   ribbon(){const pts=[[.1,BK.BD+.02,2.45],[.12,BK.BD+.02,2.72],[.16,BK.BD-.02,2.98],[.24,.02,3.32],[.36,.012,3.8]].map(p=>new THREE.Vector3(...p));const cv=new THREE.CatmullRomCurve3(pts);const n=40,pos=[],idx=[];
@@ -281,5 +286,5 @@ const Overlay={
       ${L.flap?`<div class="box"><h4>Predict, then lift the flap</h4><p>${esc(L.flap.q)}</p><p class="ans" hidden>${esc(L.flap.a)}</p><button class="btn sm gold" type="button" data-reveal>Show the answer</button></div>`:''}
       ${arP(L.ar)}${Tr.hint?`<h4>Try it (right page)</h4><p>${esc(Tr.hint)}</p>${arP(Tr.ar)}`:''}`}
 };
-const BOOK_HOWTO=[['Bright, the little star, lives in this book. Tap it for ideas, or tap any sentence or key word and Bright explains it.','النجمة Bright تعيش في الكتاب: اضغطها، أو اضغط أي جملة أو كلمة لتشرحها لك.'],['Turn a page: drag the right page to the left, press the arrow, or use the arrow keys.','قلّب الصفحة بسحب الصفحة اليمنى نحو اليسار أو بالأسهم.'],['Read the left page first. Then lift the flap to check your answer and get a stamp.','اقرأ الصفحة اليسرى أولاً، ثم ارفع اللسان لترى الجواب.'],['Play with the pop-up on the right page. Press the buttons under it.','جرّب النموذج المجسّم والأزرار تحته.'],['Turn over to practise, quiz and home learning for the same topic.','في الصفحتين التاليتين: تدريب واختبار وواجب البيت.'],['Collect stamps, stickers and stars. They are kept in this book.','اجمع الأختام والملصقات والنجوم.']];
+const BOOK_HOWTO=[['Bright, the little star, teaches each lesson on a glowing board. Tap it for ideas, or tap any sentence or word to have it explained.','النجمة Bright تشرح كل درس على سبورة مضيئة. اضغطها أو اضغط أي جملة لتشرحها.'],['Draw with the pen ✎ right on the page.','ارسم بالقلم ✎ على الصفحة نفسها.'],['Turn a page: drag the right page to the left, press the arrow, or use the arrow keys.','قلّب الصفحة بسحب الصفحة اليمنى نحو اليسار أو بالأسهم.'],['Read the left page first. Then lift the flap to check your answer and get a stamp.','اقرأ الصفحة اليسرى أولاً، ثم ارفع اللسان لترى الجواب.'],['Play with the pop-up on the right page. Press the buttons under it.','جرّب النموذج المجسّم والأزرار تحته.'],['Turn over to practise, quiz and home learning for the same topic.','في الصفحتين التاليتين: تدريب واختبار وواجب البيت.'],['Collect stamps, stickers and stars. They are kept in this book.','اجمع الأختام والملصقات والنجوم.']];
 const BOOK_PARENTS=()=>{const pe=nextDow([2,5]);return [[`PE: every Tuesday and Friday — next one ${inDaysEn(pe.n)} (${enDate(pe.d)}).`,'الرياضة كل ثلاثاء وجمعة بزي الرياضة.'],[`Parents' maths workshop "Learning Together": Thursday 19 November, 2:15–3:15 pm (${inDaysEn(daysTo(KEY_DATES.workshop))}).`,'ورشة الرياضيات للأهالي: الخميس 19 نوفمبر.'],[`Bronze Reading Challenge: 5 books by Wednesday 16 December — ${Math.min(booksCount(),5)} of 5 so far.`,'تحدّي القراءة البرونزي: 5 كتب قبل 16 ديسمبر.'],['Every Friday: homework evidence goes to school.','كل جمعة: يأخذ الطفل دليل الواجب إلى المدرسة.'],['Little and often: read every day, plus a little English, maths and science each week.','قليل ومتكرر: قراءة يومية ونشاط قصير كل أسبوع.']]};

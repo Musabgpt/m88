@@ -171,7 +171,7 @@ const BookAI={cfg:null,last:null,claudeOff:false,kilo:{at:0,list:[]},busy:0,
   /* the pool, raced: the fastest provider starts; if it has not started writing after a moment, the next one starts too,
      and the first to write wins (the others are stopped). A provider that fails before writing hands over to the next one. */
   chat(messages,o={}){if(!this.enabled())return Promise.reject(new AIError('the AI helper is turned off',0,'',null,'off'));
-    this.warm();const cands=this.ranked();const hedgeMs=o.hedge||2600;
+    this.warm();const cands=this.ranked();const hedgeMs=o.hedge||1500;
     return new Promise((resolve,reject)=>{let i=0,live=0,winner=null,done=false,hedgeT=0;const errors=[],ctls=new Map(),t0=performance.now();this.busy++;
       const finish=(err,res)=>{if(done)return;done=true;this.busy--;clearTimeout(hedgeT);ctls.forEach((c,id)=>{if(!res||id!==res.provider.id)c.abort()});err?reject(err):resolve(res)};
       const giveUp=()=>{const e=new AIError('Free AI providers are temporarily unavailable'+(errors.length?' ('+errors.join(' | ').slice(0,700)+')':''),503,'',null,'unavailable');e.errors=errors;e.retryAfter=this.nextRetry();finish(e)};

@@ -12,7 +12,7 @@ SRC = ROOT / 'src'
 html = (SRC / 'original.html').read_text(encoding='utf-8')
 css = (SRC / 'book.css').read_text(encoding='utf-8')
 js = '\n'.join((SRC / f).read_text(encoding='utf-8') for f in
-               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js', 'book-ai.js', 'book-bright.js', 'book-ai-ui.js'])
+               ['book-core.js', 'book-engine.js', 'book-pages.js', 'book-games.js', 'book-world-a.js', 'book-world-b.js', 'book-world-c.js', 'book-world-d.js', 'book-app.js', 'book-english.js', 'book-ai.js', 'book-bright.js', 'book-board.js', 'book-ink.js', 'book-ai-ui.js'])
 
 def sub(old, new, count=1):
     global html
@@ -32,6 +32,8 @@ sub("this.hubBar=bar($('#bar'),[{id:'all',", "this.hubBar=bar($('#bar'),[{id:'bo
 sub('<small>Year 2 · Autumn 2 · كتيّب الفصل كعالم ثلاثي الأبعاد</small>', '<small>Year 2 · Autumn 2 · My 3D learning book</small>')
 sub("route(){\n    const h=decodeURIComponent(location.hash.slice(1));Pen.wipe();", "route(){\n    const h=decodeURIComponent(location.hash.slice(1));Pen.wipe();document.documentElement.dir='rtl';document.documentElement.lang='ar';")
 sub('aria-label="رجوع للجزيرة"', 'aria-label="Back to my book"')
+# phones draw fewer pixels, so the 3D book stays smooth
+sub("r.setPixelRatio(Math.min(window.devicePixelRatio||1,window.innerWidth<700?1.75:2));", "r.setPixelRatio(Math.min(window.devicePixelRatio||1,window.innerWidth<700?1.5:2));")
 # ---- English first on the island and in the extra 3D worlds (Arabic stays as short notes) ----
 sub("""<div class="wtitle"><b>${esc(w.ar)}</b><span class="en">${esc(w.en)}</span></div>""",
     """<div class="wtitle"><b dir="ltr">${esc(w.en)}</b><span lang="ar">${esc(w.ar)}</span></div>""")

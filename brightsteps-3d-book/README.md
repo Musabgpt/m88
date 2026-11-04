@@ -8,7 +8,9 @@ Everything is in English, the language of school. Arabic stays only as short not
   1. **Learn | Try it.** The left page teaches, with key words and a "Predict, then lift the flap" question. The right page has a 3D pop-up model to play with: stretch, drag, tap, build, roll.
   2. **Practise | Quiz.** A practice game (sort, pick, put in order, fill the gap, match), the booklet's home learning as tick boxes, and a 4-question quiz with a trophy.
 - The controls sit **in the book, next to the thing they move.** The buttons are printed on the page, labels like "👆 Tap" and "✋ Drag" sit on the models, and a sticky note on the page says what just happened.
-- **Bright, the AI helper, lives in the book** as a little glowing star that floats over the page, lights it and follows the child:
+- **Bright teaches like a teacher at a lightboard.** When a lesson page opens, a dark glass board rises out of the book and Bright writes on it in neon, step by step, saying each idea as it writes and draws it (sticks and cubes, dice, shapes, words with their sounds lit up). It asks the child questions with glowing answers, waits, praises by name or helps, explains any step "another way" with the AI, and answers the child's own questions on the board. Pause, Next, Another way and Close sit on the board.
+- **The pen ✎ writes on the page itself**: strokes go into the page's paper, stay on that page, turn with it and are kept on the device (undo and clear work on the open pages).
+- **Bright, the AI helper, lives in the book** as a little glowing star that floats over the page and follows the child:
   - tap Bright: its thought bubbles open (explain again, another example, fun fact, a story, quiz me, read it to me, ask by voice or typing, Arabic for parents);
   - tap **any sentence or key word** on a lesson page: the yellow marker sweeps over it, Bright flies there and writes the explanation on a paper note that pops out of the page;
   - **✨ Ask why** under every 3D model, **💡 Hint** inside every quiz question, **✨ New questions** for endless quizzes; Bright cheers right answers and comforts wrong ones;
@@ -35,6 +37,8 @@ Everything is in English, the language of school. Arabic stays only as short not
 | `src/book-english.js` | English-first layer for the island and the extra 3D worlds |
 | `src/book-ai.js` | Bright's engine: the MusabAI provider pool (health, cooldowns, failover) with streaming, racing, fastest-first and an answer cache; prompts, safety filters, offline helper, endless quiz questions |
 | `src/book-bright.js` | Bright in the 3D book: the star, its thought bubbles, the paper notes with streaming ink, tap-a-sentence, Ask why, hints, read-aloud with the marker |
+| `src/book-board.js` | the lightboard lesson: the glass board, neon writing and drawings, questions, another way, the child's questions |
+| `src/book-ink.js` | the pen that writes on the page |
 | `src/book-ai-ui.js` | the ✨ button, voice typing, the grown-ups' settings, Android bridges (voice, back button, saving files) |
 | `src/book.css` | styles |
 | `vendor/` | Three.js r128 and the fonts, for the offline Android build (`tools/vendor_fonts.py` refreshes the fonts) |

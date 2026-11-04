@@ -21,13 +21,12 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const blush=new THREE.MeshBasicMaterial({color:'#ff8fa3',transparent:true,opacity:.75});const cheeks=[-1,1].map(s=>{const c=new THREE.Mesh(new THREE.CircleGeometry(.018,12),blush);c.position.set(s*.09,-.014,.077);return c});
     const face=new THREE.Group();face.add(...eyes,mouth,...cheeks);body.add(face);
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:FX.soft,color:0xffc95a,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.85}));glow.scale.set(1.05,1.05,1);glow.renderOrder=59;
-    const light=new THREE.PointLight(0xffc46b,.85,3.4,2);
     const hit=new THREE.Mesh(new THREE.SphereGeometry(.34,12,8),new THREE.MeshBasicMaterial({visible:false}));
-    const spin=new THREE.Group();spin.add(body);g.add(glow,spin,light,hit);this.scene.add(g);
-    this.g=g;this.parts={body,spin,eyes,mouth,glow,light,hit};
+    const spin=new THREE.Group();spin.add(body);g.add(glow,spin,hit);this.scene.add(g);
+    this.g=g;this.parts={body,spin,eyes,mouth,glow,hit};
     E.tap(hit,()=>{this.buzz(12);Snd.pop();this.untagMe();this.toggleMenu()})},
   /* specks of dust drifting in the lamp light */
-  dust(){const n=90,pos=new Float32Array(n*3),seed=[];for(let i=0;i<n;i++){pos[i*3]=rand(-7,7);pos[i*3+1]=rand(.4,3.4);pos[i*3+2]=rand(-4.5,4.5);seed.push(Math.random()*6.283)}
+  dust(){const n=innerWidth<700?32:70,pos=new Float32Array(n*3),seed=[];for(let i=0;i<n;i++){pos[i*3]=rand(-7,7);pos[i*3+1]=rand(.4,3.4);pos[i*3+2]=rand(-4.5,4.5);seed.push(Math.random()*6.283)}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
     const pts=new THREE.Points(geo,new THREE.PointsMaterial({map:FX.soft,color:0xffd9a0,size:.07,transparent:true,opacity:.5,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true}));
     pts.renderOrder=5;pts.raycast=()=>{};this.scene.add(pts);this.motes={pts,seed}},
@@ -45,7 +44,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     else if(kind==='oops'){this.setState('oops',1.5);this.buzz(55)}
     else if(kind==='think')this.setState('think',o.dur||40);
     else this.setState('idle')},
-  tagMe(){this.untagMe();if(!this.g)return;const t=Book.tagSprite('👆 Tap me!',.2);this.scene.add(t);this.tagS=t;setTimeout(()=>this.untagMe(),7000)},
+  tagMe(text){this.untagMe();if(!this.g)return;const t=Book.tagSprite(text||'👆 Tap me!',.2);this.scene.add(t);this.tagS=t;setTimeout(()=>this.untagMe(),7000)},
   untagMe(){if(this.tagS){this.scene.remove(this.tagS);PK.disposeTree(this.tagS);this.tagS=null}},
   /* ---------- every frame ---------- */
   update(dt,t){if(!this.on||!this.g)return;const P=this.parts;
@@ -59,24 +58,25 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     if(s==='oops')P.spin.position.x=Math.sin(t*38)*.025*Math.min(1,this.stateT);else P.spin.position.x=0;
     P.mouth.rotation.z=s==='oops'?0:Math.PI;P.mouth.scale.y=s==='talk'?.55+Math.abs(Math.sin(t*11))*.9:1;
     if((this.blinkT-=dt)<0){const e=this.blinkT>-.12?.12:1;P.eyes.forEach(x=>x.scale.y=e);if(this.blinkT<=-.12)this.blinkT=rand(2.4,5.5)}
-    const pulse=s==='think'?.25*Math.sin(t*9):.1*Math.sin(t*2.6);P.glow.material.opacity=.72+pulse;P.glow.scale.setScalar(1.05+pulse*.4);P.light.intensity=.78+pulse;
+    const pulse=s==='think'?.25*Math.sin(t*9):.1*Math.sin(t*2.6);P.glow.material.opacity=.72+pulse;P.glow.scale.setScalar(1.05+pulse*.4);
     if(this.motes){const a=this.motes.pts.geometry.attributes.position,sd=this.motes.seed;for(let i=0;i<sd.length;i++){a.array[i*3+1]+=Math.sin(t*.4+sd[i])*.0009;a.array[i*3]+=Math.cos(t*.25+sd[i]*1.7)*.0007}a.needsUpdate=true}
     if(this.tagS){this.tagS.position.copy(this.g.position);this.tagS.position.y+=.42}
     this.placeMenu();this.placeBox();
-    const C=this.card;if(C){C.tick-=dt;const now=performance.now(),el=Math.min(.25,(now-(C.lt||now))/1000);C.lt=now;const writing=C.shown<C.text.length;if(writing)C.shown=Math.min(C.text.length,C.shown+el*(C.cps+(C.text.length-C.shown)*1.6));
+    const C=this.card;if(C){C.tick-=dt;const now=performance.now(),el=Math.min(.25,(now-(C.lt||now))/1000);C.lt=now;const writing=C.shown<C.text.length;if(writing)C.shown=Math.min(C.text.length,C.shown+el*(C.cps+(C.text.length-C.shown)*3));
       if((writing||C.status==='think')&&C.tick<=0){C.tick=.05;this.drawCard()}
       if(!writing&&C.final&&C.status!=='done')this.finishCard()}},
   /* ---------- thought bubbles ---------- */
   spread(){const st=this.st;return st&&st.turned>=1&&st.turned<=st.M+1?SPREADS[st.turned-1]:null},
   items(){const st=this.st,k=st.turned,sp=this.spread();const T=AI_TASKS;const I=(t,fn)=>({icon:T[t].icon,label:T[t].label,fn:fn||(()=>this.ask({task:t,sp}))});
+    if(Board.on)return [{icon:'▶️',label:'Carry on',fn:()=>{Board.paused=false;Board.dirty=true}},{icon:'❓',label:'Ask a question',fn:()=>this.listen()},{icon:'💡',label:'Another way',fn:()=>Board.another()},{icon:'✕',label:'Stop the lesson',fn:()=>Board.stop()}];
     if(!sp){const bd=BookData();return [{icon:'👋',label:"Hi, I'm Bright!",fn:()=>this.hello()},{icon:'📖',label:k===0?'Open the book':'Open it again',fn:()=>st.go(k===0?1:bd.last>1?bd.last:1)}]}
     if(sp.kind==='intro')return [{icon:'👋',label:'Who are you?',fn:()=>this.hello()},{icon:'🗺️',label:'Where do I start?',fn:()=>this.ask({task:'ask',sp,text:'Which topic in this book should I start with today, and why?'})},I('ask',()=>this.listen())];
-    if(sp.kind==='learn')return [I('explain'),I('example'),I('fact'),I('story'),I('quiz'),{icon:'🔊',label:'Read it to me',fn:()=>this.readAloud()},I('ask',()=>this.listen()),I('parents')];
+    if(sp.kind==='learn')return [{icon:'🎓',label:'Teach me',fn:()=>Board.start(sp)},I('explain'),I('example'),I('fact'),I('story'),I('quiz'),{icon:'🔊',label:'Read it to me',fn:()=>this.readAloud()},I('ask',()=>this.listen()),I('parents')];
     if(sp.kind==='practise')return [{icon:'💡',label:'Hint for this question',fn:()=>this.quizHint()},I('quiz'),I('fact'),I('ask',()=>this.listen()),I('parents')];
     return [{icon:'🌟',label:'My progress',fn:()=>this.progress()},I('ask',()=>this.listen()),{icon:'⚙️',label:'For grown-ups',fn:()=>AISettings.gate()}]},
   summon(){if(!this.on)return;this.untagMe();this.buzz(10);if(!this.menu.length)this.openMenu()},
   toggleMenu(){if(this.menu.length)this.closeMenu();else this.openMenu()},
-  openMenu(){this.closeMenu();this.stopRead();const its=this.items();
+  openMenu(){this.closeMenu();this.stopRead();if(Board.on){Board.paused=true;Board.dirty=true}const its=this.items();
     its.forEach((it,i)=>{const s=G.label(it.icon+'  '+it.label,{color:'#3a2600',bg:'rgba(255,251,238,.97)',border:'#f0b93a',px:46,size:this.st.single()?.27:.2,fixed:true,depth:false,order:90});
       const full=s.scale.clone();s.scale.set(.001,.001,1);s.userData.full=full;this.scene.add(s);this.menu.push(s);
       E.wait(RM?0:i*.045).then(()=>{if(this.menu.includes(s))E.tw(s.scale,{x:full.x,y:full.y},RM?.01:.3,Ease.back)});
@@ -88,13 +88,13 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const c=this.g.position,n=this.menu.length,dir=c.clone().project(cam).x>0?-1:1;
     this.menu.forEach((s,i)=>{const w=(s.userData.full||s.scale).x;const gap=this.st&&this.st.single()?.34:.27;const xx=dir*(.5+Math.sin((i+.5)/n*Math.PI)*.16+w/2),yy=.1-i*gap;s.position.copy(c).addScaledVector(right,xx).addScaledVector(up,yy)})},
   /* a tap anywhere else closes what Bright has open */
-  dismiss(){if(this.menu.length){this.closeMenu();return true}if(this.card){this.closeCard();return true}if(this.reading){this.stopRead();return true}return false},
-  isOpen(){return !!(this.menu.length||this.card||this.reading||$('#brightAsk'))},
-  close(){const b=$('#brightAsk');if(b)b.remove();return this.dismiss()},
+  dismiss(){if(this.menu.length){this.closeMenu();if(Board.on){Board.paused=false;Board.dirty=true}return true}if(this.card){this.closeCard();return true}if(this.reading){this.stopRead();return true}return false},
+  isOpen(){return !!(this.menu.length||this.card||this.reading||$('#brightAsk')||Board.on)},
+  close(){const b=$('#brightAsk');if(b)b.remove();if(this.dismiss())return true;if(Board.on){Board.stop();return true}return false},
   /* the book calls these when a spread is built or starts to fold away */
-  spreadReady(){this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();this.away=false;this.homeAt(false);
-    const sp=this.spread();if(!this.greeted&&sp&&sp.kind==='learn'){this.greeted=true;setTimeout(()=>{if(this.on&&!this.isOpen()){this.tagMe();this.react('cheer')}},1400)}},
-  fold(){this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();const b=$('#brightAsk');if(b)b.remove()},
+  spreadReady(){const k=this.st?this.st.turned:-1,moved=k!==this.lastK;this.lastK=k;if(!moved&&Board.on)return;this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();this.away=false;this.homeAt(false);
+    const sp=this.spread();if(sp&&sp.kind==='learn'&&BookAI.conf().teach!==false&&!Board.auto[sp.w]){Board.maybeAuto(sp);return}if(!this.greeted&&sp&&sp.kind==='learn'){this.greeted=true;setTimeout(()=>{if(this.on&&!this.isOpen()){this.tagMe();this.react('cheer')}},1400)}},
+  fold(){this.closeMenu();this.closeCard(true);this.stopRead();this.clearMarks();Board.stop();const b=$('#brightAsk');if(b)b.remove()},
   /* ---------- the yellow marker on the page ---------- */
   mark(k,side,rects){this.clearMarks();const st=this.st;(rects||[]).forEach((r,i)=>{const L=st.p2w(k,side,r.x,r.y+r.h/2),R=st.p2w(k,side,r.x+r.w,r.y+r.h/2);const w=Math.max(.01,R.x-L.x),d=r.h*L.sz;
       const geo=new THREE.PlaneGeometry(1,1);geo.translate(.5,0,0);const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xffcc26,transparent:true,opacity:.55,depthWrite:false}));
@@ -110,7 +110,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     const cv=document.createElement('canvas');cv.width=1024;cv.height=Math.round(1024*ph/pw);const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({map:tex,roughness:.88,transparent:true,alphaTest:.5}));mesh.castShadow=true;mesh.rotation.x=-Math.PI/2+tilt;mesh.renderOrder=20;
     const g=new THREE.Group();g.position.set(c.x,c.y+.07+lift+Math.sin(tilt)*d/2,c.z+lift*.35);g.add(mesh);g.scale.set(.05,.05,.05);this.scene.add(g);
-    const C={g,mesh,cv,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,kind:o.kind||'text',text:'',shown:0,cps:RM?999:38,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
+    const C={g,mesh,cv,x:cv.getContext('2d'),tex,pw,ph,k:kk,side,title:o.title||'Bright',icon:o.icon||'✨',ar:!!o.ar,kind:o.kind||'text',text:'',shown:0,cps:RM?999:70,status:'think',final:false,src:'',btns:[],tick:0,big:sg,o};
     this.card=C;this.drawCard();E.tw(g.scale,{x:1,y:1,z:1},RM?.01:.42,Ease.back);Snd.noise(.22,{vol:.08,f:2600,type:'bandpass'});this.buzz(8);
     E.tap(mesh,h=>this.cardTap(h));
     const corner=st.p2w(kk,side,Math.min(BK.PW-60,BK.PW/2+pw/2-10),cy-ph/2);this.flyTo(new THREE.Vector3(corner.x,corner.y+.75,corner.z));
@@ -122,7 +122,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
   cardText(text,o={}){const C=this.card;if(!C)return;if(text!=null){if(text.length<C.shown||!text.startsWith(C.text.slice(0,Math.floor(C.shown))))C.shown=0;C.text=text}
     if(o.src)C.src=o.src;if(C.text)C.status=C.status==='done'?'done':'write';if(o.final){C.final=true;if(this.state==='think')this.setState('idle')}this.drawCard()},
   finishCard(){const C=this.card;if(!C)return;C.status='done';C.shown=C.text.length;this.drawCard();if(this.state==='think')this.setState('idle');
-    if(C.kind!=='quiz'&&C.text&&BookAI.conf().voice!==false){const words=C.text.split(/\s+/).length;this.setState('talk',Math.min(14,words*.38));Voice.say(C.text,{lang:C.ar?'ar':'en',auto:true,end:()=>{if(this.state==='talk')this.setState('idle')}})}},
+    if(C.kind!=='quiz'&&C.text&&BookAI.conf().voice!==false){const words=C.text.split(/\s+/).length;this.setState('talk',Math.min(14,words*.38));Voice.say(C.text,{lang:C.ar?'ar':'en',auto:true,rate:1,end:()=>{if(this.state==='talk')this.setState('idle')}})}},
   drawCard(){const C=this.card;if(!C)return;const x=C.x,W=C.cv.width,H=C.cv.height;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);C.btns=[];
     x.save();x.shadowColor='rgba(80,50,10,.28)';x.shadowBlur=16;PT.box(x,14,14,W-28,H-28,42,'#fffdf3');x.restore();PT.box(x,14,14,W-28,H-28,42,null,'#f2c14e',6);PT.box(x,30,30,W-60,H-60,32,null,'rgba(242,193,78,.5)',2,[10,10]);
     PT.icon(x,C.icon,78,82,48);PT.fnt(x,40,800,FONT_D);PT.ltr(x);x.fillStyle='#8a5310';x.fillText(C.title,124,96);
@@ -197,7 +197,7 @@ const Bright={on:false,st:null,scene:null,g:null,parts:null,pos:null,goal:null,h
     step();return true},
   stopRead(back=true){const r=this.reading;if(!r)return;r.dead=true;clearTimeout(r.t);this.reading=null;this.clearMarks();this.setState('idle');try{if('speechSynthesis' in window)speechSynthesis.cancel();if(window.BookNative&&BookNative.stop)BookNative.stop()}catch(e){}if(back)this.flyTo(null)},
   /* ---------- asking with your voice, or a little speech bubble to type in ---------- */
-  listen(){const go=t=>{t=aiCleanIn(t);if(t)this.ask({task:'ask',text:t})};
+  listen(){const go=t=>{t=aiCleanIn(t);if(!t)return;if(Board.on)Board.question(t);else this.ask({task:'ask',text:t})};
     if(AIVoiceIn.can()&&(window.BookNative||!(window.matchMedia&&matchMedia('(pointer:fine)').matches))){AIVoiceIn.listen(t=>{if(t)go(t);else this.typeBox(go)});return}this.typeBox(go)},
   typeBox(cb){let el=$('#brightAsk');if(el)el.remove();const host=$('#stage');if(!host)return;el=document.createElement('form');el.id='brightAsk';el.className='bright-ask';el.dir='ltr';el.lang='en';
     el.innerHTML='<span class="ba-star" aria-hidden="true">✨</span><input maxlength="200" placeholder="Ask Bright anything…" autocomplete="off" enterkeyhint="send" aria-label="Your question"><button class="btn sm hot" type="submit">Ask</button>'+(AIVoiceIn.can()?'<button class="btn sm ghost" type="button" data-mic aria-label="Say it">🎤</button>':'')+'<button class="btn sm ghost" type="button" data-x aria-label="Close">✕</button>';
