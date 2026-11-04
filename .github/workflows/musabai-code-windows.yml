@@ -83,21 +83,18 @@ jobs:
           if (!(Test-Path $agent)) { throw "Bundled MusabAI agent missing" }
           if ($product.nameShort -ne "MusabAI Code") { throw "Editor branding missing" }
           if (!(Test-Path (Join-Path $app "resources\app\extensions\musabai-defaults\package.json"))) { throw "Editor defaults missing" }
-          $editorCli = Join-Path $app "resources\app\out\cli.js"
-          $env:ELECTRON_RUN_AS_NODE = "1"
-          $editorOutput = @(& $exe $editorCli --version 2>&1)
-          $editorStatus = $LASTEXITCODE
-          $editorText = $editorOutput -join " "
-          Write-Host "Editor CLI version output: $editorText"
-          if ($editorText -notmatch '1\.140\.06880') { throw "Editor CLI did not print the expected version" }
-          if ($editorStatus -ne 0) { Write-Warning "Upstream VSCodium version CLI exits $editorStatus in headless Windows runner" }
-          Remove-Item Env:ELECTRON_RUN_AS_NODE
-          $agentOutput = @(& (Join-Path $app "musabai-agent.cmd") --version 2>&1)
-          $agentStatus = $LASTEXITCODE
-          $agentText = $agentOutput -join " "
-          Write-Host "MusabAI agent version output: $agentText"
-          if ($agentText -notmatch '0\.2\.2') { throw "Terminal agent did not print the expected version" }
-          if ($agentStatus -ne 0) { Write-Warning "Agent version command exits $agentStatus" }
+          # The Electron GUI executable uses the Windows GUI subsystem and does not
+          # reliably expose a headless --version exit code or redirectable stdout.
+          # Verify the exact assembled product and test the bundled JS agent with Node.
+          foreach ($check in $product.checksums.PSObject.Properties) {
+            $file = Join-Path $app ("resources\\app\\out\\" + $check.Name.Replace('/', '\\'))
+            if (!(Test-Path $file)) { throw "Checksum file missing: $($check.Name)" }
+            $raw = [IO.File]::ReadAllBytes($file)
+            $digest = [Convert]::ToBase64String([Security.Cryptography.SHA256]::HashData($raw)).TrimEnd('=')
+            if ($digest -ne $check.Value) { throw "Editor integrity checksum mismatch: $($check.Name)" }
+          }
+          & node $agent --version
+          if ($LASTEXITCODE -ne 0) { throw "Bundled MusabAI terminal agent failed" }
           Write-Host "MusabAI Code Windows smoke checks passed"
 
       - name: Build Windows installer with Inno Setup
